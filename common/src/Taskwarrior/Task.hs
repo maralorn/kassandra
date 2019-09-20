@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards, ScopedTypeVariables #-}
 module Taskwarrior.Task
   ( Task(..)
   , getTasks
@@ -90,7 +89,7 @@ instance FromJSON Task where
     start       <- maybeTime "start" o
     modified    <- maybeTime "modified" o
     due         <- maybeTime "due" o
-    until       <- maybeTime "until" o
+    until_      <- maybeTime "until" o
     scheduled   <- maybeTime "scheduled" o
     annotations <- fmap (maybe [] id) $ o .:? "annotations"
     project     <- o .:? "project"
@@ -98,7 +97,7 @@ instance FromJSON Task where
     depends     <- maybe (pure []) parseUUIDList (HashMap.lookup "depends" o)
     tags        <- fmap (maybe [] id) $ o .:? "tags"
     uda <- pure $ HashMap.filterWithKey (\k _ -> k `notElem` reservedKeys) o
-    pure Task { .. }
+    pure Task { until = until_, .. }
 
 parseUUIDList :: Value -> Parser [UUID]
 parseUUIDList = withText "Text" $ mapM (parseJSON . Aeson.String) . splitOn ","
