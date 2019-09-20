@@ -101,32 +101,32 @@ renderList
   => R.Dynamic t TaskState
   -> R.Dynamic t TaskList
   -> m (R.Event t StateChange)
-renderList tasks list = (D.dyn $ innerRenderList <$> list)
+renderList tasks list = D.dyn (innerRenderList <$> list)
   >>= D.switchHold R.never
  where
   innerRenderList :: TaskList -> m (R.Event t StateChange)
   innerRenderList list'
     | TagList tag <- list' = do
       D.text tag
-      R.switchDyn <$> (R.leftmost <$>) <$> flip D.simpleList
-                                                (renderTask tasks)
-                                                (tasksToShow tag <$> tasks)
+      R.switchDyn . (R.leftmost <$>) <$> D.simpleList
+        (tasksToShow tag <$> tasks)
+        (renderTask tasks)
     | SubList sublists <- list' = R.switchDyn
-    <$> (R.leftmost <$>)
+    . (R.leftmost <$>)
     <$> D.simpleList (D.constDyn sublists) (renderList tasks)
 
   tasksToShow :: Text -> TaskState -> [TaskInfos]
   tasksToShow tag taskState =
-    Maybe.mapMaybe (maybePredicate) . HashMap.elems $ taskState
+    Maybe.mapMaybe maybePredicate . HashMap.elems $ taskState
    where
     maybePredicate :: TaskInfos -> Maybe TaskInfos
     maybePredicate taskInfo = if inList taskInfo && not (parentInList taskInfo)
       then Just taskInfo
       else Nothing
     inList :: TaskInfos -> Bool
-    inList (TaskInfos { task = Task.Task { tags } }) = elem tag tags
+    inList TaskInfos { task = Task.Task { tags } } = tag `elem` tags
     parentInList :: TaskInfos -> Bool
-    parentInList (TaskInfos { task }) =
+    parentInList TaskInfos { task } =
       maybe False inList (partof task >>= flip HashMap.lookup taskState)
 
 renderTask
@@ -146,48 +146,44 @@ renderTask taskState taskInfos' =
       <$> taskState
       <*> (children <$> taskInfos)
     toggleStateChange <-
-      (   D.dyn
-      $   (\s ->
-            if not $ null s then collapseButton (showChilds) else pure R.never
-          )
-      <$> children
-      )
+      D.dyn
+        ((\s -> if not $ null s then collapseButton showChilds else pure R.never
+         )
+        <$> children
+        )
       >>= (D.attachPromptlyDynWith
             ((ToggleEvent .) . ((,) . Task.uuid . task))
             taskInfos <$>
           )
       .   R.switchHold R.never
     childStateChanges <-
-      (   D.dyn
-      $   (\s -> if s
-            then flip R.simpleList (renderTask taskState) children
-            else pure (R.constDyn [])
-          )
-      <$> showChilds
-      )
-      >>= (R.switchDyn <$> fmap R.leftmost <$> join <$>)
+      D.dyn
+        (   (\s -> if s
+              then R.simpleList children (renderTask taskState)
+              else pure (R.constDyn [])
+            )
+        <$> showChilds
+        )
+      >>= (R.switchDyn . fmap R.leftmost . join <$>)
       .   R.holdDyn (R.constDyn [])
 
     pure $ R.leftmost [toggleStateChange, childStateChanges]
  where
   status :: TaskInfos -> Text
-  status TaskInfos { task } =
-    (case Task.status task of
-      Status.Pending       -> [i| ☐ #{Task.description task}|]
-      (Status.Completed _) -> [i| ☑ #{Task.description task}|]
-      (Status.Deleted   _) -> [i| ☒ #{Task.description task}|]
-      _                    -> Task.description task
-    )
+  status TaskInfos { task } = case Task.status task of
+    Status.Pending       -> [i| ☐ #{Task.description task}|]
+    (Status.Completed _) -> [i| ☑ #{Task.description task}|]
+    (Status.Deleted   _) -> [i| ☒ #{Task.description task}|]
+    _                    -> Task.description task
 
 
 collapseButton :: (Widget t m) => R.Dynamic t Bool -> m (R.Event t Bool)
 collapseButton open = do
   let dynLabel = fmap (\s -> if s then ">" else "V") open
       button   = fmap D.button dynLabel
-  buttonEventEvent <- D.dyn $ button
+  buttonEventEvent <- D.dyn button
   toggleShow       <- R.switchHold R.never buttonEventEvent
-  let boolEvent = fmap not $ R.tagPromptlyDyn open toggleShow
-  pure boolEvent
+  pure $ R.tagPromptlyDyn (not <$> open) toggleShow
 
 data TaskInfos = TaskInfos { task :: Task, showChildren :: Bool, children :: [UUID]} deriving (Eq, Show)
 
@@ -214,23 +210,22 @@ taskProvider
   :: (WidgetIO t m) => R.Event t Task -> m (R.Dynamic t (HashMap UUID Task))
 taskProvider _event = do
   (taskEvent, cb) <- R.newTriggerEvent
-  tasks           <- R.foldDyn
-    (flip (foldr (\t o -> (HashMap.insert (Task.uuid t) t o))))
-    HashMap.empty
-    taskEvent
+  tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . Task.uuid)
+                     HashMap.empty
+                     taskEvent
   void . liftIO . forkIO $ do
     Text.IO.putStrLn "Listening for changed or new Tasks on 127.0.0.1:6545."
     Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
-      Net.recv socket 4096
-        >>= ( maybe (Text.IO.putStrLn "Unsuccessful connection attempt.")
-            $ \changes ->
-                either
-                    (\err -> Text.IO.putStrLn
-                      [i|Couldn‘t decode #{changes} as Task: #{err}|]
-                    )
-                    cb
-                  $ Aeson.eitherDecodeStrict changes
-            )
+      Net.recv socket 4096 >>= maybe
+        (Text.IO.putStrLn "Unsuccessful connection attempt.")
+        (\changes ->
+          either
+              (\err -> Text.IO.putStrLn
+                [i|Couldn‘t decode #{changes} as Task: #{err}|]
+              )
+              cb
+            $ Aeson.eitherDecodeStrict changes
+        )
   void . liftIO . forkIO $ (getTasks [] >>= cb)
   pure tasks
 
@@ -250,11 +245,10 @@ stateProvider stateChange = do
       _            -> Nothing
     )
   let children =
-        HashMap.fromListWith (++)
-          .   Maybe.mapMaybe
-                (\(uuid, task) -> fmap (\parent -> (parent, [uuid])) $ partof task
-                )
-          <$> HashMap.toList
+        ( HashMap.fromListWith (++)
+          . Maybe.mapMaybe (\(uuid, task) -> (, [uuid]) <$> partof task)
+          )
+          .   HashMap.toList
           <$> tasks
       taskState = do
         innerCache    <- cache
@@ -266,7 +260,7 @@ stateProvider stateChange = do
               (HashMap.lookupDefault [] u innerChildren)
             )
           <$> tasks
-  pure $ taskState
+  pure taskState
 
 getCache :: IO Cache
 getCache = catch
