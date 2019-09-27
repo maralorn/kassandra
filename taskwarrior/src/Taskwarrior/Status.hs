@@ -1,16 +1,17 @@
 {-# LANGUAGE LambdaCase #-}
 module Taskwarrior.Status
   ( Status(..)
-  , parseStatus
+  , parseFromObject
+  , toPairs
   )
 where
 
 import           Taskwarrior.Mask               ( Mask )
-import           Taskwarrior.Time               ( parseTime )
+import qualified Taskwarrior.Time              as Time
 import           Data.Aeson                     ( Object
                                                 , (.:)
-                                                , Value(String)
                                                 )
+import qualified Data.Aeson                    as Aeson
 import           Control.Applicative            ( (<|>) )
 import           Data.Text                      ( Text )
 import           Data.Time                      ( UTCTime )
@@ -18,6 +19,7 @@ import           Data.UUID                      ( UUID )
 import           Data.Aeson.Types               ( typeMismatch
                                                 , Parser
                                                 )
+import qualified Data.Aeson.Types              as Aeson.Types
 
 data Status =
   Pending |
@@ -33,18 +35,21 @@ data Status =
     parent :: UUID }
   deriving (Eq, Show)
 
-type StatusParser = Object -> Parser Status
 
-parseStatus, parseParent, parseChild :: StatusParser
-parseStatus o = (o .: "status") >>= \case
+parseFromObject, parseParentFromObject, parseChildFromObject
+  :: Object -> Aeson.Types.Parser Status
+parseFromObject o = (o .: "status") >>= \case
   "pending"   -> pure Pending
-  "deleted"   -> Deleted <$> (o .: "end" >>= parseTime)
-  "completed" -> Completed <$> (o .: "end" >>= parseTime)
-  "waiting"   -> Waiting <$> (o .: "wait" >>= parseTime)
-  "recurring" -> parseParent o <|> parseChild o
-  str         -> typeMismatch "status" (String str)
+  "deleted"   -> Deleted <$> (o .: "end" >>= Time.parse)
+  "completed" -> Completed <$> (o .: "end" >>= Time.parse)
+  "waiting"   -> Waiting <$> (o .: "wait" >>= Time.parse)
+  "recurring" -> parseParentFromObject o <|> parseChildFromObject o
+  str         -> typeMismatch "status" (Aeson.String str)
 
-parseChild o =
+parseChildFromObject o =
   RecurringChild <$> o .: "recur" <*> o .: "imask" <*> o .: "parent"
 
-parseParent o = RecurringParent <$> o .: "recur" <*> o .: "mask"
+parseParentFromObject o = RecurringParent <$> o .: "recur" <*> o .: "mask"
+
+toPairs :: Status -> [Aeson.Types.Pair]
+toPairs = undefined

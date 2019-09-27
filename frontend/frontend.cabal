@@ -49,8 +49,10 @@ executable frontend
     , reflex-dom
     , string-interpolate
     , text
+    , time
     , unordered-containers
     , uuid
+    , taskwarrior
 
   -- hs-source-dirs:
   default-language:   Haskell2010

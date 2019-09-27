@@ -1,4 +1,4 @@
-module Taskwarrior.Priority where
+module Taskwarrior.Priority (parseMay, Priority) where
 
 import qualified Data.Aeson                    as Aeson
 import           Data.Aeson                     ( Value, Object )
@@ -10,11 +10,8 @@ data Priority = High | Medium | Low
         deriving (Eq, Show, Read)
 
 
-maybePriority :: Object -> Parser (Maybe Priority)
-maybePriority o = fmap join . traverse parsePriority $ HashMap.lookup "priority" o
-
-parsePriority :: Value -> Parser (Maybe Priority)
-parsePriority val = Aeson.withText "Priority" (\case
+parseMay :: Value -> Parser (Maybe Priority)
+parseMay val = Aeson.withText "Priority" (\case
   "H" -> pure $ Just High
   "M" -> pure $ Just Medium
   "L" -> pure $ Just Low

@@ -1,8 +1,4 @@
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE StandaloneDeriving, NamedFieldPuns #-}
-{-# LANGUAGE LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
 module Main
   ( main
   )
@@ -10,8 +6,10 @@ where
 
 import           GHC.Generics                   ( Generic )
 import           Data.Text                      ( Text )
+import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text.IO
 import qualified Reflex.Dom                    as D
+import           Reflex.Dom                     ( (=:) )
 import qualified Reflex                        as R
 import qualified Taskwarrior.Status            as Status
 import           Taskwarrior.Task               ( getTasks
@@ -40,6 +38,55 @@ import           Control.Exception              ( catch
                                                 )
 import           Data.String.Interpolate        ( i )
 import qualified Network.Simple.TCP            as Net
+import           Data.Time                      ( UTCTime )
+
+data Query = And [Query] | Or [Query] | Not Query | HasTag Text | DescriptionContains Text | Pending | CompletedAfter UTCTime | Deleted | CloseUpwards Query | Waiting | CloseDownwards Query deriving (Eq, Show, Generic, Aeson.ToJSON, Aeson.FromJSON)
+
+filterTasks :: HashMap UUID TaskInfos -> Query -> HashMap UUID TaskInfos
+filterTasks tasks = \case
+  And queries -> foldr (HashMap.intersection . filterTasks tasks) tasks queries
+  Or     queries -> HashMap.unions . fmap (filterTasks tasks) $ queries
+  Not    query   -> HashMap.difference tasks (filterTasks tasks query)
+  HasTag tag     -> HashMap.filter (elem tag . Task.tags . task) tasks
+  DescriptionContains text ->
+    HashMap.filter (Text.isInfixOf text . Task.description . task) tasks
+  Pending -> HashMap.filter ((Status.Pending ==) . Task.status . task) tasks
+  CompletedAfter end -> HashMap.filter (f . Task.status . task) tasks
+   where
+    f = \case
+      Status.Completed { end = e } -> e >= end
+      _                            -> False
+  Deleted -> HashMap.filter (f . Task.status . task) tasks
+   where
+    f = \case
+      (Status.Deleted{}) -> True
+      _                  -> False
+  Waiting -> HashMap.filter (f . Task.status . task) tasks
+   where
+    f = \case
+      (Status.Waiting{}) -> True
+      _                  -> False
+  CloseUpwards query -> HashMap.foldr (HashMap.union . addParents)
+                                      HashMap.empty
+                                      (filterTasks tasks query)
+   where
+    addParents :: TaskInfos -> HashMap UUID TaskInfos
+    addParents taskinfo =
+      HashMap.singleton (Task.uuid $ task taskinfo) taskinfo
+        `HashMap.union` maybe
+                          HashMap.empty
+                          addParents
+                          (partof (task taskinfo) >>= flip HashMap.lookup tasks)
+  CloseDownwards query -> HashMap.foldr (HashMap.union . addChilds)
+                                        HashMap.empty
+                                        (filterTasks tasks query)
+   where
+    addChilds :: TaskInfos -> HashMap UUID TaskInfos
+    addChilds taskinfo = HashMap.unions
+      (HashMap.singleton (Task.uuid $ task taskinfo) taskinfo : fmap
+        addChilds
+        (Maybe.mapMaybe (flip HashMap.lookup tasks) $ children taskinfo)
+      )
 
 partof :: Task -> Maybe UUID
 partof t = do
@@ -66,8 +113,24 @@ main = do
   D.mainWidget $ do
     D.text "Welcome to kassandra!"
     rec taskState    <- stateProvider stateChanges
-        stateChanges <- listsWidget taskState
+        stateChanges <- widgetSwitcher taskState
     pure ()
+
+
+widgets
+  :: (Widget t m)
+  => [(Text, R.Dynamic t TaskState -> m (R.Event t StateChange))]
+widgets = [("Lists", listsWidget)]
+
+widgetSwitcher
+  :: forall t m
+   . (Widget t m)
+  => R.Dynamic t TaskState
+  -> m (R.Event t StateChange)
+widgetSwitcher taskState = do
+  buttons  <- mapM (\l -> (l <$) <$> D.button (fst l)) $ widgets @t @m
+  listName <- R.holdDyn ("No list", const $ pure R.never) (R.leftmost buttons)
+  D.dyn (($ taskState) . snd <$> listName) >>= R.switchHold R.never
 
 listsWidget
   :: (Widget t m) => R.Dynamic t TaskState -> m (R.Event t StateChange)
@@ -136,7 +199,7 @@ renderTask
   -> R.Dynamic t TaskInfos
   -> m (R.Event t StateChange)
 renderTask taskState taskInfos' =
-  D.elAttr "div" ("style" D.=: "padding-left:20px") $ do
+  D.elAttr "div" ("style" =: "padding-left:20px") $ do
     taskInfos <- R.holdUniqDyn taskInfos'
     D.dyn_ $ D.text . status <$> taskInfos
     let showChilds = showChildren <$> taskInfos
@@ -223,8 +286,8 @@ taskProvider _event = do
               (\err -> Text.IO.putStrLn
                 [i|Couldn‘t decode #{changes} as Task: #{err}|]
               )
-              cb
-            $ Aeson.eitherDecodeStrict changes
+              (cb . (: []))
+            $ Aeson.eitherDecodeStrict @Task changes
         )
   void . liftIO . forkIO $ (getTasks [] >>= cb)
   pure tasks
@@ -271,4 +334,5 @@ getCache = catch
   (\(_ :: IOException) -> pure $ Cache HashMap.empty)
 
 cacheFile = "/home/maralorn/.kassandra_cache"
+
 data TaskList = TagList Text | SubList [TaskList] deriving (Eq, Show, Read)

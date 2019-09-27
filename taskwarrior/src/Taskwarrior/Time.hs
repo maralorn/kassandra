@@ -1,12 +1,12 @@
 module Taskwarrior.Time
-  ( maybeTime
-  , parseTime
+  ( parse
+  , toValue
   )
 where
-import           Data.Aeson                     ( Value
-                                                , withText
+import           Data.Aeson                     ( withText
                                                 , Object
                                                 )
+import qualified Data.Aeson                    as Aeson
 import qualified Data.HashMap.Strict           as HashMap
 import           Data.Aeson.Types               ( Parser
                                                 , typeMismatch
@@ -19,14 +19,14 @@ import           Data.Text                      ( unpack
                                                 , Text
                                                 )
 
-maybeTime :: Text -> Object -> Parser (Maybe UTCTime)
-maybeTime name o = traverse parseTime (HashMap.lookup name o)
+toValue :: UTCTime -> Aeson.Value
+toValue = undefined
 
-parseTime :: Value -> Parser UTCTime
-parseTime val = withText
+parse :: Aeson.Value -> Parser UTCTime
+parse value = withText
   "Date"
-  ( maybe (typeMismatch "Date" val) pure
+  ( maybe (typeMismatch "Date" value) pure
   . parseTimeM False defaultTimeLocale "%Y%m%dT%H%M%SZ"
   . unpack
   )
-  val
+  value
