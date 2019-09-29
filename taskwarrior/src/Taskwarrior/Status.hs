@@ -10,15 +10,13 @@ import           Taskwarrior.Mask               ( Mask )
 import qualified Taskwarrior.Time              as Time
 import           Data.Aeson                     ( Object
                                                 , (.:)
+                                                , (.=)
                                                 )
 import qualified Data.Aeson                    as Aeson
 import           Control.Applicative            ( (<|>) )
 import           Data.Text                      ( Text )
 import           Data.Time                      ( UTCTime )
 import           Data.UUID                      ( UUID )
-import           Data.Aeson.Types               ( typeMismatch
-                                                , Parser
-                                                )
 import qualified Data.Aeson.Types              as Aeson.Types
 
 data Status =
@@ -33,8 +31,7 @@ data Status =
     recur :: Text,
     imask :: Integer,
     parent :: UUID }
-  deriving (Eq, Show)
-
+  deriving (Eq, Show, Read, Ord)
 
 parseFromObject, parseParentFromObject, parseChildFromObject
   :: Object -> Aeson.Types.Parser Status
@@ -44,7 +41,7 @@ parseFromObject o = (o .: "status") >>= \case
   "completed" -> Completed <$> (o .: "end" >>= Time.parse)
   "waiting"   -> Waiting <$> (o .: "wait" >>= Time.parse)
   "recurring" -> parseParentFromObject o <|> parseChildFromObject o
-  str         -> typeMismatch "status" (Aeson.String str)
+  str         -> Aeson.Types.typeMismatch "status" (Aeson.String str)
 
 parseChildFromObject o =
   RecurringChild <$> o .: "recur" <*> o .: "imask" <*> o .: "parent"
@@ -52,4 +49,19 @@ parseChildFromObject o =
 parseParentFromObject o = RecurringParent <$> o .: "recur" <*> o .: "mask"
 
 toPairs :: Status -> [Aeson.Types.Pair]
-toPairs = undefined
+toPairs = \case
+  Pending        -> [statusLabel "pending"]
+  Deleted {..}   -> [statusLabel "deleted", "end" .= Time.toValue end]
+  Completed {..} -> [statusLabel "completed", "end" .= Time.toValue end]
+  Waiting {..}   -> [statusLabel "waiting", "wait" .= Time.toValue wait]
+  RecurringParent {..} ->
+    [statusLabel "recurring", "recur" .= recur, "mask" .= mask]
+  RecurringChild {..} ->
+    [ statusLabel "recurring"
+    , "recur" .= recur
+    , "imask" .= imask
+    , "parent" .= parent
+    ]
+ where
+  statusLabel :: Text -> Aeson.Types.Pair
+  statusLabel = ("status" .=)

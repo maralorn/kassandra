@@ -59,13 +59,13 @@ filterTasks tasks = \case
   Deleted -> HashMap.filter (f . Task.status . task) tasks
    where
     f = \case
-      (Status.Deleted{}) -> True
-      _                  -> False
+      Status.Deleted{} -> True
+      _                -> False
   Waiting -> HashMap.filter (f . Task.status . task) tasks
    where
     f = \case
-      (Status.Waiting{}) -> True
-      _                  -> False
+      Status.Waiting{} -> True
+      _                -> False
   CloseUpwards query -> HashMap.foldr (HashMap.union . addParents)
                                       HashMap.empty
                                       (filterTasks tasks query)
@@ -76,16 +76,17 @@ filterTasks tasks = \case
         `HashMap.union` maybe
                           HashMap.empty
                           addParents
-                          (partof (task taskinfo) >>= flip HashMap.lookup tasks)
+                          (partof (task taskinfo) >>= (`HashMap.lookup` tasks))
   CloseDownwards query -> HashMap.foldr (HashMap.union . addChilds)
                                         HashMap.empty
                                         (filterTasks tasks query)
    where
     addChilds :: TaskInfos -> HashMap UUID TaskInfos
     addChilds taskinfo = HashMap.unions
-      (HashMap.singleton (Task.uuid $ task taskinfo) taskinfo : fmap
-        addChilds
-        (Maybe.mapMaybe (flip HashMap.lookup tasks) $ children taskinfo)
+      ( HashMap.singleton (Task.uuid $ task taskinfo) taskinfo
+      : fmap
+          addChilds
+          (Maybe.mapMaybe (`HashMap.lookup` tasks) $ children taskinfo)
       )
 
 partof :: Task -> Maybe UUID
@@ -97,6 +98,7 @@ partof t = do
 
 type Widget t m
   = (D.DomBuilder t m, MonadFix m, R.MonadHold t m, R.PostBuild t m)
+type ViewWidget t m = (Widget t m, R.EventWriter t [StateChange] m)
 type WidgetIO t m
   = ( MonadIO m
     , Widget t m
@@ -112,28 +114,25 @@ main = do
   Text.IO.putStrLn "Started kassandra"
   D.mainWidget $ do
     D.text "Welcome to kassandra!"
-    rec taskState    <- stateProvider stateChanges
-        stateChanges <- widgetSwitcher taskState
+    rec taskState         <- stateProvider stateChanges
+        (_, stateChanges) <- R.runEventWriterT $ widgetSwitcher taskState
     pure ()
 
 
-widgets
-  :: (Widget t m)
-  => [(Text, R.Dynamic t TaskState -> m (R.Event t StateChange))]
+widgets :: (ViewWidget t m) => [(Text, R.Dynamic t TaskState -> m ())]
 widgets = [("Lists", listsWidget)]
 
-widgetSwitcher
-  :: forall t m
-   . (Widget t m)
-  => R.Dynamic t TaskState
-  -> m (R.Event t StateChange)
+widgetSwitcher :: forall t m . (ViewWidget t m) => R.Dynamic t TaskState -> m ()
 widgetSwitcher taskState = do
   buttons  <- mapM (\l -> (l <$) <$> D.button (fst l)) $ widgets @t @m
-  listName <- R.holdDyn ("No list", const $ pure R.never) (R.leftmost buttons)
-  D.dyn (($ taskState) . snd <$> listName) >>= R.switchHold R.never
+  listName <- R.holdDyn ("No list", const $ pure ()) (R.leftmost buttons)
+  _        <- D.dyn (($ taskState) . snd <$> listName)
+  pure ()
 
 listsWidget
-  :: (Widget t m) => R.Dynamic t TaskState -> m (R.Event t StateChange)
+  :: (Widget t m, R.EventWriter t [StateChange] m)
+  => R.Dynamic t TaskState
+  -> m ()
 listsWidget taskState = do
   D.text "Select a list"
   list <- listSelector (getLists <$> taskState)
@@ -160,23 +159,20 @@ listsWidget taskState = do
 
 renderList
   :: forall t m
-   . (Widget t m)
+   . (ViewWidget t m)
   => R.Dynamic t TaskState
   -> R.Dynamic t TaskList
-  -> m (R.Event t StateChange)
-renderList tasks list = D.dyn (innerRenderList <$> list)
-  >>= D.switchHold R.never
+  -> m ()
+renderList tasks list = D.dyn_ (innerRenderList <$> list)
  where
-  innerRenderList :: TaskList -> m (R.Event t StateChange)
+  innerRenderList :: TaskList -> m ()
   innerRenderList list'
-    | TagList tag <- list' = do
+    | TagList tag <- list'
+    = do
       D.text tag
-      R.switchDyn . (R.leftmost <$>) <$> D.simpleList
-        (tasksToShow tag <$> tasks)
-        (renderTask tasks)
-    | SubList sublists <- list' = R.switchDyn
-    . (R.leftmost <$>)
-    <$> D.simpleList (D.constDyn sublists) (renderList tasks)
+      void . D.simpleList (tasksToShow tag <$> tasks) $ renderTask tasks
+    | SubList sublists <- list'
+    = void . D.simpleList (D.constDyn sublists) $ renderList tasks
 
   tasksToShow :: Text -> TaskState -> [TaskInfos]
   tasksToShow tag taskState =
@@ -194,10 +190,10 @@ renderList tasks list = D.dyn (innerRenderList <$> list)
 
 renderTask
   :: forall m t
-   . (Widget t m)
+   . (ViewWidget t m)
   => R.Dynamic t TaskState
   -> R.Dynamic t TaskInfos
-  -> m (R.Event t StateChange)
+  -> m ()
 renderTask taskState taskInfos' =
   D.elAttr "div" ("style" =: "padding-left:20px") $ do
     taskInfos <- R.holdUniqDyn taskInfos'
@@ -208,29 +204,23 @@ renderTask taskState taskInfos' =
       $   (Maybe.mapMaybe <$> flip HashMap.lookup)
       <$> taskState
       <*> (children <$> taskInfos)
-    toggleStateChange <-
-      D.dyn
+    D.dyn
         ((\s -> if not $ null s then collapseButton showChilds else pure R.never
          )
         <$> children
         )
       >>= (D.attachPromptlyDynWith
-            ((ToggleEvent .) . ((,) . Task.uuid . task))
+            ((((: []) . ToggleEvent) .) . ((,) . Task.uuid . task))
             taskInfos <$>
           )
       .   R.switchHold R.never
-    childStateChanges <-
-      D.dyn
-        (   (\s -> if s
-              then R.simpleList children (renderTask taskState)
-              else pure (R.constDyn [])
-            )
-        <$> showChilds
-        )
-      >>= (R.switchDyn . fmap R.leftmost . join <$>)
-      .   R.holdDyn (R.constDyn [])
-
-    pure $ R.leftmost [toggleStateChange, childStateChanges]
+      >>= R.tellEvent
+    D.dyn_
+      $   (\s -> if s
+            then R.simpleList children (renderTask taskState)
+            else pure (R.constDyn [])
+          )
+      <$> showChilds
  where
   status :: TaskInfos -> Text
   status TaskInfos { task } = case Task.status task of
@@ -255,14 +245,17 @@ type TaskState = (HashMap UUID TaskInfos)
 data StateChange = ToggleEvent (UUID, Bool) | ChangeTask Task deriving (Eq, Show)
 
 cacheProvider
-  :: (WidgetIO t m) => R.Event t (UUID, Bool) -> m (R.Dynamic t Cache)
+  :: (WidgetIO t m) => R.Event t [(UUID, Bool)] -> m (R.Dynamic t Cache)
 cacheProvider toggleEvent = do
   rec firstCache    <- liftIO getCache
       cache         <- R.holdDyn firstCache newCacheEvent
       newCacheEvent <- R.performEventAsync $ R.attachPromptlyDynWith
-        (\Cache { collapseState } (uuid, state) cb -> do
-          let newCache = Cache (HashMap.insert uuid state collapseState)
-          void $ liftIO $ forkIO $ Aeson.encodeFile cacheFile newCache
+        (\Cache { collapseState } newPairs cb -> do
+          let newCache = Cache $ foldr
+                (\(key, value) object -> HashMap.insert key value object)
+                collapseState
+                newPairs
+          void . liftIO . forkIO $ Aeson.encodeFile cacheFile newCache
           liftIO $ cb newCache
         )
         cache
@@ -270,12 +263,12 @@ cacheProvider toggleEvent = do
   pure cache
 
 taskProvider
-  :: (WidgetIO t m) => R.Event t Task -> m (R.Dynamic t (HashMap UUID Task))
-taskProvider _event = do
-  (taskEvent, cb) <- R.newTriggerEvent
+  :: (WidgetIO t m) => R.Event t [Task] -> m (R.Dynamic t (HashMap UUID Task))
+taskProvider _changeTaskEvent = do
+  (tasksEvent, newTasksCallBack) <- R.newTriggerEvent
   tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . Task.uuid)
                      HashMap.empty
-                     taskEvent
+                     (R.ffilter (not . null) (tasksEvent))
   void . liftIO . forkIO $ do
     Text.IO.putStrLn "Listening for changed or new Tasks on 127.0.0.1:6545."
     Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
@@ -286,27 +279,31 @@ taskProvider _event = do
               (\err -> Text.IO.putStrLn
                 [i|Couldn‘t decode #{changes} as Task: #{err}|]
               )
-              (cb . (: []))
+              (newTasksCallBack . (: []))
             $ Aeson.eitherDecodeStrict @Task changes
         )
-  void . liftIO . forkIO $ (getTasks [] >>= cb)
-  pure tasks
+  void . liftIO . forkIO $ (getTasks [] >>= newTasksCallBack)
+  R.holdUniqDyn tasks
 
 stateProvider
-  :: (WidgetIO t m) => R.Event t StateChange -> m (R.Dynamic t TaskState)
+  :: (WidgetIO t m) => R.Event t [StateChange] -> m (R.Dynamic t TaskState)
 stateProvider stateChange = do
-  cache <- cacheProvider $ R.fforMaybe
-    stateChange
-    (\case
-      ToggleEvent a -> Just a
-      _             -> Nothing
+  cache <- cacheProvider $ fmap
+    (Maybe.mapMaybe
+      (\case
+        ToggleEvent a -> Just a
+        _             -> Nothing
+      )
     )
-  tasks <- taskProvider $ R.fforMaybe
     stateChange
-    (\case
-      ChangeTask a -> Just a
-      _            -> Nothing
+  tasks <- taskProvider $ fmap
+    (Maybe.mapMaybe
+      (\case
+        ChangeTask a -> Just a
+        _            -> Nothing
+      )
     )
+    stateChange
   let children =
         ( HashMap.fromListWith (++)
           . Maybe.mapMaybe (\(uuid, task) -> (, [uuid]) <$> partof task)

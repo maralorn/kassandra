@@ -4,13 +4,11 @@ module Taskwarrior.Task
   )
 where
 
-import           Data.Text                      ( Text
-                                                , splitOn
-                                                , unpack
-                                                , pack
-                                                )
+import qualified Data.Text                     as Text
+import           Data.Text                      ( Text )
 import           Data.Text.Encoding             ( encodeUtf8 )
 import           Data.Time                      ( UTCTime )
+import qualified Data.UUID                     as UUID
 import           Data.UUID                      ( UUID )
 import qualified Data.Aeson                    as Aeson
 import qualified Data.Aeson.Types              as Aeson.Types
@@ -24,7 +22,7 @@ import           Data.Aeson                     ( withObject
                                                 , (.:?)
                                                 , Value
                                                 )
-import qualified Control.Applicative as Applicative
+import qualified Data.Semigroup                as Semigroup
 import qualified Data.Maybe                    as Maybe
 import           Control.Monad                  ( join )
 import qualified Data.Foldable                 as Foldable
@@ -37,6 +35,7 @@ import           Taskwarrior.Annotation         ( Annotation )
 import qualified Taskwarrior.Time              as Time
 import qualified Data.HashMap.Strict           as HashMap
 import           System.Process                 ( readProcess )
+import           Foreign.Marshal.Utils          ( fromBool )
 
 
 type Tag = Text
@@ -57,7 +56,7 @@ data Task = Task {
         depends     :: [UUID],
         tags        :: [Tag],
         uda         :: UDA
-} deriving (Eq, Show)
+} deriving (Eq, Show, Read)
 
 reservedKeys :: [Text]
 reservedKeys =
@@ -84,6 +83,7 @@ reservedKeys =
 instance FromJSON Task where
   parseJSON = withObject "Task" $ \object -> do
     let parseTimeFromFieldMay = parseFromFieldWithMay Time.parse object
+        uda = HashMap.filterWithKey (\k _ -> k `notElem` reservedKeys) object
     status      <- Status.parseFromObject object
     uuid        <- object .: "uuid"
     entry       <- object .: "entry" >>= Time.parse
@@ -97,10 +97,8 @@ instance FromJSON Task where
     project     <- object .:? "project"
     priority    <- join
       <$> parseFromFieldWithMay Priority.parseMay object "priority"
-    depends <- maybe Applicative.empty parseUuidList (HashMap.lookup "depends" object)
+    depends <- maybe (pure []) parseUuidList (HashMap.lookup "depends" object)
     tags    <- Foldable.fold <$> object .:? "tags"
-    uda     <- pure
-      $ HashMap.filterWithKey (\k _ -> k `notElem` reservedKeys) object
     pure Task { until = until_, .. }
 
 parseFromFieldWithMay
@@ -112,22 +110,26 @@ parseFromFieldWithMay parser object name =
   traverse parser (HashMap.lookup name object)
 
 parseUuidList :: Aeson.Value -> Aeson.Types.Parser [UUID]
-parseUuidList = withText "Text" $ mapM (parseJSON . Aeson.String) . splitOn ","
+parseUuidList =
+  withText "Text" $ mapM (parseJSON . Aeson.String) . Text.splitOn ","
 
 getTasks :: [Text] -> IO [Task]
 getTasks args =
-  readProcess "task" (map unpack . (++ ["export"]) $ args) ""
+  readProcess "task" (map Text.unpack . (++ ["export"]) $ args) ""
     >>= either fail return
     .   Aeson.eitherDecodeStrict
     .   encodeUtf8
-    .   pack
+    .   Text.pack
 
 instance ToJSON Task where
   toJSON Task { until = until_, ..} =
     Aeson.object
       $  Status.toPairs status
-      <> ["uuid" .= uuid, "entry" .= Time.toValue entry, "description" .= description]
-      <> if not $ null $ annotations then ["annotations" .= annotations] else []
+      <> [ "uuid" .= uuid
+         , "entry" .= Time.toValue entry
+         , "description" .= description
+         ]
+      <> ifNotNullList annotations ("annotations" .=)
       <> Maybe.mapMaybe
            (\(name, value) -> (name .=) . Time.toValue <$> value)
            [ ("start"    , start)
@@ -136,20 +138,15 @@ instance ToJSON Task where
            , ("scheduled", scheduled)
            , ("until"    , until_)
            ]
-        {-
-         -status      :: Status,
-         -uuid        :: UUID,
-         -entry       :: UTCTime,
-         -description :: Text,
-         -start       :: Maybe UTCTime,
-         -modified    :: Maybe UTCTime,
-         -due         :: Maybe UTCTime,
-         -until       :: Maybe UTCTime,
-         -annotations :: [Annotation],
-         -scheduled   :: Maybe UTCTime,
-         -project     :: Maybe Text,
-         -priority    :: Maybe Priority,
-         -depends     :: [UUID],
-         -tags        :: [Tag],
-         -uda         :: UDA
-         -}
+      <> Maybe.catMaybes
+           [("project" .=) <$> project, ("priority" .=) <$> priority]
+      <> ifNotNullList
+           depends
+           (("depends" .=) . Text.intercalate "," . fmap UUID.toText)
+      <> ifNotNullList tags ("tags" .=)
+      <> HashMap.toList uda
+
+ifNotNullList :: [b] -> ([b] -> a) -> [a]
+ifNotNullList list f =
+  (Semigroup.stimesMonoid . (fromBool :: Bool -> Integer) . not . null $ list)
+    [f list]

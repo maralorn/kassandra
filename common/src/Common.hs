@@ -1,1 +1,3 @@
-module Common where
+module Common
+  ()
+where

@@ -47,11 +47,11 @@ library
     , reflex
     , reflex-dom
     , string-interpolate
+    , taskwarrior
     , text
     , time
     , unordered-containers
     , uuid
-    , taskwarrior
 
   --    , polysemy              >=1.2.0.0
   -- hs-source-dirs:

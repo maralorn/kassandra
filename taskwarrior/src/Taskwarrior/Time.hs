@@ -3,11 +3,8 @@ module Taskwarrior.Time
   , toValue
   )
 where
-import           Data.Aeson                     ( withText
-                                                , Object
-                                                )
+import           Data.Aeson                     ( withText )
 import qualified Data.Aeson                    as Aeson
-import qualified Data.HashMap.Strict           as HashMap
 import           Data.Aeson.Types               ( Parser
                                                 , typeMismatch
                                                 )
@@ -15,18 +12,20 @@ import           Data.Time                      ( UTCTime
                                                 , parseTimeM
                                                 , defaultTimeLocale
                                                 )
-import           Data.Text                      ( unpack
-                                                , Text
-                                                )
+import qualified Data.Time.Format              as Time.Format
+import qualified Data.Text                     as Text
 
 toValue :: UTCTime -> Aeson.Value
-toValue = undefined
+toValue time = Aeson.String . Text.pack $ Time.Format.formatTime
+  defaultTimeLocale
+  "%Y%m%dT%H%M%SZ"
+  time
 
 parse :: Aeson.Value -> Parser UTCTime
 parse value = withText
   "Date"
   ( maybe (typeMismatch "Date" value) pure
   . parseTimeM False defaultTimeLocale "%Y%m%dT%H%M%SZ"
-  . unpack
+  . Text.unpack
   )
   value
