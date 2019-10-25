@@ -88,3 +88,22 @@ library
 
   -- Base language which the package is written in.
   default-language:   Haskell2010
+
+test-suite test-taskwarrior
+  ghc-options:        -Wall -Wno-orphans
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  main-is:            Spec.hs
+  build-tool-depends: hspec-discover:hspec-discover -any
+  other-modules:      TaskSpec
+  build-depends:
+    , aeson
+    , base
+    , hspec
+    , QuickCheck
+    , quickcheck-instances
+    , taskwarrior
+    , text
+    , time
+    , unordered-containers
+    , uuid

@@ -69,6 +69,7 @@ reservedKeys =
   , "until"
   , "scheduled"
   , "annotations"
+  , "start"
   , "project"
   , "priority"
   , "depends"
