@@ -4,7 +4,7 @@ import qualified Data.Aeson                    as Aeson
 import           Data.Aeson.Types               ( Parser, typeMismatch )
 
 data Priority = High | Medium | Low
-        deriving (Eq, Show, Read, Enum, Ord)
+        deriving (Eq, Show, Read, Enum, Ord, Bounded)
 
 instance Aeson.ToJSON Priority where
    toJSON = \case
