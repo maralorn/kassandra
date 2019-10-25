@@ -118,7 +118,6 @@ main = do
         (_, stateChanges) <- R.runEventWriterT $ widgetSwitcher taskState
     pure ()
 
-
 widgets :: (ViewWidget t m) => [(Text, R.Dynamic t TaskState -> m ())]
 widgets = [("Lists", listsWidget)]
 
