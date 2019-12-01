@@ -21,9 +21,14 @@ extra-source-files: CHANGELOG.md
 
 executable frontend
   default-extensions:
+    NoImplicitPrelude
+    ConstraintKinds
     DeriveAnyClass
     DeriveGeneric
+    FlexibleContexts
+    GADTs
     LambdaCase
+    NamedFieldPuns
     OverloadedStrings
     QuasiQuotes
     RecordWildCards
@@ -32,18 +37,32 @@ executable frontend
   ghc-options:
     -Weverything -Wno-implicit-prelude -Wno-unsafe -Wno-safe
     -Wno-all-missed-specialisations -Wno-missed-specialisations
-    -Wno-monomorphism-restriction -Wno-partial-fields -threaded
+    -Wno-missing-import-lists -Wno-monomorphism-restriction
+    -Wno-partial-fields -threaded
 
   main-is:            Main.hs
 
   -- other-modules:
+  other-modules:
+    Css
+    ListWidget
+    State
+    TaskWidget
+    TextEditWidget
+    Types
+    Util
+
   -- other-extensions:
   build-depends:
       aeson
     , base
+    , classy-prelude
+    , clay
     , common
     , dhall
     , exceptions
+    , lens
+    , mtl
     , network-simple
     , reflex
     , reflex-dom
@@ -54,5 +73,5 @@ executable frontend
     , unordered-containers
     , uuid
 
-  -- hs-source-dirs:
+  hs-source-dirs:     src
   default-language:   Haskell2010

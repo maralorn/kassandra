@@ -2,4 +2,3 @@ packages:
   common/
   backend/
   frontend/
-  taskwarrior/
