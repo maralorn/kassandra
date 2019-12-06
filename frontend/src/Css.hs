@@ -29,12 +29,12 @@ css = render $ do
     whiteSpace nowrap
     direction ltr
     "-webkit-font-smoothing" -: "antialiased"
-  let radius    = (em 0.3)
-      bg        = (grayish 230)
+  let radius    = em 0.3
+      bg        = grayish 230
       blockSize = do
         width (em 1)
         height (em 1)
-      taskMargin = (em 0.5)
+      taskMargin = em 0.5
   ".task" ? do
     background white
     margin taskMargin taskMargin taskMargin taskMargin
@@ -50,7 +50,7 @@ css = render $ do
   ".button" ? do
     hover & color blue
   i ? cursor cursorDefault
-  ".button" ? padding radius radius radius radius
+  ".icon" ? padding radius radius radius radius
   ".checkbox" ? do
     marginRight (em 0.5)
     display inlineBlock
@@ -66,5 +66,4 @@ css = render $ do
     hover & i ? do
       ".hideable" & display none
       ".showable" & display inlineBlock
-  ".children" ? do
-    paddingLeft (px 20)
+  ".children" ? paddingLeft (px 20)

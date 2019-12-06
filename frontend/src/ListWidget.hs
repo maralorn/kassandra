@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE NamedFieldPuns, ScopedTypeVariables #-}
 module ListWidget
   ( listsWidget
   )
@@ -6,7 +6,6 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import           Types
-import           Data.List.NonEmpty             ( NonEmpty )
 import qualified Data.Maybe                    as Maybe
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Taskwarrior.Status            as Status
@@ -18,9 +17,9 @@ import           TaskWidget
 
 data TaskList = TagList Text | SubList [TaskList] deriving (Eq, Show, Read)
 
-listsWidget :: (ViewWidget t m (NonEmpty StateChange)) => m ()
+listsWidget :: (StandardWidget t m r) => m ()
 listsWidget = do
-  taskState <- getTaskState <$> ask
+  taskState <- getTasks
   D.text "Select a list"
   list <- listSelector (getLists <$> taskState)
   listWidget list
@@ -45,10 +44,7 @@ listsWidget = do
                   | otherwise = (const list <$>) <$> D.button "Anonymous List"
 
 listWidget
-  :: forall t m
-   . (ViewWidget t m (NonEmpty StateChange))
-  => R.Dynamic t TaskList
-  -> m ()
+  :: forall t m r . (StandardWidget t m r) => R.Dynamic t TaskList -> m ()
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: TaskList -> m ()
@@ -56,7 +52,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
     | TagList tag <- list'
     = do
       D.text tag
-      tasks <- getTaskState <$> ask
+      tasks <- getTasks
       void . D.simpleList (tasksToShow tag <$> tasks) $ taskWidget
     | SubList sublists <- list'
     = void . D.simpleList (D.constDyn sublists) $ listWidget

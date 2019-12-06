@@ -1,11 +1,10 @@
-{-# LANGUAGE TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables #-}
 module Main
   ( main
   )
 where
 
 import           GHC.Generics                   ( Generic )
-import           Data.List.NonEmpty             ( NonEmpty )
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.Aeson                    as Aeson
@@ -83,20 +82,20 @@ main :: IO ()
 main = do
   putStrLn "Started kassandra"
   D.mainWidgetWithCss (encodeUtf8 $ toStrict css) $ do
-    time    <- liftIO $ getZonedTime
+    time    <- liftIO getZonedTime
     timeDyn <-
       fmap (utcToZonedTime (zonedTimeZone time) . (^. R.tickInfo_lastUTC))
         <$> R.clockLossy 1 (zonedTimeToUTC time)
     D.text "Welcome to kassandra!"
     rec taskState         <- stateProvider stateChanges
         (_, stateChanges) <- R.runEventWriterT
-          $ runReaderT widgetSwitcher (AppStateDyns taskState timeDyn)
+          $ runReaderT widgetSwitcher (AppState taskState timeDyn)
     pure ()
 
-widgets :: (ViewWidget t m (NonEmpty StateChange)) => [(Text, m ())]
+widgets :: (StandardWidget t m r) => [(Text, m ())]
 widgets = [("Lists", listsWidget)]
 
-widgetSwitcher :: forall t m . (ViewWidget t m (NonEmpty StateChange)) => m ()
+widgetSwitcher :: forall t m r . (StandardWidget t m r) => m ()
 widgetSwitcher = do
   buttons  <- mapM (\l -> (l <$) <$> D.button (fst l)) $ widgets @t @m
   listName <- R.holdDyn ("No list", pure ()) (R.leftmost buttons)

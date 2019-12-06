@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict           as HashMap
 
 partof :: Task -> Maybe UUID
 partof t = do
-  p <- HashMap.lookup ("partof" :: Text) $ Task.uda t
+  p <- HashMap.lookup "partof" $ Task.uda t
   case Aeson.fromJSON p of
     Aeson.Success a -> Just a
     _               -> Nothing

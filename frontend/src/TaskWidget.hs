@@ -1,97 +1,189 @@
-{-# LANGUAGE TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE BlockArguments, TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, TemplateHaskell, FlexibleInstances, FunctionalDependencies  #-}
 module TaskWidget
   ( taskWidget
   )
 where
 import           ClassyPrelude
 import qualified Data.HashMap.Strict           as HashMap
-import           Data.List.NonEmpty             ( NonEmpty
-                                                , nonEmpty
-                                                )
+import           Data.List.NonEmpty             ( NonEmpty )
 import           Reflex.Dom                     ( (=:) )
 import qualified Reflex.Dom                    as D
 import qualified Data.Maybe                    as Maybe
 import qualified Reflex                        as R
 import qualified Taskwarrior.Task              as Task
+import           Taskwarrior.Task               ( Task )
 import qualified Taskwarrior.Status            as Status
 import           Taskwarrior.Status             ( Status )
 import           Types
 import           TextEditWidget
 import           Data.Time.LocalTime            ( zonedTimeToUTC )
+import           Control.Lens.TH                ( makeClassy )
+import           Control.Lens.Getter            ( (^.) )
+import           Control.Lens.Combinators       ( _1
+                                                , _2
+                                                )
+import           Data.Aeson                    as Aeson
+
+
+newtype DynTask t = TaskDyn { _toDynTask :: R.Dynamic t TaskInfos }
+
+makeClassy ''DynTask
+type TaskWidget t m r = (StandardWidget t m r, HasDynTask r t)
+type TaskMonad t m r = (R.Reflex t, MonadReader r m, HasDynTask r t)
+
+instance HasDynTask (AppState t, DynTask t) t where
+  dynTask = _2
+instance HasAppState (AppState t, DynTask t) t where
+  appState = _1
+
+getTaskInfos :: TaskMonad t m r => m (R.Dynamic t TaskInfos)
+getTaskInfos = (^. toDynTask) <$> ask
+
+getTask :: TaskMonad t m r => m (R.Dynamic t Task)
+getTask = fmap task <$> getTaskInfos
+
+getChildren :: (TaskWidget t m r) => m (R.Dynamic t [TaskInfos])
+getChildren = do
+  tasks     <- getTasks
+  taskInfos <- (^. toDynTask) <$> ask
+  R.holdUniqDyn
+    $   (Maybe.mapMaybe <$> flip HashMap.lookup)
+    <$> tasks
+    <*> (children <$> taskInfos)
+
+getShowChildren :: (TaskMonad t m r) => m (R.Dynamic t Bool)
+getShowChildren = fmap showChildren <$> getTaskInfos
+
+tellSingleton
+  :: (R.Reflex t, R.EventWriter t (NonEmpty event) m) => R.Event t event -> m ()
+tellSingleton = R.tellEvent . fmap singleton
 
 taskWidget
-  :: forall m t
-   . (ViewWidget t m (NonEmpty StateChange))
-  => R.Dynamic t TaskInfos
-  -> m ()
+  :: forall t m r . (StandardWidget t m r) => R.Dynamic t TaskInfos -> m ()
 taskWidget taskInfos' = D.divClass "task" $ do
   taskInfos <- R.holdUniqDyn taskInfos'
-  let taskDyn = task <$> taskInfos
-  statusEventFromWidget <-
-    fmap snd . D.runEventWriterT . statusWidget $ Task.status <$> taskDyn
-  let showChilds = showChildren <$> taskInfos
-  taskState <- getTaskState <$> ask
-  children  <-
-    R.holdUniqDyn
-    $   (Maybe.mapMaybe <$> flip HashMap.lookup)
-    <$> taskState
-    <*> (children <$> taskInfos)
-  D.dyn
-      ((\s -> if not $ null s then collapseButton showChilds else pure R.never)
-      <$> children
+  state     <- getAppState
+  runReaderT widgets (state, TaskDyn taskInfos)
+ where
+  widgets :: ReaderT (AppState t, DynTask t) m ()
+  widgets = do
+    statusWidget
+    collapseButton
+    descriptionWidget
+    waitWidget
+    dueWidget
+    deleteButton
+    childrenWidget
+    completedWidget
+
+childrenWidget :: forall t m r . TaskWidget t m r => m ()
+childrenWidget = do
+  showChilds <- getShowChildren
+  D.dyn_ $ showOptional <$> showChilds
+  descriptionEvent <- createTextWidget . button "edit" $ icon "" "add"
+  taskDyn          <- getTask
+  tellSingleton $ R.attachPromptlyDynWith
+    (\task description -> CreateTask
+      description
+      (\t -> t
+        { Task.uda = HashMap.singleton "partof"
+                                       (Aeson.toJSON . Task.uuid $ task)
+        }
       )
-    >>= (D.attachPromptlyDynWith
-          (((singleton . ToggleEvent) .) . ((,) . Task.uuid . task))
-          taskInfos <$>
-        )
-    .   R.switchHold R.never
-    >>= R.tellEvent
-  newDescriptionEvent <- lineWidget $ Task.description <$> taskDyn
-  D.tellEvent $ R.attachPromptlyDynWith
-    (\t d -> singleton $ ChangeTask t { Task.description = d })
+    )
     taskDyn
-    newDescriptionEvent
-  statusEventFromDelete <-
-    fmap snd . D.runEventWriterT . deleteButton $ Task.status <$> taskDyn
-  waitTimeEvent <-
-    fmap snd . D.runEventWriterT . dateSelectionWidget "wait" $ R.constDyn
-      Nothing :: m (R.Event t (NonEmpty (Maybe UTCTime)))
-  let statusEventFromWait =
-        fmap Status.Waiting
-          <$> R.fmapMaybe (nonEmpty . catMaybes . toList) waitTimeEvent
-  R.tellEvent
-    . R.attachPromptlyDynWith
-        (\task -> fmap (\status -> ChangeTask task { Task.status }))
-        taskDyn
-    $ (statusEventFromDelete ++ statusEventFromWidget ++ statusEventFromWait)
-  D.dyn_
-    $   (\s -> if s
-          then D.divClass "children" $ R.simpleList children taskWidget
-          else pure (R.constDyn [])
-        )
-    <$> showChilds
+    descriptionEvent
+ where
+  showOptional :: Bool -> m ()
+  showOptional True = do
+    children <- getChildren
+    void $ D.divClass "children" $ R.simpleList children taskWidget
+  showOptional False = D.blank
 
+tellTask :: TaskWidget t m r => (Task -> a -> Task) -> R.Event t a -> m ()
+tellTask handler ev = do
+  task <- getTask
+  tellSingleton . R.attachPromptlyDynWith ((ChangeTask .) . handler) task $ ev
 
-deleteButton :: ViewWidget t m (NonEmpty Status) => R.Dynamic t Status -> m ()
-deleteButton statusDyn =
-  D.dyn_
-    $   (\case
-          (Status.Deleted _) -> D.blank
-          _                  -> do
-            time  <- fmap zonedTimeToUTC . getTime <$> ask
-            event <- D.tagPromptlyDyn time <$> iconButtonClass "delete" "edit"
-            R.tellEvent $ singleton . Status.Deleted <$> event
-        )
-    <$> statusDyn
+waitWidget :: forall t m r . TaskWidget t m r => m ()
+waitWidget = do
+  taskDyn <- getTask
+  let maybeWait =
+        (\case
+            Status.Waiting a -> Just a
+            _                -> Nothing
+          )
+          .   Task.status
+          <$> taskDyn
+  event <- dateSelectionWidget "wait" maybeWait
+  tellTask
+    (\task time ->
+      task { Task.status = maybe Status.Pending Status.Waiting time }
+    )
+    event
 
-statusWidget
-  :: forall t m . ViewWidget t m (NonEmpty Status) => R.Dynamic t Status -> m ()
-statusWidget status = do
-  D.dyn_ $ dynWidget . widgetState <$> status
+dueWidget :: TaskWidget t m r => m ()
+dueWidget = do
+  task  <- getTask
+  event <- dateSelectionWidget "due" $ Task.due <$> task
+  tellTask (\task' due -> task' { Task.due }) event
+
+descriptionWidget :: TaskWidget t m r => m ()
+descriptionWidget = do
+  task  <- getTask
+  event <- lineWidget $ Task.description <$> task
+  tellTask (\task' description -> task' { Task.description }) event
+
+tellStatusByTime
+  :: TaskWidget t m r => ((UTCTime -> Status) -> R.Event t a -> m ())
+tellStatusByTime handler ev = do
+  time <- getTime
+  tellStatus $ R.attachPromptlyDynWith
+    (\time' _ -> handler $ zonedTimeToUTC time')
+    time
+    ev
+
+tellStatus :: TaskWidget t m r => R.Event t Status -> m ()
+tellStatus = tellTask (\task status -> task { Task.status })
+
+deleteButton :: forall t m r . TaskWidget t m r => m ()
+deleteButton = do
+  task <- getTask
+  D.dyn_ $ deleteWidget . Task.status <$> task
+ where
+  deleteWidget :: Status -> m ()
+  deleteWidget (Status.Deleted time) = do
+    event <- dateSelectionWidget "deleted" $ R.constDyn (Just time)
+    tellStatus $ maybe Status.Pending Status.Deleted <$> event
+  deleteWidget _ =
+    button "edit" (icon "" "delete") >>= tellStatusByTime Status.Deleted
+
+completedWidget :: forall t m r . TaskWidget t m r => m ()
+completedWidget = do
+  task <- getTask
+  D.dyn_ $ completedTime . Task.status <$> task
+ where
+  completedTime :: Status -> m ()
+  completedTime (Status.Completed time) = do
+    event <- dateSelectionWidget "completed" $ R.constDyn (Just time)
+    tellStatus $ maybe Status.Pending Status.Completed <$> event
+  completedTime _ = D.blank
+
+statusWidget :: forall t m r . TaskWidget t m r => m ()
+statusWidget = do
+  task <- getTask
+  D.dyn_ $ dynWidget . widgetState . Task.status <$> task
  where
   dynWidget
     :: (Text, Text, Maybe (Text, Text, UTCTime -> Status.Status)) -> m ()
   dynWidget (iconName, showClass, handlerMay) = do
+    let (altIcon, handler) = case handlerMay of
+          Nothing -> (D.blank, const D.blank)
+          Just (altIconLabel, altClass, handlerPure) ->
+            ( D.elClass "i" ("material-icons " ++ altClass ++ " showable")
+              $ D.text altIconLabel
+            , tellStatusByTime handlerPure . D.domEvent D.Mouseup
+            )
     (el, ()) <- D.elAttr' "div" ("class" =: "checkbox") $ do
       D.elClass
           "i"
@@ -100,34 +192,37 @@ statusWidget status = do
             else ""
           )
         $ D.text iconName
-      for_ handlerMay $ \(altIcon, altClass, _) -> do
-        D.elClass "i" ("material-icons " ++ altClass ++ " showable")
-          $ D.text altIcon
-    for_ handlerMay $ \(_, _, handler) -> do
-      time <- getTime <$> ask
-      R.tellEvent
-        . fmap (singleton . handler . zonedTimeToUTC)
-        . D.tagPromptlyDyn time
-        . D.domEvent D.Mouseup
-        $ el
+      altIcon
+    handler el
   widgetState
     :: Status -> (Text, Text, Maybe (Text, Text, UTCTime -> Status.Status))
   widgetState = \case
     Status.Pending ->
       ("done", "hide", Just ("done", "grey", Status.Completed))
-    (Status.Completed _) ->
+    Status.Completed{} ->
       ("done", "show", Just ("done", "hide", const Status.Pending))
-    (Status.Deleted _) ->
+    Status.Deleted{} ->
       ("delete", "show", Just ("done", "hide", const Status.Pending))
-    (Status.Waiting _) ->
+    Status.Waiting{} ->
       ("schedule", "show", Just ("done", "grey", Status.Completed))
-    (Status.RecurringParent _ _ ) -> ("repeat", "show", Nothing)
-    (Status.RecurringChild _ _ _) -> ("repeat", "show", Nothing)
+    Status.RecurringParent{} -> ("repeat", "show", Nothing)
+    Status.RecurringChild{}  -> ("repeat", "show", Nothing)
 
 
-collapseButton :: (Widget t m) => R.Dynamic t Bool -> m (R.Event t Bool)
-collapseButton open = do
-  let label = (\s -> if s then "unfold_less" else "unfold_more")
-  buttonEventEvent <- D.dyn $ flip iconButtonClass "collapse" . label <$> open
-  toggleShow       <- R.switchHold R.never buttonEventEvent
-  pure $ R.tagPromptlyDyn (not <$> open) toggleShow
+collapseButton :: forall t m r . TaskWidget t m r => m ()
+collapseButton = do
+  children <- getChildren
+  D.dyn_ $ displayWidget . not . null <$> children where
+  displayWidget True = do
+    open <- getShowChildren
+    D.dyn_ $ buttonWidget <$> open
+  displayWidget False = D.blank
+  buttonWidget :: (Bool -> m ())
+  buttonWidget open = do
+    let label = if open then "unfold_less" else "unfold_more"
+    buttonEvent <- button "" $ icon "collapse" label
+    task        <- getTask
+    tellSingleton $ R.attachPromptlyDynWith
+      (\task' _ -> ToggleEvent (Task.uuid task') (not open))
+      task
+      buttonEvent

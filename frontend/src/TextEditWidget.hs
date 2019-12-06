@@ -1,11 +1,10 @@
-{-# LANGUAGE TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables #-}
 module TextEditWidget
   ( lineWidget
-  , iconButton
-  , iconButtonClass
   , icon
-  , iconClass
+  , button
   , dateSelectionWidget
+  , createTextWidget
   )
 where
 import           ClassyPrelude
@@ -19,7 +18,6 @@ import           Data.Time.LocalTime            ( ZonedTime
                                                 , LocalTime
                                                 , zonedTimeToLocalTime
                                                 )
-import           Data.List.NonEmpty             ( NonEmpty(..) )
 
 myFormatTime :: ZonedTime -> Text
 myFormatTime = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
@@ -36,7 +34,7 @@ inputDateWidget
 inputDateWidget time = do
   textMayEvent <-
     editText @t @m . myFormatTime $ time :: m (R.Event t (Maybe Text))
-  let cancelEvent            = Nothing <$ R.ffilter (isNothing) textMayEvent
+  let cancelEvent            = Nothing <$ R.ffilter isNothing textMayEvent
       textEvent              = R.fmapMaybe id textMayEvent
       (failEvent, timeEvent) = R.fanEither $ myParseTime <$> textEvent
   warning <- R.holdDyn "" $ pack <$> failEvent
@@ -46,34 +44,50 @@ inputDateWidget time = do
     , cancelEvent
     ]
 
+stateWidget
+  :: Widget t m
+  => state
+  -> (state -> m (R.Event t a, R.Event t state))
+  -> m (R.Event t a)
+stateWidget initialState widget = do
+  rec state       <- R.holdDyn initialState stateEvent
+      eventsEvent <- D.dyn $ widget <$> state
+      stateEvent  <- R.switchHold R.never $ snd <$> eventsEvent
+  R.switchHold R.never $ fst <$> eventsEvent
+
 dateSelectionWidget
-  :: ViewWidget t m (NonEmpty (Maybe UTCTime))
+  :: forall t m r
+   . StandardWidget t m r
   => Text
   -> R.Dynamic t (Maybe UTCTime)
-  -> m ()
+  -> m (R.Event t (Maybe UTCTime))
 dateSelectionWidget label utcTimeDyn = do
-  currentTimeDyn <- getTime <$> ask
+  currentTimeDyn <- getTime
   let timeDyn = do
         timeZone <- zonedTimeZone <$> currentTimeDyn
         fmap (utcToZonedTime timeZone) <$> utcTimeDyn
-  rec editMode    <- R.holdDyn False toggleEvent
-      eventsEvent <- D.dyn $ selectTimeWidget label timeDyn <$> editMode
-      toggleEvent <- R.switchHold R.never (snd <$> eventsEvent)
-  timeEvent <- R.switchHold R.never (fst <$> eventsEvent)
-  R.tellEvent $ singleton . Just . zonedTimeToUTC <$> timeEvent
-
+  timeEvent <- fmap (Just . zonedTimeToUTC)
+    <$> stateWidget False (selectTimeWidget label timeDyn)
+  deleteEventEvent <- D.dyn $ deleteTime <$> utcTimeDyn
+  deleteEvent      <- R.switchHold R.never deleteEventEvent
+  pure $ R.leftmost [deleteEvent, timeEvent]
+ where
+  deleteTime :: Maybe a -> m (R.Event t (Maybe a))
+  deleteTime Nothing = pure R.never
+  deleteTime Just{}  = do
+    event <- button "edit" $ icon "" "delete"
+    pure $ Nothing <$ event
 
 selectTimeWidget
-  :: (Widget t m, MonadReader (AppStateDyns t) m)
+  :: (StandardWidget t m r)
   => Text
   -> R.Dynamic t (Maybe ZonedTime)
   -> Bool
   -> m (R.Event t ZonedTime, R.Event t Bool)
 selectTimeWidget label timeDyn True = do
-  icon "schedule"
-  D.elClass "span" "" $ D.text label
+  D.elClass "span" "" $ D.text (label ++ ": ")
   time           <- R.sample . R.current $ timeDyn
-  currentTimeDyn <- getTime <$> ask
+  currentTimeDyn <- getTime
   currentTime    <- R.sample . R.current $ currentTimeDyn
   editEvent      <- inputDateWidget $ fromMaybe currentTime time
   pure (R.fmapMaybe id editEvent, False <$ editEvent)
@@ -89,36 +103,40 @@ showTime
   -> m (R.Event t ())
 showTime label timeDyn = do
   let showWithButton time = do
-        icon @t @m "schedule"
         D.el "span" $ D.text label
         D.text . myFormatTime $ time
-        iconButton "edit"
+        button "edit" $ icon "" "edit"
       create = do
-        event <- iconButtonClass @t @m "schedule" "edit"
-        D.elClass "span" "edit" $ D.text label
+        event <- button "edit" $ do
+          icon "" "add"
+          D.elClass "span" "edit" $ D.text label
         pure event
   eventEvent <- D.dyn $ maybe create showWithButton <$> timeDyn
   R.switchHold R.never eventEvent
 
 lineWidget :: Widget t m => R.Dynamic t Text -> m (R.Event t Text)
-lineWidget textDyn = do
-  rec editMode    <- R.holdDyn False toggleEvent
-      eventsEvent <- D.dyn $ selectWidget textDyn <$> editMode
-      textEvent   <- R.switchHold R.never (fst <$> eventsEvent)
-      toggleEvent <- R.switchHold R.never (snd <$> eventsEvent)
-  pure textEvent
+lineWidget textDyn = enterTextWidget textDyn (showText textDyn)
+
+createTextWidget :: Widget t m => m (R.Event t ()) -> m (R.Event t Text)
+createTextWidget = enterTextWidget (R.constDyn "")
+
+enterTextWidget
+  :: Widget t m => R.Dynamic t Text -> m (R.Event t ()) -> m (R.Event t Text)
+enterTextWidget textDyn altLabel =
+  stateWidget False (selectWidget textDyn altLabel)
 
 selectWidget
   :: Widget t m
   => R.Dynamic t Text
+  -> m (R.Event t ())
   -> Bool
   -> m (R.Event t Text, R.Event t Bool)
-selectWidget textDyn True = do
+selectWidget textDyn _ True = do
   textValue <- R.sample . R.current $ textDyn
   editEvent <- editText textValue
   pure (R.fmapMaybe id editEvent, False <$ editEvent)
-selectWidget textDyn False = do
-  editEvent <- showText textDyn
+selectWidget _ altLabel False = do
+  editEvent <- altLabel
   pure (R.never, True <$ editEvent)
 
 
@@ -126,32 +144,23 @@ selectWidget textDyn False = do
 showText :: Widget t m => R.Dynamic t Text -> m (R.Event t ())
 showText dynText = do
   D.dynText dynText
-  iconButtonClass "edit" "edit"
+  button "edit" $ icon "" "edit"
 
 -- ! Prompts the user for a text edit and fires an event, when the user confirms the result. Nothing is cancelation.
 editText :: Widget t m => Text -> m (R.Event t (Maybe Text))
 editText text = do
   textinput <-
     D.inputElement $ D.def D.& D.inputElementConfig_initialValue D..~ text
-  saveButton <- iconButton "save"
+  saveButton <- button "" $ icon "" "save"
   let saveEvent = Just <$> R.tagPromptlyDyn
         (D._inputElement_value textinput)
         (D.keypress D.Enter textinput <> saveButton)
-  cancelEvent <- iconButton "cancel"
+  cancelEvent <- button "" $ icon "" "cancel"
   pure $ R.leftmost [saveEvent, Nothing <$ cancelEvent]
 
-icon :: Widget t m => Text -> m ()
-icon = flip iconClass ""
+icon :: Widget t m => Text -> Text -> m ()
+icon cssClass = D.elClass "i" ("material-icons icon " ++ cssClass) . D.text
 
-iconClass :: Widget t m => Text -> Text -> m ()
-iconClass label cssClass =
-  D.elClass "i" ("material-icons " ++ cssClass) . D.text $ label
-
-iconButtonClass :: Widget t m => Text -> Text -> m (R.Event t ())
-iconButtonClass label cssClass = do
-  (elt, _) <- D.elClass' "i" ("button material-icons " ++ cssClass)
-    $ D.text label
-  pure $ D.domEvent D.Click elt
-
-iconButton :: Widget t m => Text -> m (R.Event t ())
-iconButton = flip iconButtonClass ""
+button :: Widget t m => Text -> m () -> m (R.Event t ())
+button cssClass =
+  fmap (D.domEvent D.Click . fst) . D.elClass' "span" ("button " ++ cssClass)

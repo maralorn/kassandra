@@ -9,6 +9,7 @@ import           Taskwarrior.Task               ( Task )
 import qualified Taskwarrior.Task              as Task
 import           Taskwarrior.IO                 ( getTasks
                                                 , saveTasks
+                                                , createTask
                                                 )
 import           Data.UUID                      ( UUID )
 import           Data.Aeson                     ( FromJSON
@@ -23,14 +24,7 @@ import           Data.String.Interpolate        ( i )
 import qualified Network.Simple.TCP            as Net
 import qualified Data.Maybe                    as Maybe
 import           Control.Concurrent             ( forkIO )
-import           Types                          ( StateChange
-                                                  ( ToggleEvent
-                                                  , ChangeTask
-                                                  )
-                                                , TaskState
-                                                , TaskInfos(TaskInfos)
-                                                , Widget
-                                                )
+import           Types                   hiding ( getTasks )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Util                           ( partof )
 
@@ -77,7 +71,7 @@ taskProvider changeTaskEvent = do
   (tasksEvent, newTasksCallBack) <- R.newTriggerEvent
   tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . Task.uuid)
                      HashMap.empty
-                     (R.ffilter (not . null) (tasksEvent))
+                     (R.ffilter (not . null) tasksEvent)
   void . liftIO . forkIO $ do
     putStrLn "Listening for changed or new tasks on 127.0.0.1:6545."
     Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
@@ -96,40 +90,58 @@ stateProvider
   :: (WidgetIO t m)
   => R.Event t (NonEmpty StateChange)
   -> m (R.Dynamic t TaskState)
-stateProvider stateChange = do
-  cache <- cacheProvider $ R.fmapMaybe
-    (traverse
-      (\case
-        ToggleEvent a -> Just a
-        _             -> Nothing
-      )
-    )
-    stateChange
-  tasks <- taskProvider $ R.fmapMaybe
-    (traverse
-      (\case
-        ChangeTask a -> Just a
-        _            -> Nothing
-      )
-    )
-    stateChange
-  let children =
-        ( HashMap.fromListWith (++)
-          . Maybe.mapMaybe (\(uuid, task) -> (, [uuid]) <$> partof task)
+stateProvider stateChange =
+  let toggleEvents = R.fmapMaybe
+        (traverse
+          (\case
+            ToggleEvent a b -> Just (a, b)
+            _               -> Nothing
           )
-          .   HashMap.toList
-          <$> tasks
-      taskState = do
-        innerCache    <- cache
-        innerChildren <- children
-        HashMap.mapWithKey
-            (\u t -> TaskInfos
-              t
-              (HashMap.lookupDefault False u (collapseState innerCache))
-              (HashMap.lookupDefault [] u innerChildren)
+        )
+        stateChange
+      taskChangeEvents = R.fmapMaybe
+        (traverse
+          (\case
+            ChangeTask a -> Just a
+            _            -> Nothing
+          )
+        )
+        stateChange
+      createTaskEvents = R.fmapMaybe
+        (traverse
+          (\case
+            CreateTask description handler -> Just (description, handler)
+            _                              -> Nothing
+          )
+        )
+        stateChange
+      perfomCreateTaskEvents =
+          (\list cb -> liftIO $ do
+              tasks <- mapM
+                (\(description, handler) -> handler <$> createTask description)
+                list
+              cb tasks
             )
-          <$> tasks
-  pure taskState
+            <$> createTaskEvents
+  in  do
+        createdTaskEvents <- R.performEventAsync perfomCreateTaskEvents
+        cache <- cacheProvider toggleEvents
+        tasks <- taskProvider (taskChangeEvents ++ createdTaskEvents)
+        pure $ do
+          innerCache    <- cache
+          innerChildren <-
+            ( HashMap.fromListWith (++)
+            . Maybe.mapMaybe (\(uuid, task) -> (, [uuid]) <$> partof task)
+            )
+            .   HashMap.toList
+            <$> tasks
+          HashMap.mapWithKey
+              (\u t -> TaskInfos
+                t
+                (HashMap.lookupDefault False u (collapseState innerCache))
+                (HashMap.lookupDefault [] u innerChildren)
+              )
+            <$> tasks
 
 getCache :: IO Cache
 getCache = catch
