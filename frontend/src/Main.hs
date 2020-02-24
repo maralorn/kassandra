@@ -1,81 +1,73 @@
-{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels #-}
 module Main
   ( main
   )
 where
 
-import           GHC.Generics                   ( Generic )
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import qualified Data.Aeson                    as Aeson
-import qualified Data.Maybe                    as Maybe
-import qualified Taskwarrior.Task              as Task
-import qualified Taskwarrior.Status            as Status
 import qualified Data.HashMap.Strict           as HashMap
-import           Control.Lens.Getter            ( (^.) )
-import           Data.HashMap.Strict            ( HashMap )
 import           Data.UUID                      ( UUID )
-import           Data.Time                      ( UTCTime )
 import           Data.Time.LocalTime            ( getZonedTime
                                                 , zonedTimeToUTC
                                                 , zonedTimeZone
                                                 , utcToZonedTime
                                                 )
+import           Taskwarrior.IO                 ( getUUIDs )
+import           Data.List.Extra                ( firstJust )
 import           Types
 import           ListWidget
 import           State
-import           Util
-import           ClassyPrelude
 import           Css
+import           TextEditWidget
 
-data Query = And [Query] | Or [Query] | Not Query | HasTag Text | DescriptionContains Text | Pending | CompletedAfter UTCTime | Deleted | CloseUpwards Query | Waiting | CloseDownwards Query deriving (Eq, Show, Generic, Aeson.ToJSON, Aeson.FromJSON)
+--data Query = And [Query] | Or [Query] | Not Query | HasTag Text | DescriptionContains Text | Pending | CompletedAfter UTCTime | Deleted | CloseUpwards Query | Waiting | CloseDownwards Query deriving (Eq, Show, Generic, Aeson.ToJSON, Aeson.FromJSON)
 
-filterTasks :: HashMap UUID TaskInfos -> Query -> HashMap UUID TaskInfos
-filterTasks tasks = \case
-  And queries -> foldr (HashMap.intersection . filterTasks tasks) tasks queries
-  Or     queries -> HashMap.unions . fmap (filterTasks tasks) $ queries
-  Not    query   -> HashMap.difference tasks (filterTasks tasks query)
-  HasTag tag     -> HashMap.filter (elem tag . Task.tags . task) tasks
-  DescriptionContains text ->
-    HashMap.filter (isInfixOf text . Task.description . task) tasks
-  Pending -> HashMap.filter ((Status.Pending ==) . Task.status . task) tasks
-  CompletedAfter end -> HashMap.filter (f . Task.status . task) tasks
-   where
-    f = \case
-      Status.Completed { end = e } -> e >= end
-      _                            -> False
-  Deleted -> HashMap.filter (f . Task.status . task) tasks
-   where
-    f = \case
-      Status.Deleted{} -> True
-      _                -> False
-  Waiting -> HashMap.filter (f . Task.status . task) tasks
-   where
-    f = \case
-      Status.Waiting{} -> True
-      _                -> False
-  CloseUpwards query -> HashMap.foldr (HashMap.union . addParents)
-                                      HashMap.empty
-                                      (filterTasks tasks query)
-   where
-    addParents :: TaskInfos -> HashMap UUID TaskInfos
-    addParents taskinfo =
-      HashMap.singleton (Task.uuid $ task taskinfo) taskinfo
-        `HashMap.union` maybe
-                          HashMap.empty
-                          addParents
-                          (partof (task taskinfo) >>= (`HashMap.lookup` tasks))
-  CloseDownwards query -> HashMap.foldr (HashMap.union . addChilds)
-                                        HashMap.empty
-                                        (filterTasks tasks query)
-   where
-    addChilds :: TaskInfos -> HashMap UUID TaskInfos
-    addChilds taskinfo = HashMap.unions
-      ( HashMap.singleton (Task.uuid $ task taskinfo) taskinfo
-      : fmap
-          addChilds
-          (Maybe.mapMaybe (`HashMap.lookup` tasks) $ children taskinfo)
-      )
+--filterTasks :: HashMap UUID TaskInfos -> Query -> HashMap UUID TaskInfos
+--filterTasks tasks = \case
+  --And queries -> foldr (HashMap.intersection . filterTasks tasks) tasks queries
+  --Or     queries -> HashMap.unions . fmap (filterTasks tasks) $ queries
+  --Not    query   -> HashMap.difference tasks (filterTasks tasks query)
+  --HasTag tag     -> HashMap.filter (elem tag . Task.tags . task) tasks
+  --DescriptionContains text ->
+    --HashMap.filter (isInfixOf text . Task.description . task) tasks
+  --Pending -> HashMap.filter ((Status.Pending ==) . Task.status . task) tasks
+  --CompletedAfter end -> HashMap.filter (f . Task.status . task) tasks
+   --where
+    --f = \case
+      --Status.Completed { end = e } -> e >= end
+      --_                            -> False
+  --Deleted -> HashMap.filter (f . Task.status . task) tasks
+   --where
+    --f = \case
+      --Status.Deleted{} -> True
+      --_                -> False
+  --Waiting -> HashMap.filter (f . Task.status . task) tasks
+   --where
+    --f = \case
+      --Status.Waiting{} -> True
+      --_                -> False
+  --CloseUpwards query -> HashMap.foldr (HashMap.union . addParents)
+                                      --HashMap.empty
+                                      --(filterTasks tasks query)
+   --where
+    --addParents :: TaskInfos -> HashMap UUID TaskInfos
+    --addParents taskinfo =
+      --HashMap.singleton (Task.uuid $ task taskinfo) taskinfo
+        --`HashMap.union` maybe
+                          --HashMap.empty
+                          --addParents
+                          --(partof (task taskinfo) >>= (`HashMap.lookup` tasks))
+  --CloseDownwards query -> HashMap.foldr (HashMap.union . addChilds)
+                                        --HashMap.empty
+                                        --(filterTasks tasks query)
+   --where
+    --addChilds :: TaskInfos -> HashMap UUID TaskInfos
+    --addChilds taskinfo = HashMap.unions
+      --( HashMap.singleton (Task.uuid $ task taskinfo) taskinfo : fmap
+          --addChilds
+          --(Maybe.mapMaybe (`HashMap.lookup` tasks) $ children taskinfo)
+      --)
 
 
 main :: IO ()
@@ -84,20 +76,91 @@ main = do
   D.mainWidgetWithCss (encodeUtf8 $ toStrict css) $ do
     time    <- liftIO getZonedTime
     timeDyn <-
-      fmap (utcToZonedTime (zonedTimeZone time) . (^. R.tickInfo_lastUTC))
+      fmap
+          (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
         <$> R.clockLossy 1 (zonedTimeToUTC time)
     D.text "Welcome to kassandra!"
-    rec taskState         <- stateProvider stateChanges
-        (_, stateChanges) <- R.runEventWriterT
-          $ runReaderT widgetSwitcher (AppState taskState timeDyn)
-    pure ()
+    let filterState = R.constDyn (FilterState 0 60)
+    rec
+      taskState         <- stateProvider dataChangeEvents
+      (_, stateChanges) <- R.runEventWriterT $ runReaderT
+        (do
+          taskDiagnosticsWidget
+          D.el "br" pass
+          widgetSwitcher
+        )
+        (AppState taskState timeDyn dragDyn filterState)
+      let (appChangeEvents, dataChangeEvents) =
+            R.fanThese $ partitionEithersNE <$> stateChanges
+      dragDyn <-
+        R.holdDyn NoDrag $ (\(DragChange a) -> a) . last <$> appChangeEvents
+    pass
 
-widgets :: (StandardWidget t m r) => [(Text, m ())]
-widgets = [("Lists", listsWidget)]
 
-widgetSwitcher :: forall t m r . (StandardWidget t m r) => m ()
+taskDiagnosticsWidget :: (StandardWidget t m r) => m ()
+taskDiagnosticsWidget = do
+  tasks <- getTasks
+  D.dynText $ do
+    tasksMap <- tasks
+    let uuids = HashMap.keys tasksMap
+        hasLoop :: [UUID] -> UUID -> Maybe UUID
+        hasLoop seen new | new `elem` seen = Just new
+                         | otherwise = firstJust (hasLoop (new : seen)) nexts
+          where nexts = maybe [] (^. #children) $ HashMap.lookup new tasksMap
+    pure $ firstJust (hasLoop []) uuids & \case
+      Just uuid -> "Found a loop for uuid " <> show uuid
+      Nothing   -> "" -- everything fine
+
+widgets
+  :: ( StandardWidget t m r
+     , R.PerformEvent t m
+     , MonadIO (R.Performable m)
+     , R.TriggerEvent t m
+     )
+  => [(Text, m ())]
+widgets = [("Lists", listsWidget), ("Search", searchWidget)]
+
+widgetSwitcher
+  :: forall t m r
+   . ( StandardWidget t m r
+     , R.PerformEvent t m
+     , MonadIO (R.Performable m)
+     , R.TriggerEvent t m
+     )
+  => m ()
 widgetSwitcher = do
   buttons  <- mapM (\l -> (l <$) <$> D.button (fst l)) $ widgets @t @m
-  listName <- R.holdDyn ("No list", pure ()) (R.leftmost buttons)
+  listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
   _        <- D.dyn (snd <$> listName)
-  pure ()
+  pass
+
+searchWidget
+  :: ( StandardWidget t m r
+     , R.PerformEvent t m
+     , MonadIO (R.Performable m)
+     , R.TriggerEvent t m
+     )
+  => m ()
+searchWidget = do
+  icon "" "search"
+  searchInput <- D.inputElement D.def
+  let searchText = R.tag (R.current $ D._inputElement_value searchInput)
+                         (D.keypress D.Enter searchInput)
+  uuidsEvent <-
+    R.performEventAsync
+    $   (\query cb -> liftIO (getUUIDs query >>= cb))
+    .   ("(" :)
+    .   (: [")", "+PENDING"])
+    <$> searchText
+  searchTextBeh <- R.hold "" searchText
+  uuids         <- fmap UUIDList <$> R.holdDyn [] uuidsEvent
+  message       <-
+    R.holdDyn ""
+    $   R.attachWith
+          (\text leng -> "Found " <> show leng <> " tasks matching " <> text)
+          searchTextBeh
+    $   length
+    <$> uuidsEvent
+  D.el "div" $ D.dynText message
+  listWidget uuids
+  pass

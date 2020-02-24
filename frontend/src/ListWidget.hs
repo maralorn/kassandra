@@ -1,21 +1,21 @@
-{-# LANGUAGE NamedFieldPuns, ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
 module ListWidget
   ( listsWidget
+  , listWidget
+  , TaskList(UUIDList)
   )
 where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Types
-import qualified Data.Maybe                    as Maybe
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Taskwarrior.Status            as Status
-import           ClassyPrelude
 import qualified Data.HashSet                  as HashSet
-import qualified Taskwarrior.Task              as Task
-import           Util                           ( partof )
+import           Data.UUID                      ( UUID )
+import           Types
+import           Util
 import           TaskWidget
 
-data TaskList = TagList Text | SubList [TaskList] deriving (Eq, Show, Read)
+data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
 
 listsWidget :: (StandardWidget t m r) => m ()
 listsWidget = do
@@ -29,9 +29,9 @@ listsWidget = do
     fmap TagList
       . HashSet.toList
       . fold
-      . fmap (HashSet.fromList . Task.tags)
-      . filter ((Status.Pending ==) . Task.status)
-      . fmap task
+      . fmap (HashSet.fromList . (^. #tags))
+      . filter ((Status.Pending ==) . (^. #status))
+      . (^. #task)
       . HashMap.elems
   listSelector
     :: (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
@@ -49,24 +49,30 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: TaskList -> m ()
   innerRenderList list'
+    | UUIDList uuids <- list'
+    = do
+      tasks <- getTasks
+      void
+        . D.simpleList
+            ((\tasks' -> mapMaybe (`HashMap.lookup` tasks') uuids) <$> tasks)
+        $ taskWidget
     | TagList tag <- list'
     = do
       D.text tag
-      tasks <- getTasks
-      void . D.simpleList (tasksToShow tag <$> tasks) $ taskWidget
+      tasks     <- getTasks
+      showTasks <- filterCurrent $ tasksToShow tag <$> tasks
+      let sortMode = SortModeTag tag
+      taskList (R.constant sortMode)
+               (sortTasks sortMode <$> showTasks)
+               (R.constDyn [])
     | SubList sublists <- list'
     = void . D.simpleList (D.constDyn sublists) $ listWidget
 
   tasksToShow :: Text -> TaskState -> [TaskInfos]
-  tasksToShow tag taskState =
-    Maybe.mapMaybe maybePredicate . HashMap.elems $ taskState
+  tasksToShow tag = mapMaybe maybePredicate . HashMap.elems
    where
     maybePredicate :: TaskInfos -> Maybe TaskInfos
-    maybePredicate taskInfo = if inList taskInfo && not (parentInList taskInfo)
-      then Just taskInfo
-      else Nothing
+    maybePredicate taskInfo =
+      if inList taskInfo then Just taskInfo else Nothing
     inList :: TaskInfos -> Bool
-    inList TaskInfos { task = Task.Task { tags } } = tag `elem` tags
-    parentInList :: TaskInfos -> Bool
-    parentInList TaskInfos { task } =
-      maybe False inList (partof task >>= flip HashMap.lookup taskState)
+    inList = (tag `elem`) . (^. #tags)

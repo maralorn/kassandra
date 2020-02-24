@@ -3,9 +3,9 @@ module Css
   )
 where
 
-import           ClassyPrelude           hiding ( div )
+import           Prelude                 hiding ( (&) )
 import           Clay
-import           Data.Text.Lazy                as LazyText
+import qualified Data.Text.Lazy                as LazyText
 
 
 css :: LazyText.Text
@@ -14,7 +14,19 @@ css = render $ do
     fontFamily ["B612"] []
     padding (px 0) (px 0) (px 0) (px 0)
     margin (px 0) (px 0) (px 0) (px 0)
-  body ? background (rgb 0 0 33)
+  body ? do
+    background (rgb 0 0 33)
+    color white
+  ".dropHere" ? do
+    position absolute
+    color black
+    background (rgb 255 200 20)
+  ".above" ? marginTop (em (-0.8))
+  ".tag" ? do
+    background (rgb 200 200 255)
+    borderRadius (em 0.1) (em 0.1) (em 0.1) (em 0.1)
+    padding (em 0.1) (em 0.1) (em 0.1) (em 0.1)
+    margin (em 0.1) (em 0.1) (em 0.1) (em 0.1)
   ".material-icons" ? do
     fontFamily ["Material Icons"] []
     fontWeight normal
@@ -36,6 +48,7 @@ css = render $ do
         height (em 1)
       taskMargin = em 0.5
   ".task" ? do
+    color (rgb 0 0 33)
     background white
     margin taskMargin taskMargin taskMargin taskMargin
     padding taskMargin taskMargin taskMargin taskMargin

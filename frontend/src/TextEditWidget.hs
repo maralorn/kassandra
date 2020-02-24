@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables, ViewPatterns #-}
 module TextEditWidget
   ( lineWidget
   , icon
@@ -7,10 +7,13 @@ module TextEditWidget
   , createTextWidget
   )
 where
-import           ClassyPrelude
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Types
+import           Data.Time                      ( formatTime
+                                                , defaultTimeLocale
+                                                , parseTimeM
+                                                , UTCTime
+                                                )
 import           Data.Time.LocalTime            ( ZonedTime
                                                 , zonedTimeZone
                                                 , utcToZonedTime
@@ -18,16 +21,16 @@ import           Data.Time.LocalTime            ( ZonedTime
                                                 , LocalTime
                                                 , zonedTimeToLocalTime
                                                 )
+import           Types
 
 myFormatTime :: ZonedTime -> Text
-myFormatTime = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
+myFormatTime = toText . formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
 
 myParseTime :: Text -> Either String LocalTime
-myParseTime t =
-  maybe (Left ("'" ++ text ++ "' cannot be parsed as '%Y-%m-%d %H:%M'.")) Right
+myParseTime ((^. unpacked) -> t) =
+  maybeToRight ("'" <> t <> "' cannot be parsed as '%Y-%m-%d %H:%M'.")
     . parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
-    $ text
-  where text = unpack t
+    $ t
 
 inputDateWidget
   :: forall t m . Widget t m => ZonedTime -> m (R.Event t (Maybe ZonedTime))
@@ -37,7 +40,7 @@ inputDateWidget time = do
   let cancelEvent            = Nothing <$ R.ffilter isNothing textMayEvent
       textEvent              = R.fmapMaybe id textMayEvent
       (failEvent, timeEvent) = R.fanEither $ myParseTime <$> textEvent
-  warning <- R.holdDyn "" $ pack <$> failEvent
+  warning <- R.holdDyn "" $ toText <$> failEvent
   D.elClass "span" "warning" $ D.dynText warning
   pure $ R.leftmost
     [ Just . (\t -> time { zonedTimeToLocalTime = t }) <$> timeEvent
@@ -85,7 +88,7 @@ selectTimeWidget
   -> Bool
   -> m (R.Event t ZonedTime, R.Event t Bool)
 selectTimeWidget label timeDyn True = do
-  D.elClass "span" "" $ D.text (label ++ ": ")
+  D.elClass "span" "" $ D.text (label <> ": ")
   time           <- R.sample . R.current $ timeDyn
   currentTimeDyn <- getTime
   currentTime    <- R.sample . R.current $ currentTimeDyn
@@ -102,17 +105,16 @@ showTime
   -> R.Dynamic t (Maybe ZonedTime)
   -> m (R.Event t ())
 showTime label timeDyn = do
-  let showWithButton time = do
-        D.el "span" $ D.text label
-        D.text . myFormatTime $ time
-        button "edit" $ icon "" "edit"
-      create = do
-        event <- button "edit" $ do
-          icon "" "add"
-          D.elClass "span" "edit" $ D.text label
-        pure event
   eventEvent <- D.dyn $ maybe create showWithButton <$> timeDyn
   R.switchHold R.never eventEvent
+ where
+  showWithButton time = do
+    D.el "span" $ D.text label
+    D.text . myFormatTime $ time
+    button "edit" $ icon "" "edit"
+  create = button "edit" $ do
+    icon "" "add"
+    D.elClass "span" "edit" $ D.text label
 
 lineWidget :: Widget t m => R.Dynamic t Text -> m (R.Event t Text)
 lineWidget textDyn = enterTextWidget textDyn (showText textDyn)
@@ -159,8 +161,8 @@ editText text = do
   pure $ R.leftmost [saveEvent, Nothing <$ cancelEvent]
 
 icon :: Widget t m => Text -> Text -> m ()
-icon cssClass = D.elClass "i" ("material-icons icon " ++ cssClass) . D.text
+icon cssClass = D.elClass "i" ("material-icons icon " <> cssClass) . D.text
 
 button :: Widget t m => Text -> m () -> m (R.Event t ())
 button cssClass =
-  fmap (D.domEvent D.Click . fst) . D.elClass' "span" ("button " ++ cssClass)
+  fmap (D.domEvent D.Click . fst) . D.elClass' "span" ("button " <> cssClass)

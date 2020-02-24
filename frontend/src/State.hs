@@ -1,12 +1,10 @@
-{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels #-}
 module State
   ( stateProvider
   )
 where
 
-import           ClassyPrelude
 import           Taskwarrior.Task               ( Task )
-import qualified Taskwarrior.Task              as Task
 import           Taskwarrior.IO                 ( getTasks
                                                 , saveTasks
                                                 , createTask
@@ -22,11 +20,23 @@ import qualified Data.HashMap.Strict           as HashMap
 import qualified Reflex                        as R
 import           Data.String.Interpolate        ( i )
 import qualified Network.Simple.TCP            as Net
-import qualified Data.Maybe                    as Maybe
 import           Control.Concurrent             ( forkIO )
-import           Types                   hiding ( getTasks )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Util                           ( partof )
+import qualified Data.Dependent.Map            as DMap
+import qualified Data.GADT.Compare.TH          as TH
+import           Control.Exception              ( IOException
+                                                , catch
+                                                )
+import           Types                   hiding ( getTasks )
+
+data FanTag a where
+   ToggleEventTag ::FanTag (NonEmpty (UUID, Bool))
+   ChangeTaskTag ::FanTag (NonEmpty Task)
+   CreateTaskTag ::FanTag (NonEmpty (Text, Task -> Task))
+
+TH.deriveGEq ''FanTag
+TH.deriveGCompare ''FanTag
 
 newtype Cache = Cache { collapseState :: HashMap UUID Bool } deriving (Show, Read, Eq, Generic, ToJSON, FromJSON)
 
@@ -42,18 +52,18 @@ cacheProvider
   => R.Event t (NonEmpty (UUID, Bool))
   -> m (R.Dynamic t Cache)
 cacheProvider toggleEvent = do
-  rec firstCache    <- liftIO getCache
-      cache         <- R.holdDyn firstCache newCacheEvent
-      newCacheEvent <- R.performEventAsync $ R.attachPromptlyDynWith
-        (\Cache { collapseState } newPairs cb -> do
+  firstCache <- liftIO getCache
+  rec cache         <- R.holdDyn firstCache newCacheEvent
+      newCacheEvent <- R.performEventAsync $ R.attachWith
+        (\Cache { collapseState } newPairs cb -> liftIO $ do
           let newCache = Cache $ foldr
                 (\(key, value) object -> HashMap.insert key value object)
                 collapseState
                 newPairs
-          void . liftIO . forkIO $ Aeson.encodeFile cacheFile newCache
-          liftIO $ cb newCache
+          void . forkIO $ Aeson.encodeFile cacheFile newCache
+          cb newCache
         )
-        cache
+        (R.current cache)
         toggleEvent
   pure cache
 
@@ -68,80 +78,81 @@ taskProvider changeTaskEvent = do
     .   saveTasks
     .   NonEmpty.toList
     <$> changeTaskEvent
-  (tasksEvent, newTasksCallBack) <- R.newTriggerEvent
-  tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . Task.uuid)
+  (tasksEvent :: R.Event t (NonEmpty Task), newTasksCallBack) <-
+    R.newTriggerEvent
+  tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . (^. #uuid))
                      HashMap.empty
-                     (R.ffilter (not . null) tasksEvent)
-  void . liftIO . forkIO $ do
+                     (changeTaskEvent <> tasksEvent)
+  liftIO $ do
+    void . forkIO $ getTasks [] >>= maybe pass newTasksCallBack . nonEmpty
     putStrLn "Listening for changed or new tasks on 127.0.0.1:6545."
-    Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
+    void . forkIO $ Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
       Net.recv socket 4096 >>= maybe
         (putStrLn "Unsuccessful connection attempt.")
         (\changes ->
           either
               (\err -> putStrLn [i|Couldn‘t decode #{changes} as Task: #{err}|])
-              (newTasksCallBack . singleton)
+              (newTasksCallBack . pure)
             $ Aeson.eitherDecodeStrict @Task changes
         )
-  void . liftIO . forkIO $ (getTasks [] >>= newTasksCallBack)
   R.holdUniqDyn tasks
 
+getParents :: HashMap UUID Task -> UUID -> [UUID]
+getParents tasks = go [] (\uuid -> partof =<< HashMap.lookup uuid tasks)
+ where
+  go :: Eq a => [a] -> (a -> Maybe a) -> a -> [a]
+  go accu f x | x `elem` accu    = []
+              | Just next <- f x = next : go (x : accu) f next
+              | otherwise        = []
+
 stateProvider
-  :: (WidgetIO t m)
-  => R.Event t (NonEmpty StateChange)
+  :: forall t m
+   . (WidgetIO t m)
+  => R.Event t (NonEmpty DataChange)
   -> m (R.Dynamic t TaskState)
-stateProvider stateChange =
-  let toggleEvents = R.fmapMaybe
-        (traverse
-          (\case
-            ToggleEvent a b -> Just (a, b)
-            _               -> Nothing
-          )
+stateProvider stateChange = do
+  createdTaskEvents <-
+    R.performEventAsync
+    $   (\list cb -> liftIO $ do
+          tasks <- mapM
+            (\(description, handler) -> handler <$> createTask description)
+            list
+          cb tasks
         )
-        stateChange
-      taskChangeEvents = R.fmapMaybe
-        (traverse
-          (\case
-            ChangeTask a -> Just a
-            _            -> Nothing
-          )
-        )
-        stateChange
-      createTaskEvents = R.fmapMaybe
-        (traverse
-          (\case
-            CreateTask description handler -> Just (description, handler)
-            _                              -> Nothing
-          )
-        )
-        stateChange
-      perfomCreateTaskEvents =
-          (\list cb -> liftIO $ do
-              tasks <- mapM
-                (\(description, handler) -> handler <$> createTask description)
-                list
-              cb tasks
-            )
-            <$> createTaskEvents
-  in  do
-        createdTaskEvents <- R.performEventAsync perfomCreateTaskEvents
-        cache <- cacheProvider toggleEvents
-        tasks <- taskProvider (taskChangeEvents ++ createdTaskEvents)
-        pure $ do
-          innerCache    <- cache
-          innerChildren <-
-            ( HashMap.fromListWith (++)
-            . Maybe.mapMaybe (\(uuid, task) -> (, [uuid]) <$> partof task)
-            )
-            .   HashMap.toList
-            <$> tasks
-          HashMap.mapWithKey
-              (\u t -> TaskInfos
-                t
-                (HashMap.lookupDefault False u (collapseState innerCache))
-                (HashMap.lookupDefault [] u innerChildren)
-              )
-            <$> tasks
+    <$> R.select fannedEvent CreateTaskTag
+  cache <- cacheProvider $ R.select fannedEvent ToggleEventTag
+  tasks <-
+    taskProvider $ R.select fannedEvent ChangeTaskTag <> createdTaskEvents
+  pure $ R.zipDynWith buildTaskInfosMap tasks cache
+ where
+  mapToMap = \case
+    ToggleEvent a b -> DMap.singleton ToggleEventTag (Identity $ pure (a, b))
+    ChangeTask a    -> DMap.singleton ChangeTaskTag (Identity $ pure a)
+    CreateTask a b  -> DMap.singleton CreateTaskTag (Identity $ pure (a, b))
+  proofAdd :: FanTag a -> Identity a -> Identity a -> Identity a
+  proofAdd = liftA2 . \case
+    ToggleEventTag -> (<>)
+    ChangeTaskTag  -> (<>)
+    CreateTaskTag  -> (<>)
+  fannedEvent =
+    R.fan
+      $   DMap.unionsWithKey proofAdd
+      .   fmap mapToMap
+      .   NonEmpty.toList
+      <$> stateChange
+  buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
+  buildChildrenMap =
+    HashMap.fromListWith (++)
+      . mapMaybe (\(uuid, task) -> (, pure uuid) <$> partof task)
+      . HashMap.toList
+  buildTaskInfosMap tasks cache = HashMap.mapWithKey
+    (\u t -> TaskInfos t
+                       (HashMap.lookupDefault False u (collapseState cache))
+                       (HashMap.lookupDefault [] u childrenMap)
+                       (getParents tasks u)
+    )
+    tasks
+    where childrenMap = buildChildrenMap tasks
 
 getCache :: IO Cache
 getCache = catch
