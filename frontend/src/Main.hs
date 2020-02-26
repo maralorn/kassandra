@@ -20,6 +20,7 @@ import           ListWidget
 import           State
 import           Css
 import           TextEditWidget
+import           TaskWidget                     ( taskWidget )
 
 --data Query = And [Query] | Or [Query] | Not Query | HasTag Text | DescriptionContains Text | Pending | CompletedAfter UTCTime | Deleted | CloseUpwards Query | Waiting | CloseDownwards Query deriving (Eq, Show, Generic, Aeson.ToJSON, Aeson.FromJSON)
 
@@ -86,8 +87,9 @@ main = do
       (_, stateChanges) <- R.runEventWriterT $ runReaderT
         (do
           taskDiagnosticsWidget
-          D.el "br" pass
-          widgetSwitcher
+          D.divClass "container" $ do
+            D.divClass "pane" $ widgetSwitcher
+            D.divClass "pane" $ widgetSwitcher
         )
         (AppState taskState timeDyn dragDyn filterState)
       let (appChangeEvents, dataChangeEvents) =
@@ -118,7 +120,13 @@ widgets
      , R.TriggerEvent t m
      )
   => [(Text, m ())]
-widgets = [("Lists", listsWidget), ("Search", searchWidget)]
+widgets =
+  [ ("Next"    , nextWidget)
+  , ("Lists"   , listsWidget)
+  , ("Search"  , searchWidget)
+  , ("Inbox"   , inboxWidget)
+  , ("Unsorted", unsortedWidget)
+  ]
 
 widgetSwitcher
   :: forall t m r
@@ -128,11 +136,71 @@ widgetSwitcher
      , R.TriggerEvent t m
      )
   => m ()
+
 widgetSwitcher = do
   buttons  <- mapM (\l -> (l <$) <$> D.button (fst l)) $ widgets @t @m
   listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
   _        <- D.dyn (snd <$> listName)
   pass
+
+filterInbox :: TaskState -> [TaskInfos]
+filterInbox tasks =
+  sortOn (^. #modified) . filter inInbox . HashMap.elems $ tasks
+ where
+  inInbox :: TaskInfos -> Bool
+  inInbox taskInfos =
+    has (#tags % _Empty) taskInfos
+      && has (#status % #_Pending) taskInfos
+      && has (#children % _Empty)  taskInfos
+      && (  has _Empty
+         .  filter (`notElem` ["kategorie", "project", "root"])
+         .  join
+         $  (lookupTasks tasks (taskInfos ^. #parents))
+         ^. #tags
+         )
+      && ( has _Empty
+         . filter (isn't (#status % #_Completed))
+         . filter (isn't (#status % #_Deleted))
+         $ lookupTasks tasks (taskInfos ^. #depends)
+         )
+
+lookupTasks :: TaskState -> [UUID] -> [TaskInfos]
+lookupTasks tasks = mapMaybe (\uuid -> tasks ^. at uuid)
+
+nextWidget :: (StandardWidget t m r) => m ()
+nextWidget = do
+  inboxTasks <- fmap filterInbox <$> getTasks
+  D.dynText
+    $   (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
+    <$> inboxTasks
+  void . flip R.simpleList taskWidget $ take 1 <$> inboxTasks
+
+inboxWidget :: (StandardWidget t m r) => m ()
+inboxWidget = do
+  inboxTasks <- fmap filterInbox <$> getTasks
+  D.dynText
+    $   (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
+    <$> inboxTasks
+  void . flip R.simpleList taskWidget $ inboxTasks
+
+unsortedWidget :: (StandardWidget t m r) => m ()
+unsortedWidget = do
+  unsortedTasks <-
+    fmap
+        ( filter
+            (\task ->
+              "root"
+                `notElem` (task ^. #tags)
+                &&        has (#partof % _Nothing)  task
+                &&        has (#status % #_Pending) task
+            )
+        . HashMap.elems
+        )
+      <$> getTasks
+  D.dynText
+    $   (\x -> "There are " <> show (length x) <> " unsorted tasks.")
+    <$> unsortedTasks
+  void . flip R.simpleList taskWidget $ unsortedTasks
 
 searchWidget
   :: ( StandardWidget t m r

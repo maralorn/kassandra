@@ -23,6 +23,8 @@ listsWidget = do
   D.text "Select a list"
   list <- listSelector (getLists <$> taskState)
   listWidget list
+
+
  where
   getLists :: TaskState -> [TaskList]
   getLists =

@@ -1,7 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, ViewPatterns, OverloadedLabels, QuasiQuotes, TemplateHaskell #-}
 module Util
-  ( partof
-  , filterCurrent
+  ( filterCurrent
   , droppableElementConfig
   , taskDropArea
   , tellSingleton
@@ -40,8 +39,6 @@ declareFieldLabels [d|data SortPosition t = SortPosition {
     before :: R.Behavior t (Maybe UUID)
 };|]
 
-partof :: Task -> Maybe UUID
-partof t = (^? #_Success) . Aeson.fromJSON =<< t ^. #uda % at "partof"
 
 tellSingleton
   :: (R.Reflex t, R.EventWriter t (NonEmpty event) m) => R.Event t event -> m ()
@@ -136,11 +133,11 @@ setSortOrder :: SortMode -> Double -> Task -> Task
 setSortOrder mode val = #uda %~ at (sortFieldName mode) ?~ Aeson.toJSON val
 
 taskInList :: SortMode -> Task -> Bool
-taskInList (SortModePartof uuid) = (Just uuid ==) . partof
+taskInList (SortModePartof uuid) = (Just uuid ==) . (^. #partof)
 taskInList (SortModeTag    tag ) = elem tag . Task.tags
 
 insertInList :: SortMode -> Task -> Task
-insertInList (SortModePartof uuid) = #uda %~ at "partof" ?~ Aeson.toJSON uuid
+insertInList (SortModePartof uuid) = #partof ?~ uuid
 insertInList (SortModeTag    tag ) = #tags %~ addTag
  where
   addTag tags | tag `elem` tags = tags
@@ -174,15 +171,15 @@ applyUntil f condition x | condition x = x
                          | otherwise   = applyUntil f condition (f x)
 
 minOrder, maxOrder, minDist, minTouchedDist :: Double
-minOrder = -(10 ** 8)
+minOrder = -1
 maxOrder = -minOrder
-minDist = 10 ** (-8)
-minTouchedDist = 1
+minDist = 10 ** (-6)
+minTouchedDist = (10 ** (-3))
 
 
-tasksSorted :: Double -> [(a, SortState)] -> Bool
+tasksSorted :: Show a => Double -> [(a, SortState)] -> Bool
 tasksSorted = isSortedOn (newValue . (^. _2))
-isSortedOn :: (a -> Double) -> Double -> [a] -> Bool
+isSortedOn :: Show a => (a -> Double) -> Double -> [a] -> Bool
 isSortedOn f delta = \case
   []           -> True
   [_         ] -> True

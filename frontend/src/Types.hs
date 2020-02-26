@@ -1,5 +1,4 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances, OverloadedLabels, TypeApplications, RankNTypes #-}
+{-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances, OverloadedLabels, TypeApplications #-}
 module Types
   ( Widget
   , ViewWidget
@@ -18,7 +17,6 @@ module Types
   , getFilterState
   , getDragState
   , HasAppState(appState)
-  , fg
   , fl
   )
 where
@@ -33,6 +31,9 @@ import           Taskwarrior.Status             ( Status )
 import           Control.Monad.Reader           ( MonadReader )
 import           Data.Time.LocalTime            ( ZonedTime )
 import           Data.Time.Clock                ( NominalDiffTime )
+import           Data.Aeson                     ( toJSON
+                                                , fromJSON
+                                                )
 type Widget t m
   = ( D.DomBuilder t m
     , D.DomBuilderSpace m ~ D.GhcjsDomSpace
@@ -57,36 +58,52 @@ data AppState t = AppState { _taskState :: R.Dynamic t TaskState, _currentTime :
 
 makeClassy ''AppState
 
-fg :: Functor f => (Optic' A_Getter is s a -> Getter (f s) (f a))
-fg a = to (fmap (^. a))
+fl :: (Functor f, Is k A_Getter) => (Optic' k is s a -> Getter (f s) (f a))
+fl a = to . fmap $ view a
 
-fl :: Functor f => (Optic' A_Lens is s a -> Getter (f s) (f a))
-fl a = to (fmap (^. a))
-
+instance LabelOptic "partof" A_Lens Task Task (Maybe UUID) (Maybe UUID) where
+  labelOptic = lens
+    (\task -> (^? #_Success) . fromJSON =<< (^. #uda % at "partof") task)
+    (\task uuid -> #uda % at "partof" .~ (toJSON <$> uuid) $ task)
+instance LabelOptic "description" A_Lens TaskInfos TaskInfos Text Text where
+  labelOptic = #task % #description
 instance LabelOptic "uuid" A_Lens TaskInfos TaskInfos UUID UUID where
   labelOptic = #task % #uuid
 instance LabelOptic "tags" A_Lens TaskInfos TaskInfos [Text] [Text] where
   labelOptic = #task % #tags
 instance LabelOptic "status" A_Lens TaskInfos TaskInfos Status Status where
   labelOptic = #task % #status
+instance LabelOptic "partof" A_Lens TaskInfos TaskInfos (Maybe UUID) (Maybe UUID) where
+  labelOptic = #task % #partof
+instance LabelOptic "modified" A_Lens TaskInfos TaskInfos (Maybe UTCTime) (Maybe UTCTime) where
+  labelOptic = #task % #modified
+instance LabelOptic "depends" A_Lens TaskInfos TaskInfos [UUID] [UUID] where
+  labelOptic = #task % #depends
 instance Field1 s t a b =>LabelOptic "_1" A_Lens s t a b where
   labelOptic = _1
 instance Field2 s t a b =>LabelOptic "_2" A_Lens s t a b where
   labelOptic = _2
-instance (Functor f, LabelOptic "status" g s s a a, c ~ f a, d ~ f a) => LabelOptic "status" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"status")
-instance (Functor f, LabelOptic "showChildren" g s s a a, c ~ f a, d ~ f a) => LabelOptic "showChildren" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"showChildren")
-instance (Functor f, LabelOptic "uuid" g s s a a, c ~ f a, d ~ f a) => LabelOptic "uuid" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"uuid")
-instance (Functor f, LabelOptic "children" g s s a a, c ~ f a, d ~ f a) => LabelOptic "children" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"children")
-instance (Functor f, LabelOptic "task" g s s a a, c ~ f a, d ~ f a) => LabelOptic "task" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"task")
-instance (Functor f, LabelOptic "parents" g s s a a, c ~ f a, d ~ f a) => LabelOptic "parents" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"parents")
-instance (Functor f, LabelOptic "description" g s s a a, c ~ f a, d ~ f a) => LabelOptic "description" A_Getter (f s) (f s) c d where
-  labelOptic = to (^. fromLabel @"description")
+instance (Functor f, Is k A_Getter,LabelOptic "status" k s s a a, c ~ f a, d ~ f a) => LabelOptic "status" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"status"
+instance (Functor f, Is k A_Getter,LabelOptic "showChildren" k s s a a, c ~ f a, d ~ f a) => LabelOptic "showChildren" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"showChildren"
+instance (Functor f, Is k A_Getter,LabelOptic "uuid" k s s a a, c ~ f a, d ~ f a) => LabelOptic "uuid" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"uuid"
+instance (Functor f, Is k A_Getter,LabelOptic "children" k s s a a, c ~ f a, d ~ f a) => LabelOptic "children" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"children"
+instance (Functor f, Is k A_Getter,LabelOptic "task" k s s a a, c ~ f a, d ~ f a) => LabelOptic "task" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"task"
+instance (Functor f, Is k A_Getter,LabelOptic "parents" k s s a a, c ~ f a, d ~ f a) => LabelOptic "parents" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"parents"
+instance (Functor f, Is k A_Getter,LabelOptic "description" k s s a a, c ~ f a, d ~ f a) => LabelOptic "description" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"description"
+instance (Functor f, Is k A_Getter,LabelOptic "partof" k s s a a, c ~ f a, d ~ f a) => LabelOptic "partof" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"partof"
+instance (Functor f, Is k A_Getter,LabelOptic "tags" k s s a a, c ~ f a, d ~ f a) => LabelOptic "tags" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"tags"
+instance (Functor f, Is k A_Getter,LabelOptic "depends" k s s a a, c ~ f a, d ~ f a) => LabelOptic "depends" A_Getter (f s) (f s) c d where
+  labelOptic = fl $ fromLabel @"depends"
+
 instance (R.Reflex t, c ~ R.Behavior t a) => LabelOptic "current" A_Getter (R.Dynamic t a) (R.Dynamic t a) c c where
   labelOptic = to R.current
 

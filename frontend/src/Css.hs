@@ -17,6 +17,8 @@ css = render $ do
   body ? do
     background (rgb 0 0 33)
     color white
+  ".container" ? do
+    display flex
   ".dropHere" ? do
     position absolute
     color black

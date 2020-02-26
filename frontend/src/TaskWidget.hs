@@ -63,6 +63,7 @@ taskWidget taskInfos' = D.divClass "task" $ do
     waitWidget
     dueWidget
     deleteButton
+    parentButton
     childrenWidget
     completedWidget
 
@@ -167,7 +168,7 @@ taskList mode childrenD blacklistD = do
 
 tellTask :: TaskWidget t m r => (Task -> a -> Task) -> R.Event t a -> m ()
 tellTask handler ev = do
-  task <- getTaskInfos ^. #task % fg #current
+  task <- getTaskInfos ^. #task % fl #current
   tellSingleton . R.attachWith (((Right . ChangeTask) .) . handler) task $ ev
 
 waitWidget :: forall t m r . TaskWidget t m r => m ()
@@ -203,10 +204,20 @@ tellStatusByTime handler ev = do
 tellStatus :: TaskWidget t m r => R.Event t Status -> m ()
 tellStatus = tellTask (\task status -> task { Task.status })
 
+parentButton :: forall t m r . TaskWidget t m r => m ()
+parentButton = do
+  task <- getTaskInfos ^. #task
+  D.dyn_ $ widget . isn't (#partof % _Nothing) <$> task
+ where
+  widget :: Bool -> m ()
+  widget x = when x $ do
+    event <- button "edit" (icon "" "layers_clear")
+    tellTask (\task () -> (#partof .~ Nothing) task) event
+
 deleteButton :: forall t m r . TaskWidget t m r => m ()
 deleteButton = do
   task <- getTaskInfos ^. #task
-  D.dyn_ $ deleteWidget . Task.status <$> task
+  D.dyn_ $ deleteWidget <$> task ^. #status
  where
   deleteWidget :: Status -> m ()
   deleteWidget (Status.Deleted time) = do

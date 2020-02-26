@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels #-}
+{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels, ViewPatterns #-}
 module State
   ( stateProvider
   )
@@ -22,7 +22,6 @@ import           Data.String.Interpolate        ( i )
 import qualified Network.Simple.TCP            as Net
 import           Control.Concurrent             ( forkIO )
 import           Control.Monad.IO.Class         ( MonadIO )
-import           Util                           ( partof )
 import qualified Data.Dependent.Map            as DMap
 import qualified Data.GADT.Compare.TH          as TH
 import           Control.Exception              ( IOException
@@ -98,9 +97,9 @@ taskProvider changeTaskEvent = do
   R.holdUniqDyn tasks
 
 getParents :: HashMap UUID Task -> UUID -> [UUID]
-getParents tasks = go [] (\uuid -> partof =<< HashMap.lookup uuid tasks)
+getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
  where
-  go :: Eq a => [a] -> (a -> Maybe a) -> a -> [a]
+  go :: (Eq a, Show a) => [a] -> (a -> Maybe a) -> a -> [a]
   go accu f x | x `elem` accu    = []
               | Just next <- f x = next : go (x : accu) f next
               | otherwise        = []
@@ -143,7 +142,7 @@ stateProvider stateChange = do
   buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
   buildChildrenMap =
     HashMap.fromListWith (++)
-      . mapMaybe (\(uuid, task) -> (, pure uuid) <$> partof task)
+      . mapMaybe (\(uuid, task) -> (, pure uuid) <$> task ^. #partof)
       . HashMap.toList
   buildTaskInfosMap tasks cache = HashMap.mapWithKey
     (\u t -> TaskInfos t
