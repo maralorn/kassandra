@@ -2,3 +2,10 @@
 .ghc.environment.x86_64-linux-8.6.5
 dist-newstyle
 dist
+result
+result-*
+result-android
+result-ios
+result-exe
+.attr-cache
+ghcid-output.txt
