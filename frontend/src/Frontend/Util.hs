@@ -174,7 +174,7 @@ minOrder, maxOrder, minDist, minTouchedDist :: Double
 minOrder = -1
 maxOrder = -minOrder
 minDist = 10 ** (-6)
-minTouchedDist = (10 ** (-3))
+minTouchedDist = 10 ** (-3)
 
 
 tasksSorted :: Show a => Double -> [(a, SortState)] -> Bool

@@ -55,7 +55,7 @@ partitionEithersNE (x :| xs) = case (x, ls, rs) of
   where (ls, rs) = partitionEithers xs
 
 -- (lensField .~ noPrefixNamer $ fieldLabelsRules) == noPrefixFieldLabels but only in optics-th 0.2
-makeFieldLabelsWith (lensField .~ (const (const (one . TopName))) $ fieldLabelsRules) ''Task.Task
-makeFieldLabelsWith (lensField .~ (const (const (one . TopName))) $ fieldLabelsRules) ''Status.Status
+makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task.Task
+makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status.Status
 makePrismLabels ''Status.Status
 makePrismLabels ''Aeson.Result

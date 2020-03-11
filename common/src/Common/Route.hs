@@ -1,8 +1,6 @@
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -29,13 +27,13 @@ import           Obelisk.Route.TH
 
 data BackendRoute :: Type -> Type where
   -- | Used to handle unparseable routes.
-  BackendRoute_Missing ::BackendRoute ()
-  BackendRoute_Socket ::BackendRoute ()
+  BackendRouteMissing ::BackendRoute ()
+  BackendRouteSocket ::BackendRoute ()
   -- You can define any routes that will be handled specially by the backend here.
   -- i.e. These do not serve the frontend, but do something different, such as serving static files.
 
 data FrontendRoute :: Type -> Type where
-  FrontendRoute_Main ::FrontendRoute ()
+  FrontendRouteMain ::FrontendRoute ()
   -- This type is used to define frontend routes, i.e. ones for which the backend will serve the frontend.
 
 fullRouteEncoder
@@ -45,13 +43,13 @@ fullRouteEncoder
        (R (FullRoute BackendRoute FrontendRoute))
        PageName
 fullRouteEncoder = mkFullRouteEncoder
-  (FullRoute_Backend BackendRoute_Missing :/ ())
+  (FullRoute_Backend BackendRouteMissing :/ ())
   (\case
-    BackendRoute_Missing -> PathSegment "missing" $ unitEncoder mempty
-    BackendRoute_Socket  -> PathSegment "socket" $ unitEncoder mempty
+    BackendRouteMissing -> PathSegment "missing" $ unitEncoder mempty
+    BackendRouteSocket  -> PathSegment "socket" $ unitEncoder mempty
   )
   (\case
-    FrontendRoute_Main -> PathEnd $ unitEncoder mempty
+    FrontendRouteMain -> PathEnd $ unitEncoder mempty
   )
 
 concat <$> mapM deriveRouteComponent

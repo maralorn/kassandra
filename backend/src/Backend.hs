@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase, PatternSynonyms, QuasiQuotes #-}
+{-# LANGUAGE LambdaCase, PatternSynonyms #-}
 module Backend
   ( backend
   )
@@ -16,8 +16,8 @@ import           Common.Api                     ( SocketMessage(TaskUpdates)
                                                 , SocketRequest
                                                 )
 import           Common.Route                   ( BackendRoute
-                                                  ( BackendRoute_Socket
-                                                  , BackendRoute_Missing
+                                                  ( BackendRouteSocket
+                                                  , BackendRouteMissing
                                                   )
                                                 , FrontendRoute
                                                 , fullRouteEncoder
@@ -37,11 +37,11 @@ backend = Backend { _backend_run          = \serve -> serve backendSnaplet
 
 backendSnaplet :: MonadSnap m => R BackendRoute -> m ()
 backendSnaplet = \case
-  BackendRoute_Socket  :/ () -> runWebSocketsSnap runSocket
-  BackendRoute_Missing :/ () -> pass
+  BackendRouteSocket  :/ () -> runWebSocketsSnap runSocket
+  BackendRouteMissing :/ () -> pass
 
 runSocket :: ServerApp
-runSocket = \pendingConnection -> do
+runSocket pendingConnection = do
   putStrLn "Connected!"
   connection <- acceptRequest pendingConnection
   forkPingThread connection 30

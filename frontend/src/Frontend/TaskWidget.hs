@@ -87,8 +87,7 @@ dropChildWidget = do
       showDropArea = \case
         True  -> dropArea
         False -> D.blank
-  D.dyn_ $ taskInfosD ^. #showChildren ^. to (showDropArea . not <$>)
-
+  D.dyn_ $ taskInfosD ^. (#showChildren % to (showDropArea . not <$>))
 
 tagsWidget :: forall t m r . TaskWidget t m r => m ()
 tagsWidget = do
@@ -105,7 +104,6 @@ tagsWidget = do
       tellTask
         (\task () -> task { Task.tags = filter (tag /=) $ Task.tags task })
         deleteEvent
-
 
 getNewUDA :: forall t m r . TaskWidget t m r => m (R.Behavior t UDA)
 getNewUDA =
@@ -161,7 +159,7 @@ taskList mode childrenD blacklistD = do
                      (ignoreD <> blacklistD)
           $ icon "dropHere above" "forward"
         taskWidget $ childD ^. fl _1
-  let ignoreD = (^.. folded) . (lastOf folded) <$> childrenD ^. #uuid
+  let ignoreD = (^.. folded) . lastOf folded <$> childrenD ^. #uuid
   taskDropArea (partialSortPosition (R.constant Nothing))
                (ignoreD <> blacklistD)
     $ icon "dropHere above" "forward"

@@ -71,7 +71,7 @@ fl a = to . fmap $ view a
 
 instance LabelOptic "partof" A_Lens Task Task (Maybe UUID) (Maybe UUID) where
   labelOptic = lens
-    (\task -> (^? #_Success) . fromJSON =<< (^. #uda % at "partof") task)
+    ((^. #uda % at "partof") >=> (^? #_Success) . fromJSON)
     (\task uuid -> #uda % at "partof" .~ (toJSON <$> uuid) $ task)
 instance LabelOptic "description" A_Lens TaskInfos TaskInfos Text Text where
   labelOptic = #task % #description

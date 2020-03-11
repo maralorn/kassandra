@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main
   ( main
   )
@@ -11,5 +11,5 @@ import           Frontend.Css                   ( css )
 
 main :: IO ()
 main = do
-  putStrLn "Started kassandra"
+  putTextLn "Started kassandra"
   D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget ioStateProvider

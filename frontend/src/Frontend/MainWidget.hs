@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels, ViewPatterns #-}
+{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels#-}
 module Frontend.MainWidget
   ( mainWidget
   )
@@ -28,8 +28,8 @@ mainWidget stateProvider = do
       (do
         taskDiagnosticsWidget
         D.divClass "container" $ do
-          D.divClass "pane" $ widgetSwitcher
-          D.divClass "pane" $ widgetSwitcher
+          D.divClass "pane" widgetSwitcher
+          D.divClass "pane" widgetSwitcher
       )
       (AppState taskState timeDyn dragDyn filterState)
     let (appChangeEvents, dataChangeEvents) =
@@ -94,7 +94,7 @@ filterInbox tasks =
       && (  has _Empty
          .  filter (`notElem` ["kategorie", "project", "root"])
          .  join
-         $  (lookupTasks tasks (taskInfos ^. #parents))
+         $  lookupTasks tasks (taskInfos ^. #parents)
          ^. #tags
          )
       && ( has _Empty
