@@ -1,7 +1,5 @@
 packages:
   common/
-  backend/
-  frontend/
   standalone/
   ../haskell-taskwarrior/taskwarrior.cabal
 

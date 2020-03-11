@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, ViewPatterns, OverloadedLabels, QuasiQuotes, TemplateHaskell #-}
-module Util
+module Frontend.Util
   ( filterCurrent
   , droppableElementConfig
   , taskDropArea
@@ -25,7 +25,7 @@ import           Data.Time.Clock                ( addUTCTime )
 import qualified Taskwarrior.Status            as Status
 import           Data.Scientific                ( toRealFloat )
 import           Relude.Extra.Foldable1         ( maximum1 )
-import           Types
+import           Frontend.Types
 
 data SortMode = SortModePartof UUID | SortModeTag Task.Tag deriving (Show, Eq, Ord, Generic)
 makePrismLabels ''SortMode
@@ -204,7 +204,7 @@ unSetWorstUnsorted unSet delta (x : xs)
     foundBefore        = length $ filter (value - delta <=) before
     (foundAfter, rest) = maybe (0, []) countThroughRest (nonEmpty ys)
     countThroughRest list =
-      (length $ filter (\(_, i, _) -> value + delta >= i) zs, zs)
+      (length $ filter (\(_, int, _) -> value + delta >= int) zs, zs)
       where zs = toList $ go (value : before) list
 
 newValue :: SortState -> Double
@@ -214,8 +214,8 @@ newValue (WillWrite iprev (fromIntegral -> dprev) inext (fromIntegral -> dnext))
   | otherwise          = iprev + ((inext - iprev) * dprev / (dprev + dnext))
 
 sortStateNext :: SortState -> (Double, Int)
-sortStateNext (HasSortPos a     ) = (a, 0)
-sortStateNext (WillWrite _ _ i d) = (i, d)
+sortStateNext (HasSortPos a       ) = (a, 0)
+sortStateNext (WillWrite _ _ int d) = (int, d)
 
 addSortState :: forall a . (a -> Maybe Double) -> [a] -> [(a, SortState)]
 addSortState f = go (minOrder, 0)
@@ -225,8 +225,8 @@ addSortState f = go (minOrder, 0)
     | [] <- list
     = []
     | (x : xs) <- list
-    , Just i <- f x
-    = (x, HasSortPos i) : go (i, 0) xs
+    , Just int <- f x
+    = (x, HasSortPos int) : go (int, 0) xs
     | (x : xs) <- list
     , next@((_, sortStateNext -> (inext, dnext)) : _) <- go (iprev, dprev + 1)
                                                             xs

@@ -1,14 +1,52 @@
-name: common
-version: 0.1
-cabal-version: >= 1.2
-build-type: Simple
+cabal-version: 2.4
+name:          common
+version:       0.1
+build-type:    Simple
 
 library
-  hs-source-dirs: src
-  build-depends: base
-               , obelisk-route
-               , mtl
-               , text
+  default-extensions:
+    ConstraintKinds
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedStrings
+    StrictData
+    TypeFamilies
+    UndecidableInstances
+
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations
+    -Wno-implicit-prelude -Wno-missed-specialisations
+    -Wno-monomorphism-restriction -Wno-partial-fields
+    -Wno-missing-import-lists -Wno-orphans -Wcompat
+
+  hs-source-dirs:     src
+  build-depends:
+    , aeson
+    , base
+    , extra
+    , mtl
+    , obelisk-route
+    , optics
+    , optics-th
+    , relude
+    , string-interpolate
+    , taskwarrior
+    , text
+    , these
+    , time
+    , uuid
+    , websockets
+
   exposed-modules:
     Common.Api
     Common.Route
+    Prelude
+
+  default-language:   Haskell2010
+  mixins:             base hiding (Prelude)

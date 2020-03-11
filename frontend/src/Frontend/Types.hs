@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances, OverloadedLabels, TypeApplications #-}
-module Types
+module Frontend.Types
   ( Widget
   , ViewWidget
+  , WidgetIO
   , TaskInfos(..)
   , TaskState
   , StateChange
@@ -40,6 +41,13 @@ type Widget t m
     , MonadFix m
     , R.MonadHold t m
     , R.PostBuild t m
+    )
+type WidgetIO t m
+  = ( MonadIO m
+    , Widget t m
+    , R.TriggerEvent t m
+    , R.PerformEvent t m
+    , MonadIO (R.Performable m)
     )
 declareFieldLabels [d|data TaskInfos = TaskInfos { task :: Task, showChildren :: Bool, children :: [UUID], parents :: [UUID]} deriving (Eq, Show)|]
 

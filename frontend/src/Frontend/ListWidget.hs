@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
-module ListWidget
+module Frontend.ListWidget
   ( listsWidget
   , listWidget
   , TaskList(UUIDList)
@@ -10,10 +10,9 @@ import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Taskwarrior.Status            as Status
 import qualified Data.HashSet                  as HashSet
-import           Data.UUID                      ( UUID )
-import           Types
-import           Util
-import           TaskWidget
+import           Frontend.Types
+import           Frontend.Util
+import           Frontend.TaskWidget
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
 
@@ -42,8 +41,13 @@ listsWidget = do
     buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
     R.holdDyn (SubList []) buttonSum
   listButton :: (Widget t m) => TaskList -> m (R.Event t TaskList)
-  listButton list | TagList tag <- list = (const list <$>) <$> D.button tag
-                  | otherwise = (const list <$>) <$> D.button "Anonymous List"
+  listButton list | TagList tag <- list = button tag
+                  | otherwise           = button "Anonymous List"
+   where
+    button =
+      fmap ((list <$) . D.domEvent D.Click . fst)
+        . D.elAttr' "a" mempty
+        . D.text
 
 listWidget
   :: forall t m r . (StandardWidget t m r) => R.Dynamic t TaskList -> m ()

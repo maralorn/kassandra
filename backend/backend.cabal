@@ -1,28 +1,60 @@
-name: backend
-version: 0.1
-cabal-version: >= 1.8
-build-type: Simple
+cabal-version: 2.4
+name:          backend
+version:       0.1
+build-type:    Simple
 
 library
-  hs-source-dirs: src
-  if impl(ghcjs)
+  default-extensions:
+    ConstraintKinds
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedStrings
+    StrictData
+    TypeFamilies
+    UndecidableInstances
+
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations
+    -Wno-implicit-prelude -Wno-missed-specialisations
+    -Wno-monomorphism-restriction -Wno-partial-fields
+    -Wno-missing-import-lists -Wno-orphans -Wcompat
+
+  mixins:             base hiding (Prelude)
+  hs-source-dirs:     src
+
+  if impl(ghcjs -any)
     buildable: False
-  build-depends: base
-               , common
-               , frontend
-               , obelisk-backend
-               , obelisk-route
-  exposed-modules:
-    Backend
-  ghc-options: -Wall
+
+  build-depends:
+    , aeson
+    , base
+    , common
+    , frontend
+    , obelisk-backend
+    , obelisk-route
+    , snap-core
+    , taskwarrior
+    , websockets
+    , websockets-snap
+
+  exposed-modules:    Backend
 
 executable backend
-  main-is: main.hs
+  main-is:        main.hs
   hs-source-dirs: src-bin
-  if impl(ghcjs)
+
+  if impl(ghcjs -any)
     buildable: False
-  build-depends: base
-               , backend
-               , common
-               , frontend
-               , obelisk-backend
+
+  build-depends:
+    , backend
+    , base
+    , common
+    , frontend
+    , obelisk-backend

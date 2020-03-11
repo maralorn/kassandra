@@ -1,15 +1,16 @@
-module Css
+module Frontend.Css
   ( css
   )
 where
 
-import           Prelude                 hiding ( (&) )
+import           Prelude                 hiding ( (&)
+                                                , i
+                                                )
 import           Clay
-import qualified Data.Text.Lazy                as LazyText
 
 
-css :: LazyText.Text
-css = render $ do
+css :: Text
+css = toStrict . render $ do
   star ? do
     fontFamily ["B612"] []
     padding (px 0) (px 0) (px 0) (px 0)

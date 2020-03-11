@@ -1,4 +1,8 @@
-module Common.Api where
+module Common.Api
+  ( SocketMessage(TaskUpdates)
+  , SocketRequest(AllTasks)
+  )
+where
 
-commonStuff :: String
-commonStuff = "Here is a string defined in Common.Api"
+newtype SocketMessage = TaskUpdates [Task] deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)
+data SocketRequest = AllTasks | ChangeTasks (NonEmpty Task) deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)

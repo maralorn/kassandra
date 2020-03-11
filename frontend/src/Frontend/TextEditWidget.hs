@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables, ViewPatterns #-}
-module TextEditWidget
+module Frontend.TextEditWidget
   ( lineWidget
   , icon
   , button
@@ -21,7 +21,7 @@ import           Data.Time.LocalTime            ( ZonedTime
                                                 , LocalTime
                                                 , zonedTimeToLocalTime
                                                 )
-import           Types
+import           Frontend.Types
 
 myFormatTime :: ZonedTime -> Text
 myFormatTime = toText . formatTime defaultTimeLocale "%Y-%m-%d %H:%M"

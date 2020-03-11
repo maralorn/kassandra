@@ -1,48 +1,50 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Frontend where
+module Frontend
+  ( frontend
+  )
+where
 
-import Control.Monad
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import Language.Javascript.JSaddle (eval, liftJSM)
 
-import Obelisk.Frontend
-import Obelisk.Configs
-import Obelisk.Route
-import Obelisk.Generated.Static
+import           Obelisk.Frontend
+import           Obelisk.Route
 
-import Reflex.Dom.Core
+import           Frontend.Css                   ( css )
+import           Frontend.MainWidget            ( mainWidget )
+import           Frontend.Types
+import           Frontend.State                 ( StateProvider )
+import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 
-import Common.Api
-import Common.Route
-
+import           Common.Route                   ( FrontendRoute )
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
 -- `prerender` functions.
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
-  { _frontend_head = do
-      el "title" $ text "Obelisk Minimal Example"
-      elAttr "link" ("href" =: static @"main.css" <> "type" =: "text/css" <> "rel" =: "stylesheet") blank
-  , _frontend_body = do
-      el "h1" $ text "Welcome to Obelisk!"
-      el "p" $ text $ T.pack commonStuff
-      
-      -- `prerender` and `prerender_` let you choose a widget to run on the server
-      -- during prerendering and a different widget to run on the client with
-      -- JavaScript. The following will generate a `blank` widget on the server and
-      -- print "Hello, World!" on the client.
-      prerender_ blank $ liftJSM $ void $ eval ("console.log('Hello, World!')" :: T.Text)
-
-      elAttr "img" ("src" =: static @"obelisk.jpg") blank
-      el "div" $ do
-        exampleConfig <- getConfig "common/example"
-        case exampleConfig of
-          Nothing -> text "No config file found in config/common/example"
-          Just s -> text $ T.decodeUtf8 s
-      return ()
+  { _frontend_head = frontendHead
+  , _frontend_body = void $ D.prerender pass $ mainWidget webSocketStateProvider
   }
+
+webSocketStateProvider :: WidgetIO t m => StateProvider t m
+webSocketStateProvider _ = pure (R.constDyn mempty)
+
+  --D.el "h1" $ (R.text "Welcome to my Obelisk!" >> R.dynText (show <$> timeDyn))
+  --(R.domEvent R.Click . fst -> clickEvent) <- R.elAttr' "a" mempty
+    -- $ R.text "Send all the tasks!"
+  --socket <- R.jsonWebSocket
+    --("ws://localhost:8000/socket" :: Text)
+    --((lensVL R.webSocketConfig_send) .~ (one AllTasks <$ clickEvent) $ R.def)
+  --answer :: R.Dynamic t (Maybe SocketMessage) <-
+    --R.holdDyn Nothing $ socket ^. lensVL R.webSocket_recv
+  --R.dynText (show <$> answer)
+
+frontendHead :: ObeliskWidget js t route m => m ()
+frontendHead = do
+  D.el "title" $ D.text "Kassandra 2 Webversion"
+  D.elAttr "style" mempty $ D.text css

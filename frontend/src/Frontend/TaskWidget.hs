@@ -1,5 +1,5 @@
 {-# LANGUAGE BlockArguments, TypeApplications, TupleSections, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, TemplateHaskell, FlexibleInstances, FunctionalDependencies, MultiWayIf, OverloadedLabels  #-}
-module TaskWidget
+module Frontend.TaskWidget
   ( taskWidget
   , taskList
   )
@@ -17,9 +17,9 @@ import           Data.Time                      ( UTCTime )
 import           Data.Time.LocalTime            ( zonedTimeToUTC )
 import           Data.UUID                      ( UUID )
 import qualified Data.Aeson                    as Aeson
-import           Util
-import           Types
-import           TextEditWidget
+import           Frontend.Util
+import           Frontend.Types
+import           Frontend.TextEditWidget
 
 
 newtype DynTask t = TaskDyn { _toDynTask :: R.Dynamic t TaskInfos }
