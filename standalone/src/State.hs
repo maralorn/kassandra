@@ -80,7 +80,7 @@ ioTaskProvider changeTaskEvent createTaskEvent = do
         (\changes ->
           either
               (\err -> putStrLn [i|Couldn‘t decode #{changes} as Task: #{err}|])
-              (newTasksCallBack . pure)
+              (newTasksCallBack . one)
             $ Aeson.eitherDecodeStrict @Task changes
         )
   R.holdUniqDyn tasks

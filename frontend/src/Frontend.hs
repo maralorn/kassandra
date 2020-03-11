@@ -34,7 +34,7 @@ webSocketStateProvider _ = pure (R.constDyn mempty)
 
   --D.el "h1" $ (R.text "Welcome to my Obelisk!" >> R.dynText (show <$> timeDyn))
   --(R.domEvent R.Click . fst -> clickEvent) <- R.elAttr' "a" mempty
-    -- $ R.text "Send all the tasks!"
+    -- R.text "Send all the tasks!"
   --socket <- R.jsonWebSocket
     --("ws://localhost:8000/socket" :: Text)
     --((lensVL R.webSocketConfig_send) .~ (one AllTasks <$ clickEvent) $ R.def)

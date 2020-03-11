@@ -58,3 +58,5 @@ executable backend
     , common
     , frontend
     , obelisk-backend
+
+  mixins:         base hiding (Prelude)

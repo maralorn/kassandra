@@ -41,7 +41,6 @@ library
     , these
     , time
     , uuid
-    , websockets
 
   exposed-modules:
     Common.Api
