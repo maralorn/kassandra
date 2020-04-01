@@ -6,7 +6,7 @@ module Prelude
   , module Data.Text.Optics
   , partitionEithersNE
   , UTCTime
-  , Task.Task
+  , Task
   , i
   , Aeson.ToJSON
   , Aeson.FromJSON
@@ -34,8 +34,9 @@ import           Relude                  hiding ( uncons )
 import           Optics
 import           Optics.TH
 import           Data.Text.Optics        hiding ( text )
-import qualified Taskwarrior.Task              as Task
-import qualified Taskwarrior.Status            as Status
+import           Taskwarrior.Task               ( Task )
+--import           Taskwarrior.Status            as Status
+import           Taskwarrior.Status             ( Status )
 import           Data.These                     ( These(This, That, These) )
 import qualified Data.Aeson                    as Aeson
 import           Data.String.Interpolate        ( i )
@@ -54,8 +55,11 @@ partitionEithersNE (x :| xs) = case (x, ls, rs) of
   (Right z, y : ys, zs    ) -> These (y :| ys) (z :| zs)
   where (ls, rs) = partitionEithers xs
 
+
 -- (lensField .~ noPrefixNamer $ fieldLabelsRules) == noPrefixFieldLabels but only in optics-th 0.2
-makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task.Task
-makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status.Status
-makePrismLabels ''Status.Status
+makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task
+makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status
+--makeLensesWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task
+--makeLensesWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status
+makePrismLabels ''Status
 makePrismLabels ''Aeson.Result

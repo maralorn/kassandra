@@ -16,6 +16,7 @@ project ./. ({ pkgs, ... }: {
     clay =
       pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.clay);
     taskwarrior = self.callCabal2nix "taskwarrior" ../haskell-taskwarrior { };
+    backend = pkgs.haskell.lib.addBuildDepend super.backend pkgs.taskwarrior;
   };
   shellToolOverrides = ghc: _:
     let

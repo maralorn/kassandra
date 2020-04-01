@@ -44,10 +44,11 @@ library
     , websockets-snap
 
   exposed-modules:    Backend
+  default-language:   Haskell2010
 
 executable backend
-  main-is:        main.hs
-  hs-source-dirs: src-bin
+  main-is:          main.hs
+  hs-source-dirs:   src-bin
 
   if impl(ghcjs -any)
     buildable: False
@@ -59,4 +60,5 @@ executable backend
     , frontend
     , obelisk-backend
 
-  mixins:         base hiding (Prelude)
+  mixins:           base hiding (Prelude)
+  default-language: Haskell2010

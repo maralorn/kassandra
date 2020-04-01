@@ -6,7 +6,6 @@ where
 
 import           Taskwarrior.IO                 ( getTasks
                                                 , saveTasks
-                                                , createTask
                                                 )
 import qualified Data.Aeson                    as Aeson
 import qualified Data.HashMap.Strict           as HashMap
@@ -49,23 +48,8 @@ ioCacheProvider toggleEvent = do
 
 
 ioTaskProvider :: (WidgetIO t m) => TaskProvider t m
-ioTaskProvider changeTaskEvent createTaskEvent = do
-  createdTaskEvents <-
-    R.performEventAsync
-    $   (\list cb -> liftIO
-          (mapM (\(description, handler) -> handler <$> createTask description)
-                list
-
-          >>= cb
-          )
-        )
-    <$> createTaskEvent
-  void
-    .   R.performEvent
-    $   liftIO
-    .   saveTasks
-    .   toList
-    <$> (changeTaskEvent <> createdTaskEvents)
+ioTaskProvider changeTaskEvent = do
+  void . R.performEvent $ liftIO . saveTasks . toList <$> changeTaskEvent
   (tasksEvent :: R.Event t (NonEmpty Task), newTasksCallBack) <-
     R.newTriggerEvent
   tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . (^. #uuid))

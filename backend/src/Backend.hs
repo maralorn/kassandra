@@ -12,8 +12,11 @@ import           Network.WebSockets             ( acceptRequest
                                                 , sendTextData
                                                 )
 import           Network.WebSockets.Snap        ( runWebSocketsSnap )
-import           Common.Api                     ( SocketMessage(TaskUpdates)
+import           Common.Api                     ( _TaskUpdates
                                                 , SocketRequest
+                                                  ( AllTasks
+                                                  , ChangeTasks
+                                                  )
                                                 )
 import           Common.Route                   ( BackendRoute
                                                   ( BackendRouteSocket
@@ -28,7 +31,9 @@ import           Obelisk.Route                  ( pattern (:/)
                                                 )
 import           Snap.Core                      ( MonadSnap )
 import qualified Data.Aeson                    as Aeson
-import           Taskwarrior.IO                 ( createTask )
+import           Taskwarrior.IO                 ( saveTasks
+                                                , getTasks
+                                                )
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend { _backend_run          = \serve -> serve backendSnaplet
@@ -42,13 +47,17 @@ backendSnaplet = \case
 
 runSocket :: ServerApp
 runSocket pendingConnection = do
-  putStrLn "Connected!"
+  putStrLn "Websocket Client connected!"
   connection <- acceptRequest pendingConnection
   forkPingThread connection 30
+  void $ forkIO $ do
+    tasks <- getTasks []
+    sendTextData connection . Aeson.encode . (_TaskUpdates #) $ tasks
   let listen = do
-        msg :: Maybe SocketRequest <- Aeson.decode <$> receiveData connection
-        print msg
-        task <- createTask "Ein Task"
-        sendTextData connection $ Aeson.encode (TaskUpdates $ one task)
+        msg <- Aeson.decode <$> receiveData connection
+        whenJust msg $ \case
+          AllTasks ->
+            putTextLn "Client wants all Tasks! (backend unimplemented)"
+          ChangeTasks tasks -> saveTasks . toList $ tasks
         listen
   listen

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main
-  ( main
+module Standalone
+  ( standalone
   )
 where
 
@@ -9,7 +9,7 @@ import qualified Reflex.Dom                    as D
 import           State                          ( ioStateProvider )
 import           Frontend.Css                   ( css )
 
-main :: IO ()
-main = do
+standalone :: IO ()
+standalone = do
   putTextLn "Started kassandra"
   D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget ioStateProvider

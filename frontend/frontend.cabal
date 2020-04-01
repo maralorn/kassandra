@@ -81,11 +81,6 @@ executable frontend
     , obelisk-route
     , reflex-dom
 
-  --TODO: Make these ghc-options optional
   ghc-options:      -threaded
   mixins:           base hiding (Prelude)
-
-  if os(osx)
-    ghc-options: -dynamic
-
   default-language: Haskell2010

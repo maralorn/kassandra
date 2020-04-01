@@ -8,6 +8,7 @@ module Frontend.State
   )
 where
 
+import           Taskwarrior.IO                 ( createTask )
 import qualified Data.List.NonEmpty            as NonEmpty
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Reflex                        as R
@@ -29,9 +30,7 @@ type CacheProvider t m
   = R.Event t (NonEmpty (UUID, Bool)) -> m (R.Dynamic t Cache)
 
 type TaskProvider t m
-  =  R.Event t (NonEmpty Task)
-  -> R.Event t (NonEmpty (Text, Task -> Task))
-  -> m (R.Dynamic t (HashMap UUID Task))
+  = R.Event t (NonEmpty Task) -> m (R.Dynamic t (HashMap UUID Task))
 
 getParents :: HashMap UUID Task -> UUID -> [UUID]
 getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
@@ -52,36 +51,52 @@ stateProvider
   -> TaskProvider t m
   -> StateProvider t m
 stateProvider cacheProvider taskProvider stateChange = do
-  cache <- cacheProvider $ R.select fannedEvent ToggleEventTag
-  tasks <- taskProvider (R.select fannedEvent ChangeTaskTag)
-                        (R.select fannedEvent CreateTaskTag)
+  cache             <- cacheProvider $ fannedEvent ToggleEventTag
+  createdTaskEvents <-
+    R.performEventAsync $ mkCreateTaskEvent <$> fannedEvent CreateTaskTag
+  tasks <- taskProvider $ fannedEvent ChangeTaskTag <> createdTaskEvents
   pure $ R.zipDynWith buildTaskInfosMap tasks cache
  where
-  mapToMap = \case
-    ToggleEvent a b -> DMap.singleton ToggleEventTag (Identity $ pure (a, b))
-    ChangeTask a    -> DMap.singleton ChangeTaskTag (Identity $ pure a)
-    CreateTask a b  -> DMap.singleton CreateTaskTag (Identity $ pure (a, b))
-  proofAdd :: FanTag a -> Identity a -> Identity a -> Identity a
-  proofAdd = liftA2 . \case
-    ToggleEventTag -> (<>)
-    ChangeTaskTag  -> (<>)
-    CreateTaskTag  -> (<>)
+  fannedEvent :: FanTag a -> R.Event t a
   fannedEvent =
-    R.fan
+    R.select
+      $   R.fan
       $   DMap.unionsWithKey proofAdd
       .   fmap mapToMap
       .   NonEmpty.toList
       <$> stateChange
-  buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
-  buildChildrenMap =
-    HashMap.fromListWith (++)
-      . mapMaybe (\(uuid, task) -> (, pure uuid) <$> task ^. #partof)
-      . HashMap.toList
-  buildTaskInfosMap tasks cache = HashMap.mapWithKey
-    (\u t -> TaskInfos t
-                       (HashMap.lookupDefault False u (collapseState cache))
-                       (HashMap.lookupDefault [] u childrenMap)
-                       (getParents tasks u)
-    )
-    tasks
-    where childrenMap = buildChildrenMap tasks
+
+mkCreateTaskEvent
+  :: MonadIO m
+  => NonEmpty (Text, Task -> Task)
+  -> (NonEmpty Task -> IO ())
+  -> m ()
+mkCreateTaskEvent list = liftIO . (mapM createTaskWithHandler list >>=)
+
+createTaskWithHandler :: (Text, Task -> Task) -> IO Task
+createTaskWithHandler (description, handler) =
+  handler <$> createTask description
+mapToMap = \case
+  ToggleEvent a b -> DMap.singleton ToggleEventTag (Identity $ pure (a, b))
+  ChangeTask a    -> DMap.singleton ChangeTaskTag (Identity $ pure a)
+  CreateTask a b  -> DMap.singleton CreateTaskTag (Identity $ pure (a, b))
+
+proofAdd :: FanTag a -> Identity a -> Identity a -> Identity a
+proofAdd = liftA2 . \case
+  ToggleEventTag -> (<>)
+  ChangeTaskTag  -> (<>)
+  CreateTaskTag  -> (<>)
+
+buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
+buildChildrenMap =
+  HashMap.fromListWith (++)
+    . mapMaybe (\(uuid, task) -> (, pure uuid) <$> task ^. #partof)
+    . HashMap.toList
+buildTaskInfosMap tasks cache = HashMap.mapWithKey
+  (\u t -> TaskInfos t
+                     (HashMap.lookupDefault False u (collapseState cache))
+                     (HashMap.lookupDefault [] u childrenMap)
+                     (getParents tasks u)
+  )
+  tasks
+  where childrenMap = buildChildrenMap tasks

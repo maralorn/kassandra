@@ -24,6 +24,17 @@ css = toStrict . render $ do
     color black
     background (rgb 255 200 20)
   ".above" ? marginTop (em (-0.8))
+  ".pane" ? do
+    width (pct 100)
+    minHeight (pct 100)
+    borderRight solid (px 1) white
+    borderLeft solid (px 1) white
+  ".selector" ? do
+    display inlineBlock
+    margin (px 1) (px 1) (px 1) (px 1)
+    color (rgb 0 0 200)
+    padding (em 0.1) (em 0.3) (em 0.1) (em 0.3)
+    background (rgb 200 200 255)
   ".tag" ? do
     background (rgb 200 200 255)
     borderRadius (em 0.1) (em 0.1) (em 0.1) (em 0.1)

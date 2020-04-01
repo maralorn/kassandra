@@ -1,8 +1,12 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Common.Api
-  ( SocketMessage(TaskUpdates)
-  , SocketRequest(AllTasks)
+  ( SocketMessage
+  , _TaskUpdates
+  , SocketRequest(AllTasks, ChangeTasks)
+  , _AllTasks
+  , _ChangeTasks
   )
 where
 
-newtype SocketMessage = TaskUpdates [Task] deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)
-data SocketRequest = AllTasks | ChangeTasks (NonEmpty Task) deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)
+declarePrisms [d|newtype SocketMessage = TaskUpdates [Task] deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)|]
+declarePrisms [d|data SocketRequest = AllTasks | ChangeTasks (NonEmpty Task) deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)|]

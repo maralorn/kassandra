@@ -7,11 +7,12 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Taskwarrior.IO                 ( getUUIDs )
 import           Frontend.Types
-import           Frontend.ListWidget
+import           Frontend.ListWidget            ( listsWidget
+                                                , listWidget
+                                                , TaskList(TagList)
+                                                )
 import           Frontend.State                 ( StateProvider )
-import           Frontend.TextEditWidget
 import           Frontend.TaskWidget            ( taskWidget )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
@@ -20,7 +21,6 @@ mainWidget stateProvider = do
   timeDyn <-
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
       <$> R.clockLossy 1 (zonedTimeToUTC time)
-  D.text "Welcome to kassandra!"
   let filterState = R.constDyn (FilterState 0 60)
   rec
     taskState         <- stateProvider dataChangeEvents
@@ -29,7 +29,7 @@ mainWidget stateProvider = do
         taskDiagnosticsWidget
         D.divClass "container" $ do
           D.divClass "pane" widgetSwitcher
-          D.divClass "pane" widgetSwitcher
+          D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
       )
       (AppState taskState timeDyn dragDyn filterState)
     let (appChangeEvents, dataChangeEvents) =
@@ -52,35 +52,22 @@ taskDiagnosticsWidget = do
       Just uuid -> "Found a loop for uuid " <> show uuid
       Nothing   -> "" -- everything fine
 
-widgets
-  :: ( StandardWidget t m r
-     , R.PerformEvent t m
-     , MonadIO (R.Performable m)
-     , R.TriggerEvent t m
-     )
-  => [(Text, m ())]
+widgets :: StandardWidget t m r => [(Text, m ())]
 widgets =
   [ ("Next"    , nextWidget)
   , ("Lists"   , listsWidget)
-  , ("Search"  , searchWidget)
   , ("Inbox"   , inboxWidget)
   , ("Unsorted", unsortedWidget)
   ]
 
-widgetSwitcher
-  :: forall t m r
-   . ( StandardWidget t m r
-     , R.PerformEvent t m
-     , MonadIO (R.Performable m)
-     , R.TriggerEvent t m
-     )
-  => m ()
-widgetSwitcher = do
+widgetSwitcher :: forall t m r . StandardWidget t m r => m ()
+widgetSwitcher = D.el "div" $ do
   buttons <- forM (widgets @t @m) $ \l ->
-    (l <$) . D.domEvent D.Click . fst <$> D.elAttr' "a" mempty (D.text $ fst l)
+    (l <$) . D.domEvent D.Click . fst <$> D.elClass' "a"
+                                                     "selector"
+                                                     (D.text $ fst l)
   listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
-  _        <- D.dyn (snd <$> listName)
-  pass
+  D.el "div" $ D.dyn_ (snd <$> listName)
 
 filterInbox :: TaskState -> [TaskInfos]
 filterInbox tasks =
@@ -140,34 +127,3 @@ unsortedWidget = do
     $   (\x -> "There are " <> show (length x) <> " unsorted tasks.")
     <$> unsortedTasks
   void . flip R.simpleList taskWidget $ unsortedTasks
-
-searchWidget
-  :: ( StandardWidget t m r
-     , R.PerformEvent t m
-     , MonadIO (R.Performable m)
-     , R.TriggerEvent t m
-     )
-  => m ()
-searchWidget = do
-  icon "" "search"
-  searchInput <- D.inputElement D.def
-  let searchText = R.tag (R.current $ D._inputElement_value searchInput)
-                         (D.keypress D.Enter searchInput)
-  uuidsEvent <-
-    R.performEventAsync
-    $   (\query cb -> liftIO (getUUIDs query >>= cb))
-    .   ("(" :)
-    .   (: [")", "+PENDING"])
-    <$> searchText
-  searchTextBeh <- R.hold "" searchText
-  uuids         <- fmap UUIDList <$> R.holdDyn [] uuidsEvent
-  message       <-
-    R.holdDyn ""
-    $   R.attachWith
-          (\text leng -> "Found " <> show leng <> " tasks matching " <> text)
-          searchTextBeh
-    $   length
-    <$> uuidsEvent
-  D.el "div" $ D.dynText message
-  listWidget uuids
-  pass

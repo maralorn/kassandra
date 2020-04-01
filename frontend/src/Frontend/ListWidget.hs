@@ -2,7 +2,7 @@
 module Frontend.ListWidget
   ( listsWidget
   , listWidget
-  , TaskList(UUIDList)
+  , TaskList(UUIDList, TagList)
   )
 where
 import qualified Reflex.Dom                    as D
@@ -22,8 +22,6 @@ listsWidget = do
   D.text "Select a list"
   list <- listSelector (getLists <$> taskState)
   listWidget list
-
-
  where
   getLists :: TaskState -> [TaskList]
   getLists =
@@ -36,7 +34,7 @@ listsWidget = do
       . HashMap.elems
   listSelector
     :: (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
-  listSelector lists = do
+  listSelector lists = D.el "div" $ do
     buttons   <- D.dyn $ mapM listButton <$> lists
     buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
     R.holdDyn (SubList []) buttonSum
@@ -46,7 +44,7 @@ listsWidget = do
    where
     button =
       fmap ((list <$) . D.domEvent D.Click . fst)
-        . D.elAttr' "a" mempty
+        . D.elClass' "a" "selector"
         . D.text
 
 listWidget
