@@ -5,46 +5,95 @@ module Prelude
   , module Optics.TH
   , module Data.Text.Optics
   , partitionEithersNE
-  , UTCTime
   , Task
   , i
   , Aeson.ToJSON
   , Aeson.FromJSON
   , getZonedTime
+  , addUTCTime
   , utcToZonedTime
   , zonedTimeZone
   , zonedTimeToUTC
-  , UUID
-  , MonadFix
   , firstJust
-  , forkIO
   , IOException
+  , UTCTime
   , catch
+  , concurrently_
+  , forConcurrently_
+  , withAsync
+  , race_
+  , makeLabels
+  , Status
+  , MonadFix
+  , ZonedTime
+  , NominalDiffTime
+  , toJSON
+  , fromJSON
+  , UUID
+  , HasField'
+  , field'
+  , HasAny
+  , the
+  , HasType
+  , typed
+  , AsConstructor'
+  , _Ctor'
+  , formatTime
+  , zonedTimeToLocalTime
+  , LocalTime
+  , defaultTimeLocale
+  , parseTimeM
   )
 where
-import           Data.UUID                      ( UUID )
-import           Data.Time                      ( UTCTime
+import           Data.Time                      ( formatTime
+                                                , defaultTimeLocale
+                                                , parseTimeM
                                                 , getZonedTime
                                                 , utcToZonedTime
                                                 , zonedTimeZone
                                                 , zonedTimeToUTC
+                                                , addUTCTime
+                                                , UTCTime
                                                 )
+import           Data.Time.LocalTime            ( ZonedTime
+                                                , LocalTime
+                                                , zonedTimeToLocalTime
+                                                )
+import           Data.UUID                      ( UUID )
 import           Control.Monad.Fix              ( MonadFix )
 import           Relude                  hiding ( uncons )
 import           Optics
 import           Optics.TH
 import           Data.Text.Optics        hiding ( text )
 import           Taskwarrior.Task               ( Task )
---import           Taskwarrior.Status            as Status
 import           Taskwarrior.Status             ( Status )
 import           Data.These                     ( These(This, That, These) )
 import qualified Data.Aeson                    as Aeson
 import           Data.String.Interpolate        ( i )
 import           Data.List.Extra                ( firstJust )
-import           Control.Concurrent             ( forkIO )
 import           Control.Exception              ( IOException
                                                 , catch
                                                 )
+import           Control.Concurrent.Async       ( concurrently_
+                                                , forConcurrently_
+                                                , withAsync
+                                                , race_
+                                                )
+import           Language.Haskell.TH.Syntax     ( Q
+                                                , Dec
+                                                , Name
+                                                )
+import           Data.HashMap.Strict            ( HashMap )
+import           Control.Monad.Reader           ( MonadReader )
+import           Data.Time.Clock                ( NominalDiffTime )
+import           Data.Aeson                     ( toJSON
+                                                , fromJSON
+                                                )
+import           Data.Generics.Product.Fields   ( HasField'(field') )
+import           Data.Generics.Product.Any      ( HasAny(the) )
+import           Data.Generics.Product.Typed    ( HasType(typed) )
+import           Data.Generics.Sum.Constructors ( AsConstructor'(_Ctor') )
+import           GHC.Generics                   ( Generic )
 
 -- | Stolen from these-1.0.1 which I can‘t import right now.
 partitionEithersNE :: NonEmpty (Either a b) -> These (NonEmpty a) (NonEmpty b)
@@ -57,9 +106,5 @@ partitionEithersNE (x :| xs) = case (x, ls, rs) of
 
 
 -- (lensField .~ noPrefixNamer $ fieldLabelsRules) == noPrefixFieldLabels but only in optics-th 0.2
-makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task
-makeFieldLabelsWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status
---makeLensesWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Task
---makeLensesWith (lensField .~ const (const (one . TopName)) $ fieldLabelsRules) ''Status
-makePrismLabels ''Status
-makePrismLabels ''Aeson.Result
+makeLabels :: Name -> Q [Dec]
+makeLabels = makeFieldLabelsWith noPrefixFieldLabels

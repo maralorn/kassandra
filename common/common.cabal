@@ -28,8 +28,10 @@ library
   hs-source-dirs:     src
   build-depends:
     , aeson
+    , async
     , base
     , extra
+    , generic-optics
     , mtl
     , obelisk-route
     , optics
@@ -37,9 +39,11 @@ library
     , relude
     , string-interpolate
     , taskwarrior
+    , template-haskell
     , text
     , these
     , time
+    , unordered-containers
     , uuid
 
   exposed-modules:

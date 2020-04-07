@@ -6,10 +6,17 @@ where
 
 import           Frontend.MainWidget            ( mainWidget )
 import qualified Reflex.Dom                    as D
-import           State                          ( ioStateProvider )
+import           State                          ( ioStateProvider
+                                                , ioStateFeeder
+                                                )
 import           Frontend.Css                   ( css )
 
 standalone :: IO ()
 standalone = do
   putTextLn "Started kassandra"
-  D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget ioStateProvider
+  callbackSlot <- newEmptyMVar
+  race_
+    (ioStateFeeder callbackSlot)
+    (D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget $ ioStateProvider
+      callbackSlot
+    )

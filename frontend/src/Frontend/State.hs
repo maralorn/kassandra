@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels, ViewPatterns #-}
+{-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels, ViewPatterns #-}
 module Frontend.State
   ( stateProvider
   , TaskProvider
@@ -39,7 +39,6 @@ getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
   go accu f x | x `elem` accu    = []
               | Just next <- f x = next : go (x : accu) f next
               | otherwise        = []
-
 
 type StateProvider t m
   = R.Event t (NonEmpty DataChange) -> m (R.Dynamic t TaskState)
@@ -92,11 +91,33 @@ buildChildrenMap =
   HashMap.fromListWith (++)
     . mapMaybe (\(uuid, task) -> (, pure uuid) <$> task ^. #partof)
     . HashMap.toList
+
+buildDependenciesMap :: HashMap a Task -> HashMap UUID [a]
+buildDependenciesMap =
+  HashMap.fromListWith (++)
+    . join
+    . fmap (\(uuid, task) -> (, pure uuid) <$> task ^. #depends)
+    . HashMap.toList
+
+buildTaskInfosMap :: HashMap UUID Task -> Cache -> TaskState
 buildTaskInfosMap tasks cache = HashMap.mapWithKey
   (\u t -> TaskInfos t
                      (HashMap.lookupDefault False u (collapseState cache))
                      (HashMap.lookupDefault [] u childrenMap)
-                     (getParents tasks u)
+                     (getParentTasks u)
+                     (HashMap.lookupDefault [] u dependenciesMap)
+                     (isBlockedTask t)
   )
   tasks
-  where childrenMap = buildChildrenMap tasks
+ where
+  isBlockedTask   = isBlocked tasks
+  getParentTasks  = getParents tasks
+  dependenciesMap = buildDependenciesMap tasks
+  childrenMap     = buildChildrenMap tasks
+
+isBlocked :: HashMap UUID Task -> Task -> Bool
+isBlocked tasks task =
+  any (\t -> has (#status % #_Pending) t || has (#status % #_Waiting) t)
+    .  mapMaybe (flip HashMap.lookup tasks)
+    $  task
+    ^. #depends

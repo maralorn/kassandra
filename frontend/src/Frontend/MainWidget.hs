@@ -23,7 +23,11 @@ mainWidget stateProvider = do
       <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
   rec
-    taskState         <- stateProvider dataChangeEvents
+    let (appChangeEvents, dataChangeEvents) =
+          R.fanThese $ partitionEithersNE <$> stateChanges
+    taskState <- stateProvider dataChangeEvents
+    dragDyn   <-
+      R.holdDyn NoDrag $ (\(DragChange a) -> a) . last <$> appChangeEvents
     (_, stateChanges) <- R.runEventWriterT $ runReaderT
       (do
         taskDiagnosticsWidget
@@ -32,10 +36,6 @@ mainWidget stateProvider = do
           D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
       )
       (AppState taskState timeDyn dragDyn filterState)
-    let (appChangeEvents, dataChangeEvents) =
-          R.fanThese $ partitionEithersNE <$> stateChanges
-    dragDyn <-
-      R.holdDyn NoDrag $ (\(DragChange a) -> a) . last <$> appChangeEvents
   pass
 
 taskDiagnosticsWidget :: (StandardWidget t m r) => m ()
@@ -78,17 +78,13 @@ filterInbox tasks =
     has (#tags % _Empty) taskInfos
       && has (#status % #_Pending) taskInfos
       && has (#children % _Empty)  taskInfos
-      && (  has _Empty
+      && (  null
          .  filter (`notElem` ["kategorie", "project", "root"])
          .  join
          $  lookupTasks tasks (taskInfos ^. #parents)
          ^. #tags
          )
-      && ( has _Empty
-         . filter (isn't (#status % #_Completed))
-         . filter (isn't (#status % #_Deleted))
-         $ lookupTasks tasks (taskInfos ^. #depends)
-         )
+      && not (taskInfos ^. #blocked)
 
 lookupTasks :: TaskState -> [UUID] -> [TaskInfos]
 lookupTasks tasks = mapMaybe (\uuid -> tasks ^. at uuid)

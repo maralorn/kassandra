@@ -8,11 +8,17 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import qualified Taskwarrior.Status            as Status
 import qualified Data.HashSet                  as HashSet
-import           Frontend.Types
-import           Frontend.Util
-import           Frontend.TaskWidget
+import           Frontend.Types                 ( al
+                                                , StandardWidget
+                                                , TaskInfos
+                                                , TaskState
+                                                , Widget
+                                                , getTasks
+                                                )
+import           Frontend.Util                  (filterCurrent )
+import           Frontend.TaskWidget            (taskList, taskWidget )
+import           Frontend.Sorting               (sortTasks,  SortMode(SortModeTag) )
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
 
@@ -28,9 +34,9 @@ listsWidget = do
     fmap TagList
       . HashSet.toList
       . fold
-      . fmap (HashSet.fromList . (^. #tags))
-      . filter ((Status.Pending ==) . (^. #status))
-      . (^. #task)
+      . fmap (^. (#tags % to HashSet.fromList))
+      . filter (has $ #status % #_Pending)
+      . (^. al #task)
       . HashMap.elems
   listSelector
     :: (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)

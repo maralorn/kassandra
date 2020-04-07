@@ -17,6 +17,41 @@ project ./. ({ pkgs, ... }: {
       pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.clay);
     taskwarrior = self.callCabal2nix "taskwarrior" ../haskell-taskwarrior { };
     backend = pkgs.haskell.lib.addBuildDepend super.backend pkgs.taskwarrior;
+    indexed-profunctors = self.callHackageDirect {
+      pkg = "indexed-profunctors";
+      ver = "0.1";
+      sha256 = "0vpgbymfhnvip90jwvyniqi34lhz5n3ni1f21g81n5rap0q140za";
+    } { };
+    generic-lens-core = self.callHackageDirect {
+      pkg = "generic-lens-core";
+      ver = "2.0.0.0";
+      sha256 = "07parw0frqxxkjbbas9m9xb3pmpqrx9wz63m35wa6xqng9vlcscm";
+    } { };
+    generic-optics = self.callHackageDirect {
+      pkg = "generic-optics";
+      ver = "2.0.0.0";
+      sha256 = "0xy5k5b35w1i1zxy0dv5fk1b3zrd3hx3v5kh593k2la7ri880wmq";
+    } { };
+    optics-core = self.callHackageDirect {
+      pkg = "optics-core";
+      ver = "0.2";
+      sha256 = "0ipshb2yrqwzj1prf08acwpfq2lhcrawnanwpzbpggdhabrfga2h";
+    } { };
+    optics-th = self.callHackageDirect {
+      pkg = "optics-th";
+      ver = "0.2";
+      sha256 = "1hfvrdysp2hv8la682xpiywbk3407lshb9c99qzcc0grzm011hdg";
+    } { };
+    optics-extra = self.callHackageDirect {
+      pkg = "optics-extra";
+      ver = "0.2";
+      sha256 = "03s20ybaqwfxwybmq20221any8xwv6c7nmzyqw8kaz3qm2zl86rz";
+    } { };
+    optics = self.callHackageDirect {
+      pkg = "optics";
+      ver = "0.2";
+      sha256 = "17i8pzkcsv8dhpvzxgga1gfxwakmlanhac99lnvgf5ybg88a31yq";
+    } { };
   };
   shellToolOverrides = ghc: _:
     let

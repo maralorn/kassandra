@@ -33,12 +33,15 @@ library
 
   build-depends:
     , aeson
+    , async
     , base
     , common
     , frontend
+    , network-simple
     , obelisk-backend
     , obelisk-route
     , snap-core
+    , stm
     , taskwarrior
     , websockets
     , websockets-snap

@@ -48,6 +48,7 @@ library
 
   build-depends:
     , aeson
+    , backend
     , base
     , common
     , dependent-map

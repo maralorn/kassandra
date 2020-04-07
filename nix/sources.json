@@ -1,16 +1,4 @@
 {
-    "ghcide-nix": {
-        "branch": "expose-mkghcide",
-        "description": "Nix installation for ghcide",
-        "homepage": "https://github.com/digital-asset/ghcide",
-        "owner": "maralorn",
-        "repo": "ghcide-nix",
-        "rev": "2d736dd96c82c51fdaaf1bc62066d94cca39fb5a",
-        "sha256": "04hdqdlrgmbmsfk12i8mmr1q28xx00bfvy59wy8lisb7mgzn0ya1",
-        "type": "tarball",
-        "url": "https://github.com/maralorn/ghcide-nix/archive/2d736dd96c82c51fdaaf1bc62066d94cca39fb5a.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
     "reflex-platform": {
         "branch": "develop",
         "description": "Reflex FRP is a composable, cross-platform functional reactive programming framework for Haskell.  It allows you to build interactive components in pure functional style, working in harmony with established Haskell techniques and improving the quality and elegance of your applications.",

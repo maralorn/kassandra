@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeApplications, TupleSections, FlexibleContexts, ConstraintKinds, StandaloneDeriving, NamedFieldPuns, LambdaCase, RecursiveDo, QuasiQuotes, ScopedTypeVariables, GADTs, TemplateHaskell, OverloadedLabels, ViewPatterns #-}
 module State
   ( ioStateProvider
+  , ioStateFeeder
   )
 where
 
@@ -10,7 +11,6 @@ import           Taskwarrior.IO                 ( getTasks
 import qualified Data.Aeson                    as Aeson
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Reflex                        as R
-import qualified Network.Simple.TCP            as Net
 import           Frontend.Types          hiding ( getTasks )
 import           Frontend.State                 ( stateProvider
                                                 , TaskProvider
@@ -18,6 +18,7 @@ import           Frontend.State                 ( stateProvider
                                                 , Cache(Cache, collapseState)
                                                 , StateProvider
                                                 )
+import           Backend                        ( taskMonitor )
 
 getCache :: IO Cache
 getCache = catch
@@ -39,35 +40,30 @@ ioCacheProvider toggleEvent = do
                 (\(key, value) object -> HashMap.insert key value object)
                 collapseState
                 newPairs
-          void . forkIO $ Aeson.encodeFile cacheFile newCache
-          cb newCache
+          concurrently_ (Aeson.encodeFile cacheFile newCache) (cb newCache)
         )
         (R.current cache)
         toggleEvent
   pure cache
 
 
-ioTaskProvider :: (WidgetIO t m) => TaskProvider t m
-ioTaskProvider changeTaskEvent = do
+ioTaskProvider
+  :: (WidgetIO t m) => MVar (NonEmpty Task -> IO ()) -> TaskProvider t m
+ioTaskProvider callbackSlot changeTaskEvent = do
   void . R.performEvent $ liftIO . saveTasks . toList <$> changeTaskEvent
-  (tasksEvent :: R.Event t (NonEmpty Task), newTasksCallBack) <-
-    R.newTriggerEvent
+  (tasksEvent, newTasksCallBack) <- R.newTriggerEvent
   tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . (^. #uuid))
                      HashMap.empty
                      (changeTaskEvent <> tasksEvent)
-  liftIO $ do
-    void . forkIO $ getTasks [] >>= maybe pass newTasksCallBack . nonEmpty
-    putStrLn "Listening for changed or new tasks on 127.0.0.1:6545."
-    void . forkIO $ Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
-      Net.recv socket 4096 >>= maybe
-        (putStrLn "Unsuccessful connection attempt.")
-        (\changes ->
-          either
-              (\err -> putStrLn [i|Couldn‘t decode #{changes} as Task: #{err}|])
-              (newTasksCallBack . one)
-            $ Aeson.eitherDecodeStrict @Task changes
-        )
+  putMVar callbackSlot newTasksCallBack
   R.holdUniqDyn tasks
 
-ioStateProvider :: WidgetIO t m => StateProvider t m
-ioStateProvider = stateProvider ioCacheProvider ioTaskProvider
+ioStateFeeder :: MVar (NonEmpty Task -> IO ()) -> IO ()
+ioStateFeeder callbackSlot = do
+  callback <- takeMVar callbackSlot
+  concurrently_ (whenNotNullM (getTasks []) callback) (taskMonitor callback)
+
+ioStateProvider
+  :: WidgetIO t m => MVar (NonEmpty Task -> IO ()) -> (StateProvider t m)
+ioStateProvider callbackSlot =
+  stateProvider ioCacheProvider (ioTaskProvider callbackSlot)
