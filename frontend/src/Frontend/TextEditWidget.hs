@@ -1,27 +1,18 @@
-{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables, ViewPatterns, OverloadedLabels #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
 module Frontend.TextEditWidget
   ( lineWidget
-  , icon
-  , button
   , createTextWidget
   , editText
   )
 where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Frontend.Types
+import           Frontend.Types                 ( Widget )
+import           Frontend.BaseWidgets           ( stateWidget
+                                                , button
+                                                , icon
+                                                )
 
-
-stateWidget
-  :: Widget t m
-  => state
-  -> (state -> m (R.Event t a, R.Event t state))
-  -> m (R.Event t a)
-stateWidget initialState widget = do
-  rec state       <- R.holdDyn initialState stateEvent
-      eventsEvent <- D.dyn $ widget <$> state
-      stateEvent  <- R.switchHold R.never $ snd <$> eventsEvent
-  R.switchHold R.never $ fst <$> eventsEvent
 
 lineWidget :: Widget t m => Text -> m (R.Event t Text)
 lineWidget text = enterTextWidget text (showText text)
@@ -29,10 +20,8 @@ lineWidget text = enterTextWidget text (showText text)
 createTextWidget :: Widget t m => m (R.Event t ()) -> m (R.Event t Text)
 createTextWidget = enterTextWidget ""
 
-enterTextWidget
-  :: Widget t m => Text -> m (R.Event t ()) -> m (R.Event t Text)
-enterTextWidget text altLabel =
-  stateWidget False (selectWidget text altLabel)
+enterTextWidget :: Widget t m => Text -> m (R.Event t ()) -> m (R.Event t Text)
+enterTextWidget text altLabel = stateWidget False (selectWidget text altLabel)
 
 selectWidget
   :: Widget t m
@@ -65,10 +54,3 @@ editText text = D.elClass "span" "activeEdit" $ do
         (D.keypress D.Enter textinput <> saveButton)
   cancelEvent <- button "" $ icon "" "cancel"
   pure $ R.leftmost [saveEvent, Nothing <$ cancelEvent]
-
-icon :: Widget t m => Text -> Text -> m ()
-icon cssClass = D.elClass "i" ("material-icons icon " <> cssClass) . D.text
-
-button :: Widget t m => Text -> m () -> m (R.Event t ())
-button cssClass =
-  fmap (D.domEvent D.Click . fst) . D.elClass' "span" ("button " <> cssClass)

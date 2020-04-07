@@ -16,13 +16,17 @@ import           Frontend.Types                 ( al
                                                 , Widget
                                                 , getTasks
                                                 )
-import           Frontend.Util                  (filterCurrent )
-import           Frontend.TaskWidget            (taskList, taskWidget )
-import           Frontend.Sorting               (sortTasks,  SortMode(SortModeTag) )
+import           Frontend.Util                  ( filterCurrent )
+import           Frontend.TaskWidget            ( taskList
+                                                , taskTreeWidget
+                                                )
+import           Frontend.Sorting               ( sortTasks
+                                                , SortMode(SortModeTag)
+                                                )
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
 
-listsWidget :: (StandardWidget t m r) => m ()
+listsWidget :: (StandardWidget t m r e) => m ()
 listsWidget = do
   taskState <- getTasks
   D.text "Select a list"
@@ -54,7 +58,7 @@ listsWidget = do
         . D.text
 
 listWidget
-  :: forall t m r . (StandardWidget t m r) => R.Dynamic t TaskList -> m ()
+  :: forall t m r e . (StandardWidget t m r e) => R.Dynamic t TaskList -> m ()
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: TaskList -> m ()
@@ -65,7 +69,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
       void
         . D.simpleList
             ((\tasks' -> mapMaybe (`HashMap.lookup` tasks') uuids) <$> tasks)
-        $ taskWidget
+        $ taskTreeWidget
     | TagList tag <- list'
     = do
       D.text tag
@@ -75,6 +79,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
       taskList (R.constant sortMode)
                (sortTasks sortMode <$> showTasks)
                (R.constDyn [])
+               taskTreeWidget
     | SubList sublists <- list'
     = void . D.simpleList (D.constDyn sublists) $ listWidget
 

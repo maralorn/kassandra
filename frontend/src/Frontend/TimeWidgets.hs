@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables, ViewPatterns, OverloadedLabels #-}
+{-# LANGUAGE TypeApplications, ScopedTypeVariables, ViewPatterns, OverloadedLabels #-}
 module Frontend.TimeWidgets
   ( dateSelectionWidget
   )
@@ -40,8 +40,8 @@ inputDateWidget time = do
     ]
 
 dateSelectionWidget
-  :: forall t m r
-   . StandardWidget t m r
+  :: forall t m r e
+   . StandardWidget t m r e
   => Text
   -> Maybe UTCTime
   -> m (R.Event t (Maybe UTCTime))
@@ -60,7 +60,7 @@ dateSelectionWidget label utcTime = do
     pure $ Nothing <$ event
 
 selectTimeWidget
-  :: (StandardWidget t m r)
+  :: (StandardWidget t m r e)
   => Text
   -> Maybe ZonedTime
   -> Bool
@@ -77,8 +77,7 @@ selectTimeWidget label time False = do
 
 showTime
   :: forall t m . Widget t m => Text -> Maybe ZonedTime -> m (R.Event t ())
-showTime label timeMay = do
-  maybe create showWithButton timeMay
+showTime label = maybe create showWithButton
  where
   showWithButton time = do
     D.el "span" $ D.text label

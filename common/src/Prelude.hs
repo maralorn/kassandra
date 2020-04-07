@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, OverloadedLabels #-}
+{-# LANGUAGE OverloadedLabels #-}
 module Prelude
   ( module Relude
   , module Optics
@@ -36,6 +36,8 @@ module Prelude
   , the
   , HasType
   , typed
+  , AsType
+  , _Typed
   , AsConstructor'
   , _Ctor'
   , formatTime
@@ -92,6 +94,7 @@ import           Data.Aeson                     ( toJSON
 import           Data.Generics.Product.Fields   ( HasField'(field') )
 import           Data.Generics.Product.Any      ( HasAny(the) )
 import           Data.Generics.Product.Typed    ( HasType(typed) )
+import           Data.Generics.Sum.Typed        ( AsType(_Typed) )
 import           Data.Generics.Sum.Constructors ( AsConstructor'(_Ctor') )
 import           GHC.Generics                   ( Generic )
 

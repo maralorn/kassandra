@@ -1,8 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, ViewPatterns, OverloadedLabels, QuasiQuotes, TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, OverloadedLabels #-}
 module Frontend.DragAndDrop
   ( droppableElementConfig
   , childDropArea
   , taskDropArea
+  , tellDragTask
   )
 where
 
@@ -12,20 +14,25 @@ import           Data.Proxy                     ( Proxy(Proxy) )
 import           Frontend.Sorting               ( SortPosition
                                                 , saveSorting
                                                 )
-import           Frontend.Types                 ( StandardWidget
+import           Frontend.Types                 ( AppStateChange
+                                                , StandardWidget
                                                 , TaskInfos
                                                 , DragState(DraggedTask, NoDrag)
                                                 , getTasks
                                                 , getDragState
-                                                , DataChange(ChangeTask)
-                                                , AppChange(DragChange)
+                                                , DataChange
+                                                , WriteApp
                                                 )
 import           Frontend.Util                  ( tellSingleton
                                                 , lookupTask
                                                 )
 
+tellDragTask :: WriteApp t m e => R.Event t (Maybe UUID) -> m ()
+tellDragTask = tellSingleton . fmap
+  ((_Typed @AppStateChange % _Typed @DragState #) . maybe NoDrag DraggedTask)
+
 taskDropArea
-  :: StandardWidget t m r
+  :: StandardWidget t m r e
   => R.Dynamic t [UUID]
   -> m ()
   -> (R.Event t TaskInfos -> R.Event t [Task])
@@ -47,18 +54,18 @@ taskDropArea blacklistD areaW handler = do
     Just draggedUuid -> do
       dropEl <- fmap fst <$> D.element "span" droppableElementConfig $ areaW
       let event = D.domEvent D.Drop dropEl
-      tellSingleton $ (Left . DragChange $ NoDrag) <$ event
+      tellSingleton $ (_Typed @AppStateChange % _Typed # NoDrag) <$ event
       let droppedTaskEvent = R.attachWithMaybe
             (const . flip lookupTask draggedUuid)
             (R.current tasksD)
             event
       R.tellEvent
-        $   fmap (Right . ChangeTask)
-        <$> (R.fmapMaybe nonEmpty $ handler droppedTaskEvent)
+        $   fmap (_Typed @AppStateChange % _Typed @DataChange % #_ChangeTask #)
+        <$> R.fmapMaybe nonEmpty (handler droppedTaskEvent)
     Nothing -> pass
 
 childDropArea
-  :: StandardWidget t m r
+  :: StandardWidget t m r e
   => SortPosition t
   -> R.Dynamic t [UUID]
   -> m ()

@@ -1,4 +1,3 @@
-{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,9 +17,7 @@ import           Frontend.MainWidget            ( mainWidget )
 import           Frontend.Types
 import           Frontend.State                 ( StateProvider
                                                 , stateProvider
-                                                , CacheProvider
                                                 , TaskProvider
-                                                , Cache(Cache)
                                                 )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
@@ -45,13 +42,13 @@ type WidgetJSM t m
   = (D.HasJSContext m, MonadJSM (R.Performable m), MonadJSM m, WidgetIO t m)
 
 webSocketStateProvider :: WidgetJSM t m => StateProvider t m
-webSocketStateProvider = stateProvider tmpCacheProvider webSocketTaskProvider
+webSocketStateProvider = stateProvider webSocketTaskProvider
 
 webSocketTaskProvider :: forall t m . WidgetJSM t m => TaskProvider t m
 webSocketTaskProvider changeTasksEvent = do
   socket <- D.jsonWebSocket
     ("ws://localhost:8000/socket" :: Text)
-    (  (lensVL D.webSocketConfig_send)
+    (  lensVL D.webSocketConfig_send
     .~ (one . (_ChangeTasks #) <$> changeTasksEvent)
     $  D.def
     )
@@ -63,22 +60,6 @@ webSocketTaskProvider changeTasksEvent = do
             HashMap.empty
             (changeTasksEvent <> updateTasksEvents)
 
-tmpCacheProvider :: (WidgetIO t m) => CacheProvider t m
-tmpCacheProvider toggleEvent = do
-  fmap Cache
-    <$> R.foldDyn (\values -> HashMap.union (fold $ one <$> values))
-                  mempty
-                  toggleEvent
-
-  --D.el "h1" $ (R.text "Welcome to my Obelisk!" >> R.dynText (show <$> timeDyn))
-  --(R.domEvent R.Click . fst -> clickEvent) <- R.elAttr' "a" mempty
-    -- R.text "Send all the tasks!"
-  --socket <- R.jsonWebSocket
-    --("ws://localhost:8000/socket" :: Text)
-    --((lensVL R.webSocketConfig_send) .~ (one AllTasks <$ clickEvent) $ R.def)
-  --answer :: R.Dynamic t (Maybe SocketMessage) <-
-    --R.holdDyn Nothing $ socket ^. lensVL R.webSocket_recv
-  --R.dynText (show <$> answer)
 
 frontendHead :: ObeliskWidget js t route m => m ()
 frontendHead = do

@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels#-}
 module Frontend.MainWidget
   ( mainWidget
@@ -13,7 +14,10 @@ import           Frontend.ListWidget            ( listsWidget
                                                 , TaskList(TagList)
                                                 )
 import           Frontend.State                 ( StateProvider )
-import           Frontend.TaskWidget            ( taskWidget )
+import           Frontend.TaskWidget            ( taskTreeWidget )
+import           Frontend.TextEditWidget        ( createTextWidget )
+import           Frontend.BaseWidgets           ( button )
+import           Frontend.Util                  ( tellNewTask )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
@@ -22,23 +26,22 @@ mainWidget stateProvider = do
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
       <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
-  rec
-    let (appChangeEvents, dataChangeEvents) =
-          R.fanThese $ partitionEithersNE <$> stateChanges
-    taskState <- stateProvider dataChangeEvents
-    dragDyn   <-
-      R.holdDyn NoDrag $ (\(DragChange a) -> a) . last <$> appChangeEvents
-    (_, stateChanges) <- R.runEventWriterT $ runReaderT
-      (do
-        taskDiagnosticsWidget
-        D.divClass "container" $ do
-          D.divClass "pane" widgetSwitcher
-          D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
-      )
-      (AppState taskState timeDyn dragDyn filterState)
+  rec let (appChangeEvents, dataChangeEvents) =
+            R.fanThese $ partitionEithersNE <$> stateChanges
+      taskState <- stateProvider dataChangeEvents
+      dragDyn   <- R.holdDyn NoDrag $ last <$> appChangeEvents
+      (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
+        R.runEventWriterT $ runReaderT
+          (do
+            taskDiagnosticsWidget
+            D.divClass "container" $ do
+              D.divClass "pane" widgetSwitcher
+              D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
+          )
+          (AppState taskState timeDyn dragDyn filterState)
   pass
 
-taskDiagnosticsWidget :: (StandardWidget t m r) => m ()
+taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do
   tasks <- getTasks
   D.dynText $ do
@@ -52,7 +55,7 @@ taskDiagnosticsWidget = do
       Just uuid -> "Found a loop for uuid " <> show uuid
       Nothing   -> "" -- everything fine
 
-widgets :: StandardWidget t m r => [(Text, m ())]
+widgets :: StandardWidget t m r e => [(Text, m ())]
 widgets =
   [ ("Next"    , nextWidget)
   , ("Lists"   , listsWidget)
@@ -60,8 +63,10 @@ widgets =
   , ("Unsorted", unsortedWidget)
   ]
 
-widgetSwitcher :: forall t m r . StandardWidget t m r => m ()
+widgetSwitcher :: forall t m r e . StandardWidget t m r e => m ()
 widgetSwitcher = D.el "div" $ do
+  tellNewTask =<< fmap (, id) <$> createTextWidget
+    (button "selector" $ D.text "New Task")
   buttons <- forM (widgets @t @m) $ \l ->
     (l <$) . D.domEvent D.Click . fst <$> D.elClass' "a"
                                                      "selector"
@@ -78,8 +83,8 @@ filterInbox tasks =
     has (#tags % _Empty) taskInfos
       && has (#status % #_Pending) taskInfos
       && has (#children % _Empty)  taskInfos
-      && (  null
-         .  filter (`notElem` ["kategorie", "project", "root"])
+      && (  not
+         .  any (`notElem` ["kategorie", "project", "root"])
          .  join
          $  lookupTasks tasks (taskInfos ^. #parents)
          ^. #tags
@@ -89,23 +94,23 @@ filterInbox tasks =
 lookupTasks :: TaskState -> [UUID] -> [TaskInfos]
 lookupTasks tasks = mapMaybe (\uuid -> tasks ^. at uuid)
 
-nextWidget :: (StandardWidget t m r) => m ()
+nextWidget :: (StandardWidget t m r e) => m ()
 nextWidget = do
   inboxTasks <- fmap filterInbox <$> getTasks
   D.dynText
     $   (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
     <$> inboxTasks
-  void . flip R.simpleList taskWidget $ take 1 <$> inboxTasks
+  void . flip R.simpleList taskTreeWidget $ take 1 <$> inboxTasks
 
-inboxWidget :: (StandardWidget t m r) => m ()
+inboxWidget :: (StandardWidget t m r e) => m ()
 inboxWidget = do
   inboxTasks <- fmap filterInbox <$> getTasks
   D.dynText
     $   (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
     <$> inboxTasks
-  void . flip R.simpleList taskWidget $ inboxTasks
+  void . flip R.simpleList taskTreeWidget $ inboxTasks
 
-unsortedWidget :: (StandardWidget t m r) => m ()
+unsortedWidget :: (StandardWidget t m r e) => m ()
 unsortedWidget = do
   unsortedTasks <-
     fmap
@@ -122,4 +127,4 @@ unsortedWidget = do
   D.dynText
     $   (\x -> "There are " <> show (length x) <> " unsorted tasks.")
     <$> unsortedTasks
-  void . flip R.simpleList taskWidget $ unsortedTasks
+  void . flip R.simpleList taskTreeWidget $ unsortedTasks

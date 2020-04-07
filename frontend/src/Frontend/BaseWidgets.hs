@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, RecursiveDo, ScopedTypeVariables, ViewPatterns, OverloadedLabels #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
 module Frontend.BaseWidgets
   ( icon
   , button
@@ -8,6 +8,7 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import           Frontend.Types                 ( Widget )
+import           Relude.Extra.Bifunctor         ( secondF )
 
 
 stateWidget
@@ -16,10 +17,9 @@ stateWidget
   -> (state -> m (R.Event t a, R.Event t state))
   -> m (R.Event t a)
 stateWidget initialState widget = do
-  rec state       <- R.holdDyn initialState stateEvent
-      eventsEvent <- D.dyn $ widget <$> state
-      stateEvent  <- R.switchHold R.never $ snd <$> eventsEvent
-  R.switchHold R.never $ fst <$> eventsEvent
+  eventsEvent <- D.workflowView $ stateToWorkflow initialState
+  R.switchHold R.never eventsEvent
+  where stateToWorkflow = D.Workflow . secondF (fmap stateToWorkflow) . widget
 
 icon :: Widget t m => Text -> Text -> m ()
 icon cssClass = D.elClass "i" ("material-icons icon " <> cssClass) . D.text

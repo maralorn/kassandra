@@ -1,22 +1,31 @@
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances, OverloadedLabels, TypeApplications, AllowAmbiguousTypes, ScopedTypeVariables, StandaloneDeriving, DuplicateRecordFields #-}
 module Frontend.Types
   ( Widget
-  , ViewWidget
   , WidgetIO
-  , TaskInfos(..)
+  , TaskInfos(TaskInfos)
   , TaskState
   , AppStateChange
-  , DragState
+  , DragState(DraggedTask, NoDrag)
+  , TaskTreeState
   , TaskTreeStateChange
-  , DataChange
-  , FilterState
+  , DataChange(ChangeTask, CreateTask)
+  , FilterState(FilterState)
   , StandardWidget
+  , TaskTreeWidget
+  , ExpandedTasks
+  , ToggleEvent(ToggleEvent)
+  , WriteApp
+  , Write
+  , Have
+  , HaveApp
   , AppState(AppState)
   , getAppState
   , getTasks
   , getDragState
   , getFilterState
   , getTime
+  , getIsExpanded
+  , getExpandedTasks
   , fl
   , al
   )
@@ -26,7 +35,7 @@ import qualified Reflex                        as R
 import qualified Taskwarrior.Task
 import qualified Taskwarrior.Status
 import qualified Data.Aeson                    as Aeson
-import           Data.Generics.Sum.Typed        ( AsType )
+import           Data.HashSet                   ( member )
 
 type Widget t m
   = ( D.DomBuilder t m
@@ -59,21 +68,37 @@ makePrismLabels ''ToggleEvent
 type AppStateChange = Either DragState DataChange
 type TaskTreeStateChange = Either AppStateChange ToggleEvent
 
+instance {-# OVERLAPPING #-} AsType AppStateChange AppStateChange where
+  _Typed = castOptic equality
+instance {-# OVERLAPPING #-} AsType TaskTreeStateChange TaskTreeStateChange where
+  _Typed = castOptic equality
+
 data FilterState = FilterState { deletedFade :: NominalDiffTime,  completedFade :: NominalDiffTime}deriving (Eq, Show, Generic)
 makeLabels ''FilterState
+
+type ExpandedTasks = HashSet UUID
+type TaskTreeState t = R.Dynamic t ExpandedTasks
 
 data AppState t = AppState { taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime , dragState :: R.Dynamic t DragState, filterState :: R.Dynamic t FilterState} deriving (Generic)
 makeLabels ''AppState
 
-type ViewWidget t m r e
-  = ( Widget t m
-    , R.EventWriter t (NonEmpty e) m
-    , MonadReader r m
-    , HasType (AppState t) r
-    )
+type Have m r s = (MonadReader r m, HasType s r)
+type HaveApp t m r = (R.Reflex t, Have m r (AppState t))
+type HaveTaskTree t m r = (Have m r (TaskTreeState t))
+type Write t m e s = (R.Reflex t, R.EventWriter t (NonEmpty e) m, AsType s e)
+type WriteApp t m e = (Write t m e AppStateChange)
+type WriteTaskTree t m e = (Write t m e TaskTreeStateChange)
+type StandardWidget t m r e = (Widget t m, HaveApp t m r, WriteApp t m e)
+type TaskTreeWidget t m r e
+  = (StandardWidget t m r e, HaveTaskTree t m r, WriteTaskTree t m e)
 
-type StandardWidget t m r e = (AsType AppStateChange e, ViewWidget t m r e)
-type TaskTreeWidget t m r e = (AsType TaskTreeStateChange e, ViewWidget t m r e)
+
+getIsExpanded
+  :: (Widget t m, HaveTaskTree t m r) => UUID -> m (R.Dynamic t Bool)
+getIsExpanded uuid = R.holdUniqDyn . fmap (member uuid) =<< getExpandedTasks
+
+getExpandedTasks :: HaveTaskTree t m r => m (TaskTreeState t)
+getExpandedTasks = asks (^. typed)
 
 getAppState :: (MonadReader r m, HasType (AppState t) r) => m (AppState t)
 getAppState = asks (^. typed)
@@ -96,7 +121,7 @@ al
   :: (Applicative a, Is k A_Setter, Is k A_Getter)
   => Optic' k is s b
   -> Lens' (a s) (a b)
-al a = lens (view a <$>) (\s b -> liftA2 (set a) b s)
+al a = lens (view a <$>) (flip (liftA2 (set a)))
 
 deriving instance Generic Task
 makeLabels ''Task
@@ -143,6 +168,5 @@ instance (Functor f, Is k A_Getter,LabelOptic "tags" k s s a a, c ~ f a, d ~ f a
   labelOptic = fl $ fromLabel @"tags"
 instance (Functor f, Is k A_Getter,LabelOptic "depends" k s s a a, c ~ f a, d ~ f a) => LabelOptic "depends" A_Getter (f s) (f s) c d where
   labelOptic = fl $ fromLabel @"depends"
-
 instance (R.Reflex t, c ~ R.Behavior t a) => LabelOptic "current" A_Getter (R.Dynamic t a) (R.Dynamic t a) c c where
   labelOptic = to R.current

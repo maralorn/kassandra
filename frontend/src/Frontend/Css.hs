@@ -12,11 +12,11 @@ import           Clay
 
 css :: Text
 css = toStrict . render $ do
-  let darkBlue      = (rgb 0 0 33)
-      veryLightBlue = (rgb 235 235 255)
-      lightBlue     = (rgb 200 200 255)
-      lighterBlue   = (rgb 144 144 255)
-      sunYellow     = (rgb 255 200 20)
+  let darkBlue      = rgb 0 0 33
+      veryLightBlue = rgb 235 235 255
+      lightBlue     = rgb 200 200 255
+      lighterBlue   = rgb 144 144 255
+      sunYellow     = rgb 255 200 20
       noMargin      = margin (px 0) (px 0) (px 0) (px 0)
       noPadding     = padding (px 0) (px 0) (px 0) (px 0)
   star ? do
@@ -32,29 +32,25 @@ css = toStrict . render $ do
     color black
     background sunYellow
   let offset = 1.5
-  ".plusOne" ? do
-    marginLeft (em offset)
-  ".plusTwo" ? do
-    marginLeft (em (offset * 2))
+  ".plusOne" ? marginLeft (em offset)
+  ".plusTwo" ? marginLeft (em (offset * 2))
   ".above" ? marginTop (em (-0.8))
-  ".pane" ? do
-    width (pct 100)
+  ".pane" ? width (pct 100)
   ".selector" ? do
     display inlineBlock
     margin (px 1) (px 1) (px 1) (px 1)
     color (rgb 0 0 200)
     padding (em 0.1) (em 0.3) (em 0.1) (em 0.3)
     background lightBlue
+  let tagRadius = em 0.4
   ".tag" ? ".icon" ? do
-    let tagRadius = (em 0.4)
     position absolute
     borderRadius tagRadius tagRadius tagRadius tagRadius
     background lightBlue
     marginLeft (em (-1.1))
-    marginTop (em (0.70))
+    marginTop (em 0.70)
     fontSize (em 0.85)
   ".tag" ? do
-    let tagRadius = (em 0.4)
     background (rgb 200 200 255)
     borderRadius tagRadius tagRadius tagRadius tagRadius
     padding (em 0.1) (em 0.3) (em 0.1) (em 0.3)
@@ -78,7 +74,7 @@ css = toStrict . render $ do
     color grey
     fontSize (em 0.8)
   let radius       = em 0.3
-      leftBarWidth = (em 1.8)
+      leftBarWidth = em 1.8
   ".activeEdit" ? do
     border solid (px 1) sunYellow
     background sunYellow
@@ -88,8 +84,7 @@ css = toStrict . render $ do
     background white
     ".task" ? do
       noMargin
-      ".parentPath" ? do
-        display none
+      ".parentPath" ? display none
     hover & do
       ".children" <? background lighterBlue
       ".uppertask" <? ".statusWrapper" ? background lighterBlue
