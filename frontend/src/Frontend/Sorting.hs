@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, ViewPatterns, OverloadedLabels, QuasiQuotes, TemplateHaskell #-}
+
 module Frontend.Sorting
   ( sortTasks
   , saveSorting

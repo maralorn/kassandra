@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances, OverloadedLabels, TypeApplications, AllowAmbiguousTypes, ScopedTypeVariables, StandaloneDeriving, DuplicateRecordFields #-}
+
 module Frontend.Types
   ( Widget
   , WidgetIO

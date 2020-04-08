@@ -1,4 +1,4 @@
-{-# LANGUAGE BlockArguments, TypeApplications, TupleSections, LambdaCase, RecursiveDo, ScopedTypeVariables, FlexibleInstances, MultiWayIf, OverloadedLabels  #-}
+
 module Frontend.TaskWidget
   ( taskTreeWidget
   , taskList

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ConstraintKinds, ScopedTypeVariables, GADTs, OverloadedLabels #-}
+
 module State
   ( ioStateProvider
   , ioStateFeeder

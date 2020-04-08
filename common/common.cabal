@@ -9,13 +9,17 @@ library
     DataKinds
     DeriveAnyClass
     DeriveGeneric
+    EmptyCase
     FlexibleContexts
     FlexibleInstances
     GADTs
+    LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
     OverloadedStrings
+    RankNTypes
     StrictData
+    TemplateHaskell
     TypeFamilies
     UndecidableInstances
 

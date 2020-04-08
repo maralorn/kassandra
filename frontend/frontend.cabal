@@ -59,13 +59,23 @@ library
     FlexibleContexts
     FlexibleInstances
     GADTs
+    LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
+    OverloadedLabels
     OverloadedStrings
     PatternGuards
+    RankNTypes
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
     StrictData
+    TemplateHaskell
+    TupleSections
+    TypeApplications
     TypeFamilies
     UndecidableInstances
+    ViewPatterns
 
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations

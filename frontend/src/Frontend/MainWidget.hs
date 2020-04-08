@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications,  LambdaCase, RecursiveDo, ScopedTypeVariables, OverloadedStrings, OverloadedLabels#-}
 module Frontend.MainWidget
   ( mainWidget
   )
@@ -8,7 +6,16 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Frontend.Types
+import           Frontend.Types                 ( DragState(NoDrag)
+                                                , AppState(AppState)
+                                                , FilterState(FilterState)
+                                                , getTasks
+                                                , TaskInfos
+                                                , AppStateChange
+                                                , WidgetIO
+                                                , StandardWidget
+                                                , TaskState
+                                                )
 import           Frontend.ListWidget            ( listsWidget
                                                 , listWidget
                                                 , TaskList(TagList)

@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
+
 module Frontend.ListWidget
   ( listsWidget
   , listWidget

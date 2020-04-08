@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, ScopedTypeVariables, ViewPatterns, OverloadedLabels #-}
+
 module Frontend.TimeWidgets
   ( dateSelectionWidget
   )

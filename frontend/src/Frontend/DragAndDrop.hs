@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables, MultiWayIf, LambdaCase, OverloadedLabels #-}
+
+
 module Frontend.DragAndDrop
   ( droppableElementConfig
   , childDropArea

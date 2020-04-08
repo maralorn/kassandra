@@ -34,6 +34,8 @@ library
     StrictData
     TypeFamilies
     UndecidableInstances
+    OverloadedLabels
+
 
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations

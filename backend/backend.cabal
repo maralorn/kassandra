@@ -12,10 +12,14 @@ library
     FlexibleContexts
     FlexibleInstances
     GADTs
+    LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
     OverloadedStrings
+    PatternSynonyms
+    QuasiQuotes
     StrictData
+    TypeApplications
     TypeFamilies
     UndecidableInstances
 

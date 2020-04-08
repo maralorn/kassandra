@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, ScopedTypeVariables, MultiWayIf,  ViewPatterns, OverloadedLabels  #-}
+
 module Frontend.Util
   ( filterCurrent
   , tellSingleton

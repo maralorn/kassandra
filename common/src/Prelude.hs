@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedLabels #-}
 module Prelude
   ( module Relude
   , module Optics

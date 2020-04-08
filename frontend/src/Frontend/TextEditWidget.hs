@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, OverloadedLabels #-}
+
 module Frontend.TextEditWidget
   ( lineWidget
   , createTextWidget
