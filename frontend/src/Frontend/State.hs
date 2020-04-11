@@ -1,4 +1,3 @@
-
 module Frontend.State
   ( stateProvider
   , TaskProvider

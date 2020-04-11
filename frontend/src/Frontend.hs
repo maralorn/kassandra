@@ -1,8 +1,3 @@
-
-
-
-
-
 module Frontend
   ( frontend
   )
@@ -46,8 +41,10 @@ webSocketStateProvider = stateProvider webSocketTaskProvider
 
 webSocketTaskProvider :: forall t m . WidgetJSM t m => TaskProvider t m
 webSocketTaskProvider changeTasksEvent = do
+  host <- D.getLocationHost
+  let fullHost = if host == "localhost" then "localhost:8000" else host
   socket <- D.jsonWebSocket
-    ("ws://localhost:8000/socket" :: Text)
+    ([i|ws://#{fullHost}/socket|] :: Text)
     (  lensVL D.webSocketConfig_send
     .~ (one . (_ChangeTasks #) <$> changeTasksEvent)
     $  D.def

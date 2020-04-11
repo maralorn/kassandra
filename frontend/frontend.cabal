@@ -65,6 +65,7 @@ library
     OverloadedLabels
     OverloadedStrings
     PatternGuards
+    QuasiQuotes
     RankNTypes
     RecursiveDo
     ScopedTypeVariables
