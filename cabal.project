@@ -1,7 +1,6 @@
 packages:
   common/
   standalone/
-  ../haskell-taskwarrior/taskwarrior.cabal
 
 optional-packages:
   *

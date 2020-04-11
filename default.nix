@@ -15,7 +15,11 @@ project ./. ({ pkgs, ... }: {
   overrides = self: super: {
     clay =
       pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.clay);
-    taskwarrior = self.callCabal2nix "taskwarrior" ../haskell-taskwarrior { };
+    taskwarrior = self.callHackageDirect {
+      pkg = "taskwarrior";
+      ver = "0.1.2.3";
+      sha256 = "12l6s8dm2cs81bhcf6g84imnk9239bv4j0q52saac2axm0ixxznx";
+    } { };
     backend = pkgs.haskell.lib.addBuildDepend super.backend pkgs.taskwarrior;
     indexed-profunctors = self.callHackageDirect {
       pkg = "indexed-profunctors";
