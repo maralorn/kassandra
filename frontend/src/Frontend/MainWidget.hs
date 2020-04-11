@@ -28,6 +28,7 @@ import           Frontend.Util                  ( tellNewTask )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
+  D.text "Herzlich willkommen im kassandra taskmanagement."
   time    <- liftIO getZonedTime
   timeDyn <-
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
@@ -46,7 +47,7 @@ mainWidget stateProvider = do
               D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
           )
           (AppState taskState timeDyn dragDyn filterState)
-  pass
+  D.text "GLP Licensed -- Malte Brandy -- 2019 - 2020"
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do
