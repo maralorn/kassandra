@@ -26,7 +26,23 @@ css = toStrict . render $ do
   body ? do
     background darkBlue
     color white
-  ".container" ? display flex
+    minHeight (pct 100)
+  ".header" ? do
+    padding (em 0.2) (em 0.2) (em 0.2) (em 0.2)
+    background (black)
+    fontWeight bold
+    fontSize (em 1.5)
+  ".footer" ? do
+    position absolute
+    bottom (px 0)
+    width (pct 100)
+    padding (em 2) (em 2) (em 2) (em 2)
+    fontSize (em 0.8)
+    background (black)
+    color (grayish 180)
+  ".container" ? do
+    display flex
+    minHeight (pct 100)
   ".dropHere" ? do
     position absolute
     color black
