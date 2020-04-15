@@ -105,9 +105,9 @@ css = toStrict . render $ do
       ".children" <? background lighterBlue
       ".uppertask" <? ".statusWrapper" ? background lighterBlue
   ".edit" ? visibility hidden
-  ".righttask" ? hover & do
+  ".righttask" ? do
     width (pct 100)
-    background veryLightBlue
+    hover & background veryLightBlue
   ".statusWrapper" ? do
     background lightBlue
     width leftBarWidth
