@@ -373,12 +373,16 @@ statusWidget = do
 
 collapseButton :: forall t m r e . TaskWidget t m r e => m ()
 collapseButton = do
-  taskInfos <- getTaskInfos
-  unless (null $ taskInfos ^. #children) $ do
-    open <- getIsExpanded $ taskInfos ^. #uuid
-    let label = \case
-          True  -> "unfold_less"
-          False -> "unfold_more"
-    buttonEvent <- button "slimButton"
-      $ D.dyn_ (icon "collapse" . label <$> open)
-    tellToggle $ taskInfos ^. #uuid <$ buttonEvent
+  taskInfos   <- getTaskInfos
+  hasChildren <- R.holdUniqDyn =<< fmap null <$> lookupCurrent
+    (taskInfos ^. #children)
+  D.dyn_ $ unless <$> hasChildren <*> pure
+    (do
+      open <- getIsExpanded $ taskInfos ^. #uuid
+      let label = \case
+            True  -> "unfold_less"
+            False -> "unfold_more"
+      buttonEvent <- button "slimButton"
+        $ D.dyn_ (icon "collapse" . label <$> open)
+      tellToggle $ taskInfos ^. #uuid <$ buttonEvent
+    )
