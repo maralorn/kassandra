@@ -45,13 +45,23 @@ webSocketTaskProvider changeTasksEvent = do
   host     <- D.getLocationHost
   socket   <- D.jsonWebSocket
     (if protocol == "http:"
-      then [i|ws://#{host}/socket|]
-      else [i|wss://#{host}/socket|]
+      then [i|ws://#{host}/socket?username=testUser&password=hunter2|]
+      else [i|wss://#{host}/socket?username=testUser&password=hunter2|]
     )
     (  lensVL D.webSocketConfig_send
     .~ (one . (_ChangeTasks #) <$> changeTasksEvent)
     $  D.def
     )
+  let
+    close =
+      "Connection to kassandra server not possible. Check network connection, server url and credentials."
+        <$ socket
+        ^. lensVL D.webSocket_close
+    open =
+      "Connected to kassandra server!" <$ socket ^. lensVL D.webSocket_open
+  websocketState <- R.holdDyn "Connecting to kassandra server..."
+                              (R.leftmost [close, open])
+  D.dynText websocketState
   let updateTasksEvents =
         R.fmapMaybe ((nonEmpty =<<) . (^? _TaskUpdates) =<<)
           $  socket

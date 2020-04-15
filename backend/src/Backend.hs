@@ -4,7 +4,8 @@ module Backend
   )
 where
 
-import           Network.WebSockets             ( acceptRequest
+import           Network.WebSockets             ( rejectRequest
+                                                , acceptRequest
                                                 , ServerApp
                                                 , forkPingThread
                                                 , receiveData
@@ -51,14 +52,26 @@ backend = Backend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
+users :: [(Text, Text)]
+users = fromList [("testUser", "hunter2")]
+
 backendSnaplet :: MonadSnap m => TChan (NonEmpty Task) -> R BackendRoute -> m ()
 backendSnaplet broadCastChannel = \case
-  BackendRouteSocket  :/ () -> runWebSocketsSnap $ runSocket broadCastChannel
+  BackendRouteSocket :/ (_, params) ->
+    let mayUsername = (join (params ^. at "username"))
+        action (Just credentials@(username, _)) | credentials `elem` users =
+            acceptSocket broadCastChannel username
+        action _ = \connection -> do
+            putTextLn [i|Rejecting Websocket request #{show mayUsername :: Text}.|]
+            rejectRequest connection "No valid 'username' and 'password' provided."
+    in  runWebSocketsSnap . action $ liftA2 (,)
+                                            mayUsername
+                                            (join (params ^. at "password"))
   BackendRouteMissing :/ () -> pass
 
-runSocket :: TChan (NonEmpty Task) -> ServerApp
-runSocket broadCastChannel pendingConnection = do
-  putStrLn "Websocket Client connected!"
+acceptSocket :: TChan (NonEmpty Task) -> Text -> ServerApp
+acceptSocket broadCastChannel user pendingConnection = do
+  putStrLn [i|Websocket Client by user #{user} connected!|]
   connection <- acceptRequest pendingConnection
   forkPingThread connection 30
   channel <- atomically $ dupTChan broadCastChannel

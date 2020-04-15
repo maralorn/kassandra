@@ -11,6 +11,7 @@ import Control.Category
 -}
 
 import           Data.Text                      ( Text )
+import qualified Control.Category
 --import Data.Functor.Identity
 
 import           Obelisk.Route
@@ -19,7 +20,7 @@ import           Obelisk.Route.TH
 data BackendRoute :: Type -> Type where
   -- | Used to handle unparseable routes.
   BackendRouteMissing ::BackendRoute ()
-  BackendRouteSocket ::BackendRoute ()
+  BackendRouteSocket ::BackendRoute PageName
   -- You can define any routes that will be handled specially by the backend here.
   -- i.e. These do not serve the frontend, but do something different, such as serving static files.
 
@@ -37,7 +38,7 @@ fullRouteEncoder = mkFullRouteEncoder
   (FullRoute_Backend BackendRouteMissing :/ ())
   (\case
     BackendRouteMissing -> PathSegment "missing" $ unitEncoder mempty
-    BackendRouteSocket  -> PathSegment "socket" $ unitEncoder mempty
+    BackendRouteSocket  -> PathSegment "socket" $ Control.Category.id
   )
   (\case
     FrontendRouteMain -> PathEnd $ unitEncoder mempty
