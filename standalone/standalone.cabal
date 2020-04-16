@@ -30,12 +30,11 @@ library
     GADTs
     MultiParamTypeClasses
     NamedFieldPuns
+    OverloadedLabels
     OverloadedStrings
     StrictData
     TypeFamilies
     UndecidableInstances
-    OverloadedLabels
-
 
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations
@@ -65,7 +64,7 @@ library
   hs-source-dirs:     src
   default-language:   Haskell2010
 
-executable kassandra
+executable kassandra2
   main-is:          main.hs
   hs-source-dirs:   src-bin
   build-depends:

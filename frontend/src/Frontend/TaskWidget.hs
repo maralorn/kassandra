@@ -83,7 +83,6 @@ taskTreeWidget taskInfosD = do
             R.fanThese $ partitionEithersNE <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
-
 taskWidget
   :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t TaskInfos -> m ()
 taskWidget taskInfos' = D.divClass "task" $ do
