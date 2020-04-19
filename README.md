@@ -2,7 +2,9 @@
 
 *Kassandra from Greek mythology tells the Trojan _warriors_ in the Illiad not to take in the horse offer by the Greek. They don‘t listen to her.*
 
-A not yet recommended for public use taskwarrior frontend build with Haskell and reflex-frp
+This is a taskwarrior frontend build with Haskell and reflex-frp.
+
+**WARNING: This will eat all of your tasks! This app is underdocumented and not intended for use by anyone else, yet.**
 
 ## State
 
