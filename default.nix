@@ -17,8 +17,8 @@ project ./. ({ pkgs, ... }: {
       pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.clay);
     taskwarrior = self.callHackageDirect {
       pkg = "taskwarrior";
-      ver = "0.1.2.3";
-      sha256 = "12l6s8dm2cs81bhcf6g84imnk9239bv4j0q52saac2axm0ixxznx";
+      ver = "0.2.0.0";
+      sha256 = "1qpk0kh2ayr0nd8c6sang0ag2nm701plx0flr01hp21pjvifnpdg";
     } { };
     backend = pkgs.haskell.lib.addBuildDepend super.backend pkgs.taskwarrior;
     indexed-profunctors = self.callHackageDirect {

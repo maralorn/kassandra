@@ -366,8 +366,7 @@ statusWidget = do
       ("delete", "show", Just ("done", "hide", const Status.Pending))
     (Status.Waiting{}, _) ->
       ("schedule", "show", Just ("done", "grey", Status.Completed))
-    (Status.RecurringParent{}, _) -> ("repeat", "show", Nothing)
-    (Status.RecurringChild{} , _) -> ("repeat", "show", Nothing)
+    (Status.Recurring{}, _) -> ("repeat", "show", Nothing)
 
 
 collapseButton :: forall t m r e . TaskWidget t m r e => m ()
