@@ -49,7 +49,7 @@ mainWidget stateProvider = do
           (AppState taskState timeDyn dragDyn filterState)
   D.divClass "footer"
     $ D.text
-        "Powered by taskwarrior, Haskell and reflex-frp -- GLP Licensed -- Malte Brandy -- 2019 - 2020"
+        "Powered by taskwarrior, Haskell and reflex-frp -- AGPL Licensed -- Malte Brandy -- 2019 - 2020"
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do
