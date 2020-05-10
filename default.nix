@@ -20,6 +20,16 @@ project ./. ({ pkgs, ... }: {
       ver = "0.2.0.0";
       sha256 = "1qpk0kh2ayr0nd8c6sang0ag2nm701plx0flr01hp21pjvifnpdg";
     } { };
+    base64 = self.callHackageDirect {
+      pkg = "base64";
+      ver = "0.4.1";
+      sha256 = "1pz9s8bmnkrrr3v5mhkwv8vaf251vmxs87zzc5nsjsa027j9lr22";
+    } { };
+    password = self.callHackageDirect {
+      pkg = "password";
+      ver = "2.0.1.0";
+      sha256 = "1q99v7w6bdfpnw245aa3zaj3x7mhl9i2y7f2rzlc30g066p9jhaz";
+    } { };
     backend = pkgs.haskell.lib.addBuildDepend super.backend pkgs.taskwarrior;
     indexed-profunctors = self.callHackageDirect {
       pkg = "indexed-profunctors";

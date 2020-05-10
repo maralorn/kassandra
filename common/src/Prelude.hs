@@ -106,7 +106,6 @@ partitionEithersNE (x :| xs) = case (x, ls, rs) of
   (Right z, y : ys, zs    ) -> These (y :| ys) (z :| zs)
   where (ls, rs) = partitionEithers xs
 
-
 -- (lensField .~ noPrefixNamer $ fieldLabelsRules) == noPrefixFieldLabels but only in optics-th 0.2
 makeLabels :: Name -> Q [Dec]
 makeLabels = makeFieldLabelsWith noPrefixFieldLabels

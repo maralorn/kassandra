@@ -1,5 +1,4 @@
-
-module Frontend.TaskWidget
+ module Frontend.TaskWidget
   ( taskTreeWidget
   , taskList
   )
