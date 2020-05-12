@@ -1,4 +1,3 @@
-
 module Frontend.TextEditWidget
   ( lineWidget
   , createTextWidget
