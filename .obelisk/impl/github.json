@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "master",
+  "branch": "eac@fix-custom-prelude-ob-profile",
   "private": false,
-  "rev": "3db33c4cf101999c7affb9c7b57f5e602cef4850",
-  "sha256": "1shk8yy5pbakcw8aq6b8s3g2xblzf24l78mq0ca0asnvifnp83yb"
+  "rev": "33f61ab391976ad68e0b37a08e6c246f4fdfd802",
+  "sha256": "0x227cb1cs2f3ffxz7b2q43xnl1jdnh09jhj5pxw3zhnjacyla18"
 }
