@@ -43,14 +43,13 @@ type Widget t m
     , MonadFix m
     , R.MonadHold t m
     , R.PostBuild t m
-    )
-type WidgetIO t m
-  = ( MonadIO m
-    , Widget t m
+    , MonadIO m
     , R.TriggerEvent t m
     , R.PerformEvent t m
     , MonadIO (R.Performable m)
+    , HasCallStack
     )
+type WidgetIO t m = Widget t m
 data TaskInfos = TaskInfos { task :: Task, children :: [UUID], parents :: [UUID], revDepends :: [UUID], blocked :: Bool} deriving (Eq, Show, Generic)
 makeLabels ''TaskInfos
 

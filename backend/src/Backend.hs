@@ -41,10 +41,12 @@ import           Control.Concurrent.STM.TChan   ( newBroadcastTChan
                                                 , writeTChan
                                                 , TChan
                                                 )
+import           Backend.Config                 ( readConfig )
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
   { _backend_run          = \serve -> do
+                              --config <- readConfig Nothing
                               broadCastChannel <- atomically newBroadcastTChan
                               concurrently_
                                 (taskMonitor (atomically . writeTChan broadCastChannel))

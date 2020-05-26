@@ -50,10 +50,19 @@ library
     , time
     , unordered-containers
     , uuid
+    , patch
+    , co-log
+    , vector
+    , reflex
+    , chronos
+    , containers
+    , dhall
 
   exposed-modules:
     Common.Api
     Common.Route
+    Common.Debug
+    Common.Config
     Prelude
 
   default-language:   Haskell2010

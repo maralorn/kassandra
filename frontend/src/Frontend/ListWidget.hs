@@ -58,7 +58,7 @@ listsWidget = do
         . D.text
 
 listWidget
-  :: forall t m r e . (StandardWidget t m r e) => R.Dynamic t TaskList -> m ()
+  :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskList -> m ()
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: TaskList -> m ()

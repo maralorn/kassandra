@@ -1,5 +1,4 @@
-
-module State
+module Standalone.State
   ( ioStateProvider
   , ioStateFeeder
   )

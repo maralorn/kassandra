@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 module Frontend.MainWidget
   ( mainWidget
   )
@@ -25,20 +26,28 @@ import           Frontend.TaskWidget            ( taskTreeWidget )
 import           Frontend.TextEditWidget        ( createTextWidget )
 import           Frontend.BaseWidgets           ( button )
 import           Frontend.Util                  ( tellNewTask )
+import           Common.Debug                   ( logR, logRShow
+                                                , log
+                                                , pattern I
+                                                , pattern D
+                                                )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
   D.divClass "header" $ D.text "Kassandra Taskmanagement"
+  log I "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
-    fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
-      <$> R.clockLossy 1 (zonedTimeToUTC time)
+     (\x -> logR D x (const "timeTick"))
+    =<< fmap
+          (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
+    <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
       taskState <- stateProvider dataChangeEvents
       dragDyn   <- R.holdDyn NoDrag $ last <$> appChangeEvents
-      (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
+      (_, stateChanges' :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
           (do
             taskDiagnosticsWidget
@@ -47,6 +56,7 @@ mainWidget stateProvider = do
               D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
           )
           (AppState taskState timeDyn dragDyn filterState)
+      stateChanges <- logR I stateChanges' (const "StateChange")
   D.divClass "footer"
     $ D.text
         "Powered by taskwarrior, Haskell and reflex-frp -- AGPL Licensed -- Malte Brandy -- 2019 - 2020"

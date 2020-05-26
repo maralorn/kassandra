@@ -37,6 +37,7 @@ library
 
   build-depends:
     , aeson
+    , dhall
     , async
     , base
     , common
@@ -50,7 +51,8 @@ library
     , websockets
     , websockets-snap
 
-  exposed-modules:    Backend
+  exposed-modules:    Backend,
+                      Backend.Config
   default-language:   Haskell2010
 
 executable backend
