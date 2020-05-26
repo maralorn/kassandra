@@ -62,10 +62,10 @@ setLogLevel = void . swapMVar logLevel
 logR
   :: (HasCallStack, MonadIO m, ReflexLoggable l a)
   => Severity
-  -> l
   -> (a -> Text)
+  -> l
   -> m l
-logR severity loggable decorate = do
+logR severity decorate loggable = do
   isSevere <- severeEnough severity
   if isSevere
     then do
@@ -87,7 +87,7 @@ logRShow
   => Severity
   -> l
   -> m l
-logRShow a b = withFrozenCallStack (logR a b show)
+logRShow a = withFrozenCallStack (logR a show)
 
 logShow :: (HasCallStack, Show a, MonadIO m) => Severity -> a -> m ()
 logShow s = withFrozenCallStack (log s . show)
