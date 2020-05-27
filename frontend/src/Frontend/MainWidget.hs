@@ -26,7 +26,7 @@ import           Frontend.TaskWidget            ( taskTreeWidget )
 import           Frontend.TextEditWidget        ( createTextWidget )
 import           Frontend.BaseWidgets           ( button )
 import           Frontend.Util                  ( tellNewTask )
-import           Common.Debug                   ( logR, logRShow
+import           Common.Debug                   ( logR
                                                 , log
                                                 , pattern I
                                                 , pattern D
@@ -38,7 +38,7 @@ mainWidget stateProvider = do
   log I "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
-     (\x -> logR D x (const "timeTick"))
+     logR D (const "timeTick")
     =<< fmap
           (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
     <$> R.clockLossy 1 (zonedTimeToUTC time)
@@ -56,10 +56,8 @@ mainWidget stateProvider = do
               D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
           )
           (AppState taskState timeDyn dragDyn filterState)
-      stateChanges <- logR I stateChanges' (const "StateChange")
-  D.divClass "footer"
-    $ D.text
-        "Powered by taskwarrior, Haskell and reflex-frp -- AGPL Licensed -- Malte Brandy -- 2019 - 2020"
+      stateChanges <- logR I (const "StateChange") stateChanges'
+  pass
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do
