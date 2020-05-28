@@ -97,7 +97,7 @@ mainWidget = do
   let filterState = R.constDyn (FilterState 0 60)
   let taskState = R.constDyn mempty --stateProvider dataChangeEvents
       dragDyn   = R.constDyn NoDrag
-  void $ R.runEventWriterT $ runReaderT
+  void $ runReaderT
     ( void
     $ R.simpleList
         (   (\xs -> zip xs (Nothing : fmap Just xs))
@@ -105,22 +105,13 @@ mainWidget = do
         )
     $ \childD ->
         const
-            (taskTreeWidget :: ( ReaderT
-                  (AppState t)
-                  (R.EventWriterT t (NonEmpty AppStateChange) m)
-                  ()
-              )
+            (do
+              (appState :: AppState t) <- getAppState
+              void $ networkView $ (appState ^. #currentTime) <&> \time ->
+                pure ()
             )
           $  childD
           ^. fl _1
     )
     (AppState taskState timeDyn dragDyn filterState :: AppState t)
   pure close
-
-taskTreeWidget
-  :: forall t m r e
-   . (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
-  => m ()
-taskTreeWidget = do
-  (appState :: AppState t) <- getAppState
-  void $ networkView $ (appState ^. #currentTime) <&> \time -> pure ()
