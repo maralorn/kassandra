@@ -112,7 +112,7 @@ taskList
   => R.Dynamic t [Int]
   -> (R.Dynamic t Int -> m ())
   -> m ()
-taskList childrenD elementWidget = do
+taskList childrenD elementWidget =
   void
     $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
     $ \childD -> elementWidget $ childD ^. fl _1
@@ -123,6 +123,4 @@ taskTreeWidget
   => m ()
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
-  void
-    $
-       (void $ networkView $ (appState ^. #currentTime) <&> \time -> pure ())
+  void $ networkView $ (appState ^. #currentTime) <&> \time -> pure ()
