@@ -36,6 +36,7 @@ import qualified Data.Text.Lazy.Builder.Int    as TB
 import qualified Chronos.Locale.English        as C
 import qualified Chronos                       as C
 import qualified Data.Vector                   as Vector
+import qualified Debug.Trace as Trace
 
 class ReflexLoggable l a | l -> a where
   useLogString :: (Text -> a -> Text) -> l -> l
@@ -45,14 +46,16 @@ instance R.Reflex t => ReflexLoggable (R.Dynamic t a) a where
     let e'    = traceEventWith (toString . f "updated Dynamic") $ updated d
         getV0 = do
           x <- sample $ current d
-          trace (toString $ f "initialized Dynamic" x) $ return x
+          Trace.trace (toString $ f "initialized Dynamic" x) $ return x
     in  unsafeBuildDynamic getV0 e'
 instance R.Reflex t => ReflexLoggable (R.Event t a) a where
   useLogString f e = traceEventWith (toString . f "triggered Event") e
 
+{-# NOINLINE logLevel #-}
 logLevel :: MVar (Maybe Severity)
 logLevel = unsafePerformIO . newMVar $ Just W
 
+{-# NOINLINE traceID #-}
 traceID :: MVar Int
 traceID = unsafePerformIO . newMVar $ 0
 

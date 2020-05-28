@@ -14,8 +14,8 @@ project ./. ({ pkgs, ... }: {
   ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
   ios.bundleName = "Obelisk Minimal Example";
   overrides = self: super: {
-    typerep-map =
-      pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.typerep-map);
+    typerep-map = pkgs.haskell.lib.markUnbroken
+      (pkgs.haskell.lib.dontCheck super.typerep-map);
     co-log =
       pkgs.haskell.lib.markUnbroken (pkgs.haskell.lib.dontCheck super.co-log);
     clay =

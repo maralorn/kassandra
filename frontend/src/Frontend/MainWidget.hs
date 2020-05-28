@@ -30,18 +30,18 @@ import           Common.Debug                   ( logR
                                                 , log
                                                 , pattern I
                                                 , pattern D
+                                                , setLogLevel
                                                 )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
+  liftIO $ setLogLevel $ Just D
   D.divClass "header" $ D.text "Kassandra Taskmanagement"
   log I "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
-     logR D (const "timeTick")
-    =<< fmap
-          (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
-    <$> R.clockLossy 1 (zonedTimeToUTC time)
+    fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
+      <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
