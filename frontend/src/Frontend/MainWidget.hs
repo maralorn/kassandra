@@ -35,10 +35,7 @@ incrementRef ref x = unsafePerformIO
   )
 
 countTriggers
-  :: (R.Reflex t, Show a)
-  => IORef Int
-  -> R.Dynamic t a
-  -> R.Dynamic t a
+  :: (R.Reflex t, Show a) => IORef Int -> R.Dynamic t a -> R.Dynamic t a
 countTriggers ref d =
   let e'    = R.traceEventWith (incrementRef ref) $ R.updated d
       getV0 = R.sample $ R.current d
@@ -78,14 +75,12 @@ mainWidget = do
         exitFailure
   timeDyn <- countTriggers ref <$> R.holdDyn time e
   let filterState = R.constDyn (FilterState 0 60)
-  rec let
-          taskState = R.constDyn mempty --stateProvider dataChangeEvents
-          dragDyn   = R.constDyn NoDrag
-      (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
-        R.runEventWriterT $ runReaderT
-          (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget
-          )
-          (AppState taskState timeDyn dragDyn filterState)
+  let taskState = R.constDyn mempty --stateProvider dataChangeEvents
+      dragDyn   = R.constDyn NoDrag
+  (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
+    R.runEventWriterT $ runReaderT
+      (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget)
+      (AppState taskState timeDyn dragDyn filterState)
   pure close
 
 taskList
@@ -116,8 +111,7 @@ taskTreeWidget taskInfosD = do
         mempty
         treeStateChanges
       (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
-        R.runEventWriterT
-          $ runReaderT taskWidget (appState, treeState)
+        R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
       let (appStateChanges, treeStateChanges) =
             R.fanThese $ partitionEithersNE <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
@@ -125,7 +119,7 @@ taskTreeWidget taskInfosD = do
 taskWidget
   :: forall t m r e
    . (R.NotReady t m, R.Adjustable t m, TaskTreeWidget t m r e)
-  =>  m ()
+  => m ()
 taskWidget = do
   appState <- getAppState :: m (AppState t)
   let time = appState ^. #currentTime
