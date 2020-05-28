@@ -106,15 +106,7 @@ taskTreeWidget
 
 taskTreeWidget taskInfosD = do
   (appState :: AppState t) <- getAppState
-  rec treeState <- R.foldDyn
-        (flip $ foldr
-          (\case
-            ToggleEvent uuid False -> id
-            ToggleEvent uuid True  -> id
-          ) :: NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
-        )
-        mempty
-        treeStateChanges
+  rec let treeState = R.constDyn mempty
       (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
         R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
       let (appStateChanges, treeStateChanges) =
