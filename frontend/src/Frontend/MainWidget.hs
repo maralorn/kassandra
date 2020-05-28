@@ -1,13 +1,20 @@
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE PatternSynonyms, NoImplicitPrelude #-}
 module Frontend.MainWidget
   ( mainWidget
   )
 where
 
+import BasePrelude
 import qualified Reflex                        as R
-import           System.IO.Unsafe               ( unsafePerformIO )
+import           System.IO.Unsafe
 import           Control.Concurrent
 import           Reflex.Network
+import Data.IORef
+import Control.Monad.IO.Class
+import Control.Monad.Fix
+import Debug.Trace
+import Control.Monad
 
 
 bugFactor :: Int
@@ -26,7 +33,7 @@ countTriggers
 countTriggers ref d =
   let e'    = R.traceEventWith (incrementRef ref) $ R.updated d
       getV0 = R.sample $ R.current d
-  in  R.unsafeBuildDynamic getV0 e'
+  in trace "Registering counter" $ R.unsafeBuildDynamic getV0 e'
 
 mainWidget
   :: forall m t
@@ -56,7 +63,7 @@ mainWidget = do
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         closeTrigger ()
-  timeDyn <- countTriggers ref <$> R.holdDyn () e
+  dynamic <- countTriggers ref <$> R.holdDyn () e
   void $ R.simpleList (R.constDyn [0 .. bugFactor]) $ const
-    (void $ networkView $ pure () <$ timeDyn)
+    (void $ networkView $ pure () <$ dynamic)
   pure close

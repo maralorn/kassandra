@@ -82,7 +82,7 @@ library
     -Wno-monomorphism-restriction -Wno-partial-fields
     -Wno-missing-import-lists -Wno-orphans -Wcompat
 
-  mixins:             base hiding (Prelude)
+  mixins:             base hiding (Prelude), base (Prelude as BasePrelude)
   default-language:   Haskell2010
 
 executable frontend
