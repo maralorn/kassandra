@@ -107,9 +107,7 @@ taskTreeWidget = do
   let treeState = R.constDyn mempty
   (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
     R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
-  let (appStateChanges, treeStateChanges) =
-        R.fanThese $ partitionEithersNE <$> events
-  R.tellEvent (fmap (_Typed #) <$> appStateChanges)
+  pass
 
 taskWidget
   :: forall t m r e
