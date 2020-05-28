@@ -138,14 +138,13 @@ taskWidget
   -> m ()
 taskWidget taskInfos' = do
   task <- liftIO $ createTask "TestTask"
-  let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
   appState  <- getAppState :: m (AppState t)
+  let time = appState ^. #currentTime
   treeState <- ask ^. al (typed @(TaskTreeState t))
-  networkView $ taskInfosD <&> \taskInfos ->
-    runReaderT widgets (appState, taskInfos, treeState)
+  networkView $ time <&> \time ->
+    runReaderT widgets (appState, R.constDyn time, treeState)
   pass
  where
-  widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
   widgets = do
-    (state, _, _) <- ask
-    void $ networkView $ const pass <$> state ^. #currentTime
+    (_, time, _) <- ask
+    void $ networkView $ const pass <$> time
