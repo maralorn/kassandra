@@ -1,7 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 module Frontend.TaskWidget
-  ( taskTreeWidget
-  , taskList
+  ( 
   )
 where
 
@@ -53,7 +52,6 @@ import           Frontend.TimeWidgets           ( dateSelectionWidget )
 import           Common.Debug                   ( log
                                                 , pattern D
                                                 )
-import           Taskwarrior.IO                 ( createTask )
 import Reflex.Network
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)

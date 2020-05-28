@@ -7,7 +7,14 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Frontend.Types                 (TaskTreeStateChange, ToggleEvent, DragState(NoDrag)
+import           Taskwarrior.IO                 ( createTask )
+import           Frontend.Types                 (al, fl,  TaskInfos(TaskInfos)
+                                                , getAppState
+                                                , TaskTreeState
+                                                , TaskTreeWidget
+                                                , TaskTreeStateChange
+                                                , ToggleEvent(ToggleEvent)
+                                                , DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
                                                 , getTasks
@@ -20,6 +27,7 @@ import           Frontend.Types                 (TaskTreeStateChange, ToggleEven
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Debug.Trace                   as Trace
 import           Control.Concurrent
+import           Reflex.Network
 
 
 bugFactor :: Int
@@ -46,10 +54,10 @@ countTriggers ref d =
   in  R.unsafeBuildDynamic getV0 e'
 
 mainWidget :: WidgetIO t m => m ()
-mainWidget  = do
+mainWidget = do
   ref           <- liftIO $ newIORef 0
   (e, eTrigger) <- R.newTriggerEvent
-  time    <- liftIO getZonedTime
+  time          <- liftIO getZonedTime
   liftIO $ forkIO $ do
     threadDelay 1000000
     eTrigger time
@@ -68,13 +76,10 @@ mainWidget  = do
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
           taskState = R.constDyn mempty --stateProvider dataChangeEvents
-          dragDyn = R.constDyn NoDrag
+          dragDyn   = R.constDyn NoDrag
       (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
-          (taskList
-                    (R.constDyn [0 .. bugFactor])
-                    (R.constDyn [])
-                    taskTreeWidget
+          (taskList (R.constDyn [0 .. bugFactor]) (R.constDyn []) taskTreeWidget
           )
           (AppState taskState timeDyn dragDyn filterState)
   pass

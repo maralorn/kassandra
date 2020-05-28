@@ -11,7 +11,11 @@ import           Standalone.State               ( ioStateProvider
                                                 )
 import           Standalone.Config              ( readConfig )
 import           Frontend.Css                   ( css )
-import           Common.Debug (setLogLevel, pattern I, pattern D, log)
+import           Common.Debug                   ( setLogLevel
+                                                , pattern I
+                                                , pattern D
+                                                , log
+                                                )
 
 standalone :: IO ()
 standalone = do
@@ -19,8 +23,5 @@ standalone = do
   log I "Started kassandra"
   --config       <- readConfig Nothing
   callbackSlot <- newEmptyMVar
-  race_
-    (ioStateFeeder callbackSlot)
-    (D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget $ ioStateProvider
-      callbackSlot
-    )
+  race_ (ioStateFeeder callbackSlot)
+        (D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget)
