@@ -11,3 +11,4 @@ result-exe
 .attr-cache
 ghcid-output.txt
 profile
+hie-output
