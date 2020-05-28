@@ -1,20 +1,19 @@
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE PatternSynonyms, NoImplicitPrelude #-}
 module Frontend.MainWidget
   ( mainWidget
   )
 where
 
-import BasePrelude
-import qualified Reflex                        as R
+import           BasePrelude
+import           Reflex
 import           System.IO.Unsafe
 import           Control.Concurrent
 import           Reflex.Network
-import Data.IORef
-import Control.Monad.IO.Class
-import Control.Monad.Fix
-import Debug.Trace
-import Control.Monad
+import           Data.IORef
+import           Control.Monad.IO.Class
+import           Control.Monad.Fix
+import           Debug.Trace
+import           Control.Monad
 
 
 bugFactor :: Int
@@ -29,27 +28,27 @@ incrementRef ref x = unsafePerformIO
   )
 
 countTriggers
-  :: (R.Reflex t, Show a) => IORef Int -> R.Dynamic t a -> R.Dynamic t a
+  :: (Reflex t, Show a) => IORef Int -> Dynamic t a -> Dynamic t a
 countTriggers ref d =
-  let e'    = R.traceEventWith (incrementRef ref) $ R.updated d
-      getV0 = R.sample $ R.current d
-  in trace "Registering counter" $ R.unsafeBuildDynamic getV0 e'
+  let e'    = traceEventWith (incrementRef ref) $ updated d
+      getV0 = sample $ current d
+  in  trace "Registering counter" $ unsafeBuildDynamic getV0 e'
 
 mainWidget
   :: forall m t
    . ( MonadFix m
-     , R.MonadHold t m
-     , R.PostBuild t m
+     , MonadHold t m
+     , PostBuild t m
      , MonadIO m
-     , R.TriggerEvent t m
-     , R.NotReady t m
-     , R.Adjustable t m
+     , TriggerEvent t m
+     , NotReady t m
+     , Adjustable t m
      )
-  => m (R.Event t ())
+  => m (Event t ())
 mainWidget = do
   ref                   <- liftIO $ newIORef 0
-  (e    , eTrigger    ) <- R.newTriggerEvent
-  (close, closeTrigger) <- R.newTriggerEvent
+  (e    , eTrigger    ) <- newTriggerEvent
+  (close, closeTrigger) <- newTriggerEvent
   void $ liftIO $ forkIO $ do
     threadDelay 1000000
     eTrigger ()
@@ -63,7 +62,7 @@ mainWidget = do
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         closeTrigger ()
-  dynamic <- countTriggers ref <$> R.holdDyn () e
-  void $ R.simpleList (R.constDyn [0 .. bugFactor]) $ const
+  dynamic <- countTriggers ref <$> holdDyn () e
+  void $ simpleList (constDyn [0 .. bugFactor]) $ const
     (void $ networkView $ pure () <$ dynamic)
   pure close
