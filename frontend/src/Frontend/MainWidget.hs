@@ -4,11 +4,11 @@ module Frontend.MainWidget
   )
 where
 
-import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import qualified Data.HashMap.Strict           as HashMap
 import           Taskwarrior.IO                 ( createTask )
-import           Frontend.Types                 (al, fl,  TaskInfos(TaskInfos)
+import           Frontend.Types                 ( al
+                                                , fl
+                                                , TaskInfos(TaskInfos)
                                                 , getAppState
                                                 , TaskTreeState
                                                 , TaskTreeWidget
@@ -17,12 +17,10 @@ import           Frontend.Types                 (al, fl,  TaskInfos(TaskInfos)
                                                 , DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
-                                                , getTasks
                                                 , TaskInfos
                                                 , AppStateChange
                                                 , WidgetIO
                                                 , StandardWidget
-                                                , TaskState
                                                 )
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Debug.Trace                   as Trace
@@ -58,7 +56,7 @@ mainWidget = do
   ref           <- liftIO $ newIORef 0
   (e, eTrigger) <- R.newTriggerEvent
   time          <- liftIO getZonedTime
-  liftIO $ forkIO $ do
+  void $ liftIO $ forkIO $ do
     threadDelay 1000000
     eTrigger time
     threadDelay 1000000
@@ -129,4 +127,4 @@ taskWidget taskInfos' = do
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
   widgets = do
     (state, _, _) <- ask
-    D.dyn_ $ const pass <$> state ^. #currentTime
+    void $ networkView $ const pass <$> state ^. #currentTime
