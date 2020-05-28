@@ -17,9 +17,8 @@ import           Frontend.Types                 ( DragState(NoDrag)
                                                 , StandardWidget
                                                 , TaskState
                                                 )
-import           Frontend.ListWidget            ( listsWidget
-                                                , listWidget
-                                                , TaskList(TagList)
+import           Frontend.ListWidget            ( 
+                                                 listWidget
                                                 )
 import           Frontend.State                 ( StateProvider )
 import           Frontend.TaskWidget            ( taskTreeWidget )
@@ -70,8 +69,6 @@ mainWidget stateProvider = do
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         exitFailure
-
-  D.divClass "header" $ D.text "Kassandra Taskmanagement"
   time    <- liftIO getZonedTime
   timeDyn <- countTriggers ref <$> R.holdDyn time e
 --    fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
@@ -83,23 +80,8 @@ mainWidget stateProvider = do
       dragDyn   <- R.holdDyn NoDrag $ last <$> appChangeEvents
       (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
-          (do
-            taskDiagnosticsWidget
-            D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
+          ((listWidget )
           )
           (AppState taskState timeDyn dragDyn filterState)
   pass
 
-taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
-taskDiagnosticsWidget = do
-  tasks <- getTasks
-  D.dynText $ do
-    tasksMap <- tasks
-    let uuids = HashMap.keys tasksMap
-        hasLoop :: [UUID] -> UUID -> Maybe UUID
-        hasLoop seen new | new `elem` seen = Just new
-                         | otherwise = firstJust (hasLoop (new : seen)) nexts
-          where nexts = maybe [] (^. #children) $ HashMap.lookup new tasksMap
-    pure $ firstJust (hasLoop []) uuids & \case
-      Just uuid -> "Found a loop for uuid " <> show uuid
-      Nothing   -> "" -- everything fine

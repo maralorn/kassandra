@@ -1,8 +1,7 @@
 
 module Frontend.ListWidget
-  ( listsWidget
-  , listWidget
-  , TaskList(UUIDList, TagList)
+  ( 
+   listWidget
   )
 where
 import qualified Reflex.Dom                    as D
@@ -24,65 +23,16 @@ import           Frontend.Sorting               ( sortTasks
                                                 , SortMode(SortModeTag)
                                                 )
 
-data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
-
-listsWidget :: (StandardWidget t m r e) => m ()
-listsWidget = do
-  taskState <- getTasks
-  D.text "Select a list"
-  list <- listSelector (getLists <$> taskState)
-  listWidget list
- where
-  getLists :: TaskState -> [TaskList]
-  getLists =
-    fmap TagList
-      . HashSet.toList
-      . fold
-      . fmap (^. (#tags % to HashSet.fromList))
-      . filter (has $ #status % #_Pending)
-      . (^. al #task)
-      . HashMap.elems
-  listSelector
-    :: (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
-  listSelector lists = D.el "div" $ do
-    buttons   <- D.dyn $ mapM listButton <$> lists
-    buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
-    R.holdDyn (SubList []) buttonSum
-  listButton :: (Widget t m) => TaskList -> m (R.Event t TaskList)
-  listButton list | TagList tag <- list = button tag
-                  | otherwise           = button "Anonymous List"
-   where
-    button =
-      fmap ((list <$) . D.domEvent D.Click . fst)
-        . D.elClass' "a" "selector"
-        . D.text
 
 listWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskList -> m ()
-listWidget list = D.dyn_ (innerRenderList <$> list)
+  :: forall t m r e . StandardWidget t m r e => m ()
+listWidget = D.dyn_ (innerRenderList <$> R.constDyn ())
  where
-  innerRenderList :: TaskList -> m ()
+  innerRenderList :: () -> m ()
   innerRenderList list'
-    | UUIDList uuids <- list'
-    = pure ()
-    | TagList tag <- list'
     = do
-      D.text tag
-      tasks     <- getTasks
-      showTasks <- filterCurrent $ tasksToShow tag <$> tasks
-      let sortMode = SortModeTag tag
+      let sortMode = SortModeTag ""
       taskList (R.constant sortMode)
                (R.constDyn [0..5])
                (R.constDyn [])
                taskTreeWidget
-    | SubList sublists <- list'
-    = void . D.simpleList (D.constDyn sublists) $ listWidget
-
-  tasksToShow :: Text -> TaskState -> [TaskInfos]
-  tasksToShow tag = mapMaybe maybePredicate . HashMap.elems
-   where
-    maybePredicate :: TaskInfos -> Maybe TaskInfos
-    maybePredicate taskInfo =
-      if inList taskInfo then Just taskInfo else Nothing
-    inList :: TaskInfos -> Bool
-    inList = (tag `elem`) . (^. #tags)
