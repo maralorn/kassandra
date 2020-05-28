@@ -53,7 +53,7 @@ import           Frontend.TimeWidgets           ( dateSelectionWidget )
 import           Common.Debug                   ( log
                                                 , pattern D
                                                 )
-import Taskwarrior.IO (createTask)
+import           Taskwarrior.IO                 ( createTask )
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -245,12 +245,11 @@ childrenWidget taskInfosD = do
 
 taskList
   :: StandardWidget t m r e
-  => R.Behavior t SortMode
-  -> R.Dynamic t [Int]
+  => R.Dynamic t [Int]
   -> R.Dynamic t [UUID]
   -> (R.Dynamic t Int -> m ())
   -> m ()
-taskList mode childrenD blacklistD elementWidget = do
+taskList childrenD blacklistD elementWidget = do
   void
     $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
     $ \childD -> elementWidget $ childD ^. fl _1
