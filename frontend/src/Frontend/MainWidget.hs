@@ -105,9 +105,16 @@ taskTreeWidget
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
   let treeState = R.constDyn mempty
-  (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
-    R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
-  pass
+  void
+    $ (R.runEventWriterT :: (  R.EventWriterT
+            t
+            (NonEmpty TaskTreeStateChange)
+            m
+            a
+        -> m (a, R.Event t (NonEmpty TaskTreeStateChange))
+        )
+      )
+    $ runReaderT taskWidget (appState, treeState)
 
 taskWidget
   :: forall t m r e
