@@ -19,9 +19,6 @@ import           Frontend.Types                 ( DragState(NoDrag)
                                                 )
 import           Frontend.State                 ( StateProvider )
 import           Frontend.TaskWidget            ( taskTreeWidget, taskList )
-import           Frontend.TextEditWidget        ( createTextWidget )
-import           Frontend.BaseWidgets           ( button )
-import           Frontend.Util                  ( tellNewTask )
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Debug.Trace                   as Trace
 import           Control.Concurrent
@@ -54,9 +51,9 @@ mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
   ref           <- liftIO $ newIORef 0
   (e, eTrigger) <- R.newTriggerEvent
+  time    <- liftIO getZonedTime
   liftIO $ forkIO $ do
     threadDelay 1000000
-    time <- liftIO getZonedTime
     eTrigger time
     threadDelay 1000000
     count <- readIORef ref
@@ -68,15 +65,12 @@ mainWidget stateProvider = do
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         exitFailure
-  time    <- liftIO getZonedTime
   timeDyn <- countTriggers ref <$> R.holdDyn time e
---    fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
---      <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
           taskState = R.constDyn mempty --stateProvider dataChangeEvents
-      dragDyn <- R.holdDyn NoDrag $ last <$> appChangeEvents
+          dragDyn = R.constDyn NoDrag
       (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
           (taskList

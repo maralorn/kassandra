@@ -72,7 +72,6 @@ getChildren = getTaskInfos ^. al #children >>= lookupCurrent
 taskTreeWidget
   :: forall t m r e . StandardWidget t m r e => R.Dynamic t Int -> m ()
 taskTreeWidget taskInfosD = do
-  log D "Creating Tasktree Widget"
   (appState :: AppState t) <- getAppState
   rec treeState <- R.foldDyn
         (flip $ foldr
