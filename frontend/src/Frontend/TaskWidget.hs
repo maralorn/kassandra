@@ -254,20 +254,7 @@ taskList mode childrenD blacklistD elementWidget = do
         SortPosition mode (childrenD ^. al (al #task) % #current)
   void
     $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
-    $ \childD -> do
-        let
-          currentUuidD = childD ^. fl _1 % #uuid
-          ignoreD =
-            ((:) <$> currentUuidD <*>)
-              $   (^.. folded)
-              <$> childD
-              ^.  fl _2
-              %   #uuid
-        childDropArea
-            (partialSortPosition (Just <$> currentUuidD ^. #current))
-            (ignoreD <> blacklistD)
-          $ icon "dropHere above" "forward"
-        elementWidget $ childD ^. fl _1
+    $ \childD -> elementWidget $ childD ^. fl _1
   let ignoreD = (^.. folded) . lastOf folded <$> childrenD ^. #uuid
   childDropArea (partialSortPosition (R.constant Nothing))
                 (ignoreD <> blacklistD)
