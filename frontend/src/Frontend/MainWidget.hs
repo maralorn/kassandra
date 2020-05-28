@@ -19,7 +19,6 @@ import           Frontend.Types                 ( al
                                                 , StandardWidget
                                                 )
 import           System.IO.Unsafe               ( unsafePerformIO )
-import           Debug.Trace                   as Trace
 import           Control.Concurrent
 import           Reflex.Network
 
@@ -36,15 +35,13 @@ incrementRef ref x = unsafePerformIO
   )
 
 countTriggers
-  :: (R.MonadSample t (R.PullM t), R.Reflex t, Show a)
+  :: (R.Reflex t, Show a)
   => IORef Int
   -> R.Dynamic t a
   -> R.Dynamic t a
 countTriggers ref d =
   let e'    = R.traceEventWith (incrementRef ref) $ R.updated d
-      getV0 = do
-        x <- R.sample $ R.current d
-        Trace.trace ("initialized Counter") $ return x
+      getV0 = R.sample $ R.current d
   in  R.unsafeBuildDynamic getV0 e'
 
 
@@ -81,24 +78,23 @@ mainWidget = do
         exitFailure
   timeDyn <- countTriggers ref <$> R.holdDyn time e
   let filterState = R.constDyn (FilterState 0 60)
-  rec let (appChangeEvents, dataChangeEvents) =
+  rec let (_, _) =
             R.fanThese $ partitionEithersNE <$> stateChanges
           taskState = R.constDyn mempty --stateProvider dataChangeEvents
           dragDyn   = R.constDyn NoDrag
       (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
-          (taskList (R.constDyn [0 .. bugFactor]) (R.constDyn []) taskTreeWidget
+          (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget
           )
           (AppState taskState timeDyn dragDyn filterState)
   pure close
 
 taskList
-  :: (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
+  :: (StandardWidget t m r e, R.Adjustable t m)
   => R.Dynamic t [Int]
-  -> R.Dynamic t [UUID]
   -> (R.Dynamic t Int -> m ())
   -> m ()
-taskList childrenD blacklistD elementWidget = do
+taskList childrenD elementWidget = do
   void
     $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
     $ \childD -> elementWidget $ childD ^. fl _1
@@ -122,7 +118,7 @@ taskTreeWidget taskInfosD = do
         treeStateChanges
       (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
         R.runEventWriterT
-          $ runReaderT (taskWidget taskInfosD) (appState, treeState)
+          $ runReaderT taskWidget (appState, treeState)
       let (appStateChanges, treeStateChanges) =
             R.fanThese $ partitionEithersNE <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
@@ -130,10 +126,9 @@ taskTreeWidget taskInfosD = do
 taskWidget
   :: forall t m r e
    . (R.NotReady t m, R.Adjustable t m, TaskTreeWidget t m r e)
-  => R.Dynamic t Int
-  -> m ()
-taskWidget taskInfos' = do
-  appState  <- getAppState :: m (AppState t)
+  =>  m ()
+taskWidget = do
+  appState <- getAppState :: m (AppState t)
   let time = appState ^. #currentTime
   treeState <- ask ^. al (typed @(TaskTreeState t))
   networkView $ time <&> \time ->
