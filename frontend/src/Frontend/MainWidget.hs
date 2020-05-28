@@ -123,7 +123,6 @@ taskTreeWidget
   => m ()
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
-  let treeState = R.constDyn mempty
   void
     $ (R.runEventWriterT :: (  R.EventWriterT
             t
@@ -133,12 +132,5 @@ taskTreeWidget = do
         -> m (a, R.Event t (NonEmpty TaskTreeStateChange))
         )
       )
-    $ runReaderT taskWidget (appState, treeState)
-
-taskWidget
-  :: forall t m r e
-   . (R.NotReady t m, R.Adjustable t m, TaskTreeWidget t m r e)
-  => m ()
-taskWidget = do
-  appState <- getAppState :: m (AppState t)
-  void $ networkView $ (appState ^. #currentTime) <&> \time -> pass
+    $
+       (void $ networkView $ (appState ^. #currentTime) <&> \time -> pure ())
