@@ -69,42 +69,6 @@ getChildren :: TaskWidget t m r e => m (R.Dynamic t [TaskInfos])
 getChildren = getTaskInfos ^. al #children >>= lookupCurrent
 
 
-taskTreeWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t Int -> m ()
-taskTreeWidget taskInfosD = do
-  (appState :: AppState t) <- getAppState
-  rec treeState <- R.foldDyn
-        (flip $ foldr
-          (\case
-            ToggleEvent uuid False -> HashSet.delete uuid
-            ToggleEvent uuid True  -> HashSet.insert uuid
-          ) :: NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
-        )
-        mempty
-        treeStateChanges
-      (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
-        R.runEventWriterT
-          $ runReaderT (taskWidget taskInfosD) (appState, treeState)
-      let (appStateChanges, treeStateChanges) =
-            R.fanThese $ partitionEithersNE <$> events
-  R.tellEvent (fmap (_Typed #) <$> appStateChanges)
-
-taskWidget
-  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t Int -> m ()
-taskWidget taskInfos' = do
-  task <- liftIO $ createTask "TestTask"
-  let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
-  appState  <- getAppState :: m (AppState t)
-  treeState <- ask ^. al (typed @(TaskTreeState t))
-  networkView $ taskInfosD <&> \taskInfos ->
-    runReaderT widgets (appState, taskInfos, treeState)
-  pass
- where
-  widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
-  widgets = do
-    (state, _, _) <- ask
-    D.dyn_ $ const pass <$> state ^. #currentTime
-
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do
   parents <- getTaskInfos ^. al #parents >>= lookupTasksM ^. fl #description
@@ -231,16 +195,6 @@ childrenWidget taskInfosD = do
       $ liftA2 (:) (taskInfosD ^. #uuid) (taskInfosD ^. al #parents)
     pass
 
-taskList
-  :: StandardWidget t m r e
-  => R.Dynamic t [Int]
-  -> R.Dynamic t [UUID]
-  -> (R.Dynamic t Int -> m ())
-  -> m ()
-taskList childrenD blacklistD elementWidget = do
-  void
-    $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
-    $ \childD -> elementWidget $ childD ^. fl _1
 
 
 waitWidget :: forall t m r e . TaskWidget t m r e => m ()

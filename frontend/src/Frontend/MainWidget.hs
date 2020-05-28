@@ -7,7 +7,7 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Frontend.Types                 ( DragState(NoDrag)
+import           Frontend.Types                 (TaskTreeStateChange, ToggleEvent, DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
                                                 , getTasks
@@ -17,8 +17,6 @@ import           Frontend.Types                 ( DragState(NoDrag)
                                                 , StandardWidget
                                                 , TaskState
                                                 )
-import           Frontend.State                 ( StateProvider )
-import           Frontend.TaskWidget            ( taskTreeWidget, taskList )
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Debug.Trace                   as Trace
 import           Control.Concurrent
@@ -47,8 +45,8 @@ countTriggers ref d =
         Trace.trace ("initialized Counter") $ return x
   in  R.unsafeBuildDynamic getV0 e'
 
-mainWidget :: WidgetIO t m => StateProvider t m -> m ()
-mainWidget stateProvider = do
+mainWidget :: WidgetIO t m => m ()
+mainWidget  = do
   ref           <- liftIO $ newIORef 0
   (e, eTrigger) <- R.newTriggerEvent
   time    <- liftIO getZonedTime
@@ -80,3 +78,50 @@ mainWidget stateProvider = do
           )
           (AppState taskState timeDyn dragDyn filterState)
   pass
+
+taskList
+  :: StandardWidget t m r e
+  => R.Dynamic t [Int]
+  -> R.Dynamic t [UUID]
+  -> (R.Dynamic t Int -> m ())
+  -> m ()
+taskList childrenD blacklistD elementWidget = do
+  void
+    $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
+    $ \childD -> elementWidget $ childD ^. fl _1
+
+taskTreeWidget
+  :: forall t m r e . StandardWidget t m r e => R.Dynamic t Int -> m ()
+taskTreeWidget taskInfosD = do
+  (appState :: AppState t) <- getAppState
+  rec treeState <- R.foldDyn
+        (flip $ foldr
+          (\case
+            ToggleEvent uuid False -> id
+            ToggleEvent uuid True  -> id
+          ) :: NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
+        )
+        mempty
+        treeStateChanges
+      (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
+        R.runEventWriterT
+          $ runReaderT (taskWidget taskInfosD) (appState, treeState)
+      let (appStateChanges, treeStateChanges) =
+            R.fanThese $ partitionEithersNE <$> events
+  R.tellEvent (fmap (_Typed #) <$> appStateChanges)
+
+taskWidget
+  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t Int -> m ()
+taskWidget taskInfos' = do
+  task <- liftIO $ createTask "TestTask"
+  let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
+  appState  <- getAppState :: m (AppState t)
+  treeState <- ask ^. al (typed @(TaskTreeState t))
+  networkView $ taskInfosD <&> \taskInfos ->
+    runReaderT widgets (appState, taskInfos, treeState)
+  pass
+ where
+  widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
+  widgets = do
+    (state, _, _) <- ask
+    D.dyn_ $ const pass <$> state ^. #currentTime
