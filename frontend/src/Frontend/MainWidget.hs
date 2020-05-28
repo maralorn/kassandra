@@ -5,10 +5,8 @@ module Frontend.MainWidget
 where
 
 import qualified Reflex                        as R
-import           Taskwarrior.IO                 ( createTask )
 import           Frontend.Types                 ( al
                                                 , fl
-                                                , TaskInfos(TaskInfos)
                                                 , getAppState
                                                 , TaskTreeState
                                                 , TaskTreeWidget
@@ -17,9 +15,7 @@ import           Frontend.Types                 ( al
                                                 , DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
-                                                , TaskInfos
                                                 , AppStateChange
-                                                , WidgetIO
                                                 , StandardWidget
                                                 )
 import           System.IO.Unsafe               ( unsafePerformIO )
@@ -137,7 +133,6 @@ taskWidget
   => R.Dynamic t Int
   -> m ()
 taskWidget taskInfos' = do
-  task <- liftIO $ createTask "TestTask"
   appState  <- getAppState :: m (AppState t)
   let time = appState ^. #currentTime
   treeState <- ask ^. al (typed @(TaskTreeState t))
