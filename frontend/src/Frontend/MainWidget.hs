@@ -102,7 +102,6 @@ taskTreeWidget
   :: forall t m r e
    . (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
   => m ()
-
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
   rec let treeState = R.constDyn mempty
@@ -120,9 +119,8 @@ taskWidget = do
   appState <- getAppState :: m (AppState t)
   let time = appState ^. #currentTime
   treeState <- ask ^. al (typed @(TaskTreeState t))
-  networkView $ time <&> \time ->
+  void $ networkView $ time <&> \time ->
     runReaderT widgets (appState, R.constDyn time, treeState)
-  pass
  where
   widgets = do
     (_, time, _) <- ask
