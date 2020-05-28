@@ -144,8 +144,8 @@ taskWidget = do
   let time = appState ^. #currentTime
   treeState <- ask ^. al (typed @(TaskTreeState t))
   void $ networkView $ time <&> \time ->
-    runReaderT widgets (appState, R.constDyn time, treeState)
+    runReaderT widgets (R.constDyn time)
  where
   widgets = do
-    (_, time, _) <- ask
+    time <- ask
     void $ networkView $ const pass <$> time
