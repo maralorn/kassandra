@@ -58,5 +58,5 @@ mainWidget = do
         closeTrigger ()
   timeDyn <- countTriggers ref <$> R.holdDyn () e
   void $ R.simpleList (R.constDyn [0 .. bugFactor]) $ const
-    (void $ networkView $ timeDyn <&> const (pure ()))
+    (void $ networkView $ pure () <$ timeDyn)
   pure close
