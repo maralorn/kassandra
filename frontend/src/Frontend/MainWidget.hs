@@ -124,13 +124,5 @@ taskTreeWidget
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
   void
-    $ (R.runEventWriterT :: (  R.EventWriterT
-            t
-            (NonEmpty TaskTreeStateChange)
-            m
-            a
-        -> m (a, R.Event t (NonEmpty TaskTreeStateChange))
-        )
-      )
     $
        (void $ networkView $ (appState ^. #currentTime) <&> \time -> pure ())
