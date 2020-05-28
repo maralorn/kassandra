@@ -19,7 +19,8 @@ import           Frontend.Util                  ( tellNewTask
                                                 , tellTask
                                                 , tellToggle
                                                 )
-import           Frontend.Types                 ( getExpandedTasks
+import           Frontend.Types                 ( TaskInfos(..)
+                                                , getExpandedTasks
                                                 , getIsExpanded
                                                 , ToggleEvent(ToggleEvent)
                                                 , TaskTreeState
@@ -52,6 +53,7 @@ import           Frontend.TimeWidgets           ( dateSelectionWidget )
 import           Common.Debug                   ( log
                                                 , pattern D
                                                 )
+import Taskwarrior.IO (createTask)
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -67,7 +69,7 @@ getChildren = getTaskInfos ^. al #children >>= lookupCurrent
 
 
 taskTreeWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskInfos -> m ()
+  :: forall t m r e . StandardWidget t m r e => R.Dynamic t Int -> m ()
 taskTreeWidget taskInfosD = do
   log D "Creating Tasktree Widget"
   (appState :: AppState t) <- getAppState
@@ -88,11 +90,12 @@ taskTreeWidget taskInfosD = do
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
 taskWidget
-  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t TaskInfos -> m ()
+  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t Int -> m ()
 taskWidget taskInfos' = D.divClass "task" $ do
-  taskInfosD <- R.holdUniqDyn taskInfos'
-  appState   <- getAppState
-  treeState  <- ask ^. al (typed @(TaskTreeState t))
+  task <- liftIO $ createTask "TestTask"
+  let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
+  appState  <- getAppState
+  treeState <- ask ^. al (typed @(TaskTreeState t))
   D.dyn_ $ taskInfosD <&> \taskInfos ->
     runReaderT widgets (appState, taskInfos, treeState)
   childrenWidget taskInfosD
@@ -238,16 +241,14 @@ childrenWidget taskInfosD = do
     let sortModeD = SortModePartof <$> taskInfosD ^. #uuid
     blacklist <- R.holdUniqDyn
       $ liftA2 (:) (taskInfosD ^. #uuid) (taskInfosD ^. al #parents)
-    sortedList <- R.holdUniqDyn $ sortTasks <$> sortModeD <*> children
-    D.divClass "children"
-      $ taskList (sortModeD ^. #current) sortedList blacklist taskWidget
+    pass
 
 taskList
   :: StandardWidget t m r e
   => R.Behavior t SortMode
-  -> R.Dynamic t [TaskInfos]
+  -> R.Dynamic t [Int]
   -> R.Dynamic t [UUID]
-  -> (R.Dynamic t TaskInfos -> m ())
+  -> (R.Dynamic t Int -> m ())
   -> m ()
 taskList mode childrenD blacklistD elementWidget = do
   void
