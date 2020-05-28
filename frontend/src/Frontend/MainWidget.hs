@@ -39,28 +39,6 @@ countTriggers ref d =
       getV0 = R.sample $ R.current d
   in  R.unsafeBuildDynamic getV0 e'
 
-type Have m r s = (MonadReader r m, HasType s r)
-type HaveApp t m r = (R.Reflex t, Have m r (AppState t))
-type HaveTaskTree t m r = (Have m r (TaskTreeState t))
-type Write t m e s = (R.Reflex t, R.EventWriter t (NonEmpty e) m, AsType s e)
-type WriteApp t m e = (Write t m e AppStateChange)
-type WriteTaskTree t m e = (Write t m e TaskTreeStateChange)
-type StandardWidget t m r e
-  = ( HaveApp t m r
-    , WriteApp t m e
-    , MonadFix m
-    , R.MonadHold t m
-    , R.PostBuild t m
-    , MonadIO m
-    , R.TriggerEvent t m
-    , R.PerformEvent t m
-    , MonadIO (R.Performable m)
-    , HasCallStack
-    )
-type TaskTreeWidget t m r e
-  = (StandardWidget t m r e, HaveTaskTree t m r, WriteTaskTree t m e)
-
-
 mainWidget
   :: forall m t
    . ( MonadFix m
@@ -68,11 +46,8 @@ mainWidget
      , R.PostBuild t m
      , MonadIO m
      , R.TriggerEvent t m
-     , R.PerformEvent t m
      , R.NotReady t m
      , R.Adjustable t m
-     , MonadIO (R.Performable m)
-     , HasCallStack
      )
   => m (R.Event t ())
 mainWidget = do
@@ -92,13 +67,9 @@ mainWidget = do
         closeTrigger ()
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
-        exitFailure
+        closeTrigger ()
   timeDyn <- countTriggers ref <$> R.holdDyn time e
-  let filterState = R.constDyn (FilterState 0 60)
-  let taskState = R.constDyn mempty --stateProvider dataChangeEvents
-      dragDyn   = R.constDyn NoDrag
-  void $ runReaderT
-    ( void
+  void
     $ R.simpleList
         (   (\xs -> zip xs (Nothing : fmap Just xs))
         <$> (R.constDyn [0 .. bugFactor])
@@ -106,11 +77,8 @@ mainWidget = do
     $ \childD ->
         const
             (do
-              (appState :: AppState t) <- getAppState
-              void $ networkView $ (appState ^. #currentTime) <&> const (pure ())
+              void $ networkView $ (timeDyn) <&> const (pure ())
             )
           $  childD
           ^. fl _1
-    )
-    (AppState taskState timeDyn dragDyn filterState :: AppState t)
   pure close
