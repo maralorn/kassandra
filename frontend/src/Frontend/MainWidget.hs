@@ -5,17 +5,6 @@ module Frontend.MainWidget
 where
 
 import qualified Reflex                        as R
-import           Frontend.Types                 ( al
-                                                , fl
-                                                , getAppState
-                                                , TaskTreeState
-                                                , TaskTreeStateChange
-                                                , ToggleEvent(ToggleEvent)
-                                                , DragState(NoDrag)
-                                                , AppState(AppState)
-                                                , FilterState(FilterState)
-                                                , AppStateChange
-                                                )
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Control.Concurrent
 import           Reflex.Network
@@ -54,10 +43,9 @@ mainWidget = do
   ref                   <- liftIO $ newIORef 0
   (e    , eTrigger    ) <- R.newTriggerEvent
   (close, closeTrigger) <- R.newTriggerEvent
-  time                  <- liftIO getZonedTime
   void $ liftIO $ forkIO $ do
     threadDelay 1000000
-    eTrigger time
+    eTrigger ()
     threadDelay 1000000
     count <- readIORef ref
     if count == 1
@@ -68,13 +56,7 @@ mainWidget = do
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         closeTrigger ()
-  timeDyn <- countTriggers ref <$> R.holdDyn time e
-  void
-    $ R.simpleList ((\xs -> fmap Just xs) <$> (R.constDyn [0 .. bugFactor]))
-    $ \childD ->
-        const
-            (do
-              void $ networkView $ (timeDyn) <&> const (pure ())
-            )
-          $ childD
+  timeDyn <- countTriggers ref <$> R.holdDyn () e
+  void $ R.simpleList (R.constDyn [0 .. bugFactor]) $ const
+    (void $ networkView $ timeDyn <&> const (pure ()))
   pure close
