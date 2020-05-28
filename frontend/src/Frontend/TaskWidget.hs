@@ -103,7 +103,7 @@ taskWidget taskInfos' = do
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
   widgets = do
     (state, _, _) <- ask
-    D.dynText $ show <$> state ^. #currentTime
+    D.dyn_ $ const pass <$> state ^. #currentTime
 
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do
