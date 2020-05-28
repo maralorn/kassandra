@@ -30,7 +30,7 @@ import           Language.Javascript.JSaddle    ( MonadJSM )
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = frontendHead
-  , _frontend_body = void $ D.prerender pass $ mainWidget
+  , _frontend_body = void $ D.prerender pass $ void mainWidget
   }
 
 type WidgetJSM t m

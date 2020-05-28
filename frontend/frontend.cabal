@@ -47,7 +47,6 @@ library
     Frontend.Sorting
     Frontend.TaskWidget
     Frontend.TextEditWidget
-    Frontend.TimeWidgets
     Frontend.Util
 
   default-extensions:

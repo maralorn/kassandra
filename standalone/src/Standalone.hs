@@ -5,7 +5,7 @@ module Standalone
 where
 
 import           Frontend.MainWidget            ( mainWidget )
-import qualified Reflex.Dom                    as D
+import Reflex.Host.Headless
 
 standalone :: IO ()
-standalone = D.mainWidget mainWidget
+standalone = runHeadlessApp mainWidget

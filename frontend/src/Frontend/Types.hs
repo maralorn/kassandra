@@ -87,7 +87,18 @@ type HaveTaskTree t m r = (Have m r (TaskTreeState t))
 type Write t m e s = (R.Reflex t, R.EventWriter t (NonEmpty e) m, AsType s e)
 type WriteApp t m e = (Write t m e AppStateChange)
 type WriteTaskTree t m e = (Write t m e TaskTreeStateChange)
-type StandardWidget t m r e = (Widget t m, HaveApp t m r, WriteApp t m e)
+type StandardWidget t m r e
+  = ( HaveApp t m r
+    , WriteApp t m e
+    , MonadFix m
+    , R.MonadHold t m
+    , R.PostBuild t m
+    , MonadIO m
+    , R.TriggerEvent t m
+    , R.PerformEvent t m
+    , MonadIO (R.Performable m)
+    , HasCallStack
+    )
 type TaskTreeWidget t m r e
   = (StandardWidget t m r e, HaveTaskTree t m r, WriteTaskTree t m e)
 

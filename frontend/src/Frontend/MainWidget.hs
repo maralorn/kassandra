@@ -51,11 +51,25 @@ countTriggers ref d =
         Trace.trace ("initialized Counter") $ return x
   in  R.unsafeBuildDynamic getV0 e'
 
-mainWidget :: WidgetIO t m => m ()
+
+mainWidget
+  :: ( MonadFix m
+     , R.MonadHold t m
+     , R.PostBuild t m
+     , MonadIO m
+     , R.TriggerEvent t m
+     , R.PerformEvent t m
+     , R.NotReady t m
+     , R.Adjustable t m
+     , MonadIO (R.Performable m)
+     , HasCallStack
+     )
+  => m (R.Event t ())
 mainWidget = do
-  ref           <- liftIO $ newIORef 0
-  (e, eTrigger) <- R.newTriggerEvent
-  time          <- liftIO getZonedTime
+  ref                   <- liftIO $ newIORef 0
+  (e    , eTrigger    ) <- R.newTriggerEvent
+  (close, closeTrigger) <- R.newTriggerEvent
+  time                  <- liftIO getZonedTime
   void $ liftIO $ forkIO $ do
     threadDelay 1000000
     eTrigger time
@@ -65,7 +79,7 @@ mainWidget = do
       then do
         putStrLn
           "It appears there is no bug here! Trigger was counted exactly once!"
-        exitSuccess
+        closeTrigger ()
       else do
         putStrLn $ "Bug! Triggers counted: " <> show count
         exitFailure
@@ -80,10 +94,10 @@ mainWidget = do
           (taskList (R.constDyn [0 .. bugFactor]) (R.constDyn []) taskTreeWidget
           )
           (AppState taskState timeDyn dragDyn filterState)
-  pass
+  pure close
 
 taskList
-  :: StandardWidget t m r e
+  :: (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
   => R.Dynamic t [Int]
   -> R.Dynamic t [UUID]
   -> (R.Dynamic t Int -> m ())
@@ -94,7 +108,11 @@ taskList childrenD blacklistD elementWidget = do
     $ \childD -> elementWidget $ childD ^. fl _1
 
 taskTreeWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t Int -> m ()
+  :: forall t m r e
+   . (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
+  => R.Dynamic t Int
+  -> m ()
+
 taskTreeWidget taskInfosD = do
   (appState :: AppState t) <- getAppState
   rec treeState <- R.foldDyn
@@ -114,7 +132,10 @@ taskTreeWidget taskInfosD = do
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
 taskWidget
-  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t Int -> m ()
+  :: forall t m r e
+   . (R.NotReady t m, R.Adjustable t m, TaskTreeWidget t m r e)
+  => R.Dynamic t Int
+  -> m ()
 taskWidget taskInfos' = do
   task <- liftIO $ createTask "TestTask"
   let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
