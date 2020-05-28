@@ -79,7 +79,7 @@ mainWidget = do
   let taskState = R.constDyn mempty --stateProvider dataChangeEvents
       dragDyn   = R.constDyn NoDrag
   void $ R.runEventWriterT $ runReaderT
-    (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget :: ( ReaderT
+    (taskList (R.constDyn [0 .. bugFactor]) (const taskTreeWidget) :: ( ReaderT
           (AppState t)
           (R.EventWriterT t (NonEmpty AppStateChange) m)
           ()
@@ -101,10 +101,9 @@ taskList childrenD elementWidget = do
 taskTreeWidget
   :: forall t m r e
    . (StandardWidget t m r e, R.NotReady t m, R.Adjustable t m)
-  => R.Dynamic t Int
-  -> m ()
+  => m ()
 
-taskTreeWidget taskInfosD = do
+taskTreeWidget = do
   (appState :: AppState t) <- getAppState
   rec let treeState = R.constDyn mempty
       (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
