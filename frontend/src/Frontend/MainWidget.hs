@@ -43,7 +43,8 @@ countTriggers ref d =
 
 
 mainWidget
-  :: ( MonadFix m
+  :: forall m t
+   . ( MonadFix m
      , R.MonadHold t m
      , R.PostBuild t m
      , MonadIO m
@@ -77,10 +78,14 @@ mainWidget = do
   let filterState = R.constDyn (FilterState 0 60)
   let taskState = R.constDyn mempty --stateProvider dataChangeEvents
       dragDyn   = R.constDyn NoDrag
-  (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
-    R.runEventWriterT $ runReaderT
-      (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget)
-      (AppState taskState timeDyn dragDyn filterState)
+  void $ R.runEventWriterT $ runReaderT
+    (taskList (R.constDyn [0 .. bugFactor]) taskTreeWidget :: ( ReaderT
+          (AppState t)
+          (R.EventWriterT t (NonEmpty AppStateChange) m)
+          ()
+      )
+    )
+    (AppState taskState timeDyn dragDyn filterState :: AppState t)
   pure close
 
 taskList
