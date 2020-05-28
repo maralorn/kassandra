@@ -103,6 +103,8 @@ taskWidget taskInfos' = D.divClass "task" $ do
  where
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
   widgets = do
+    (state, _, _) <- ask
+    D.dynText $ show <$> state ^. #currentTime
     collapseButton
     dropChildWidget
     descriptionWidget
