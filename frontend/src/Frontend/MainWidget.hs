@@ -107,8 +107,7 @@ mainWidget = do
         const
             (do
               (appState :: AppState t) <- getAppState
-              void $ networkView $ (appState ^. #currentTime) <&> \time ->
-                pure ()
+              void $ networkView $ (appState ^. #currentTime) <&> const (pure ())
             )
           $  childD
           ^. fl _1
