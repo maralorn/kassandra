@@ -104,11 +104,11 @@ taskTreeWidget
   => m ()
 taskTreeWidget = do
   (appState :: AppState t) <- getAppState
-  rec let treeState = R.constDyn mempty
-      (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
-        R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
-      let (appStateChanges, treeStateChanges) =
-            R.fanThese $ partitionEithersNE <$> events
+  let treeState = R.constDyn mempty
+  (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
+    R.runEventWriterT $ runReaderT taskWidget (appState, treeState)
+  let (appStateChanges, treeStateChanges) =
+        R.fanThese $ partitionEithersNE <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
 taskWidget
