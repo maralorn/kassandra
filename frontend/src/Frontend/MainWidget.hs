@@ -22,7 +22,7 @@ import           Reflex.Network
 
 
 bugFactor :: Int
-bugFactor = 100
+bugFactor = 1000
 
 {-# NOINLINE incrementRef #-}
 incrementRef :: (Show a) => IORef Int -> a -> String
@@ -70,15 +70,11 @@ mainWidget = do
         closeTrigger ()
   timeDyn <- countTriggers ref <$> R.holdDyn time e
   void
-    $ R.simpleList
-        (   (\xs -> zip xs (Nothing : fmap Just xs))
-        <$> (R.constDyn [0 .. bugFactor])
-        )
+    $ R.simpleList ((\xs -> fmap Just xs) <$> (R.constDyn [0 .. bugFactor]))
     $ \childD ->
         const
             (do
               void $ networkView $ (timeDyn) <&> const (pure ())
             )
-          $  childD
-          ^. fl _1
+          $ childD
   pure close
