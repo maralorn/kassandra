@@ -141,9 +141,7 @@ taskWidget
   => m ()
 taskWidget = do
   appState <- getAppState :: m (AppState t)
-  let time = appState ^. #currentTime
-  treeState <- ask ^. al (typed @(TaskTreeState t))
-  void $ networkView $ time <&> \time -> widgets
+  void $ networkView $ (appState ^. #currentTime) <&> \time -> widgets
  where
   widgets = do
     void $ networkView $ const pass <$> R.constDyn ""
