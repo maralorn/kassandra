@@ -78,8 +78,7 @@ mainWidget = do
         exitFailure
   timeDyn <- countTriggers ref <$> R.holdDyn time e
   let filterState = R.constDyn (FilterState 0 60)
-  rec let (_, _) =
-            R.fanThese $ partitionEithersNE <$> stateChanges
+  rec let
           taskState = R.constDyn mempty --stateProvider dataChangeEvents
           dragDyn   = R.constDyn NoDrag
       (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
