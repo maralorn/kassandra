@@ -17,9 +17,7 @@ import           Frontend.Types                 ( DragState(NoDrag)
                                                 , StandardWidget
                                                 , TaskState
                                                 )
-import           Frontend.ListWidget            ( 
-                                                 listWidget
-                                                )
+import           Frontend.ListWidget            ( listWidget )
 import           Frontend.State                 ( StateProvider )
 import           Frontend.TaskWidget            ( taskTreeWidget )
 import           Frontend.TextEditWidget        ( createTextWidget )
@@ -74,14 +72,12 @@ mainWidget stateProvider = do
 --    fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
 --      <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
-  rec let (appChangeEvents, dataChangeEvents) =
-            R.fanThese $ partitionEithersNE <$> stateChanges
-          taskState = R.constDyn mempty --stateProvider dataChangeEvents
-      dragDyn   <- R.holdDyn NoDrag $ last <$> appChangeEvents
-      (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
-        R.runEventWriterT $ runReaderT
-          ((listWidget )
-          )
-          (AppState taskState timeDyn dragDyn filterState)
+  rec
+    let (appChangeEvents, dataChangeEvents) =
+          R.fanThese $ partitionEithersNE <$> stateChanges
+        taskState = R.constDyn mempty --stateProvider dataChangeEvents
+    dragDyn <- R.holdDyn NoDrag $ last <$> appChangeEvents
+    (_, stateChanges :: R.Event t (NonEmpty AppStateChange)) <-
+      R.runEventWriterT
+        $ runReaderT listWidget (AppState taskState timeDyn dragDyn filterState)
   pass
-

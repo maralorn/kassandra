@@ -26,11 +26,7 @@ import           Frontend.Sorting               ( sortTasks
 
 listWidget
   :: forall t m r e . StandardWidget t m r e => m ()
-listWidget = D.dyn_ (innerRenderList <$> R.constDyn ())
- where
-  innerRenderList :: () -> m ()
-  innerRenderList list'
-    = do
+listWidget =  do
       let sortMode = SortModeTag ""
       taskList (R.constant sortMode)
                (R.constDyn [0..5])
