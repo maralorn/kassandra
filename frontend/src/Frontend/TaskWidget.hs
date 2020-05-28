@@ -105,18 +105,6 @@ taskWidget taskInfos' = D.divClass "task" $ do
   widgets = do
     (state, _, _) <- ask
     D.dynText $ show <$> state ^. #currentTime
-    collapseButton
-    dropChildWidget
-    descriptionWidget
-    tagsWidget
-    waitWidget
-    dueWidget
-    pathWidget
-    parentButton
-    dependenciesWidget
-    addChildWidget
-    deleteButton
-    completedWidget
 
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do

@@ -28,7 +28,7 @@ import           Control.Concurrent
 
 
 bugFactor :: Int
-bugFactor = 10
+bugFactor = 100
 
 {-# NOINLINE incrementRef #-}
 incrementRef :: (Show a) => IORef Int -> a -> String
