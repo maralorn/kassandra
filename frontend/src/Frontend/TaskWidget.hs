@@ -54,6 +54,7 @@ import           Common.Debug                   ( log
                                                 , pattern D
                                                 )
 import           Taskwarrior.IO                 ( createTask )
+import Reflex.Network
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -94,28 +95,26 @@ taskWidget
 taskWidget taskInfos' = D.divClass "task" $ do
   task <- liftIO $ createTask "TestTask"
   let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
-  appState  <- getAppState
+  appState  <- getAppState :: m (AppState t)
   treeState <- ask ^. al (typed @(TaskTreeState t))
-  D.dyn_ $ taskInfosD <&> \taskInfos ->
+  networkView $ taskInfosD <&> \taskInfos ->
     runReaderT widgets (appState, taskInfos, treeState)
   childrenWidget taskInfosD
  where
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
-  widgets = D.divClass "uppertask" $ do
-    D.divClass "statusWrapper" statusWidget
-    D.divClass "righttask" $ do
-      collapseButton
-      dropChildWidget
-      descriptionWidget
-      tagsWidget
-      waitWidget
-      dueWidget
-      pathWidget
-      parentButton
-      dependenciesWidget
-      addChildWidget
-      deleteButton
-      completedWidget
+  widgets = do
+    collapseButton
+    dropChildWidget
+    descriptionWidget
+    tagsWidget
+    waitWidget
+    dueWidget
+    pathWidget
+    parentButton
+    dependenciesWidget
+    addChildWidget
+    deleteButton
+    completedWidget
 
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do
