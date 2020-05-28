@@ -91,14 +91,14 @@ taskTreeWidget taskInfosD = do
 
 taskWidget
   :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t Int -> m ()
-taskWidget taskInfos' = D.divClass "task" $ do
+taskWidget taskInfos' = do
   task <- liftIO $ createTask "TestTask"
   let taskInfosD = R.constDyn $ TaskInfos task [] [] [] False
   appState  <- getAppState :: m (AppState t)
   treeState <- ask ^. al (typed @(TaskTreeState t))
   networkView $ taskInfosD <&> \taskInfos ->
     runReaderT widgets (appState, taskInfos, treeState)
-  childrenWidget taskInfosD
+  pass
  where
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
   widgets = do
