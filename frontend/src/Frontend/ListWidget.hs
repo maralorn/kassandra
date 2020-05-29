@@ -1,4 +1,3 @@
-
 module Frontend.ListWidget
   ( listsWidget
   , listWidget
@@ -11,7 +10,7 @@ import qualified Data.HashMap.Strict           as HashMap
 import qualified Data.HashSet                  as HashSet
 import           Frontend.Types                 ( al
                                                 , StandardWidget
-                                                , TaskInfos
+                                                , TaskInfos(TaskInfos)
                                                 , TaskState
                                                 , Widget
                                                 , getTasks
@@ -23,6 +22,7 @@ import           Frontend.TaskWidget            ( taskList
 import           Frontend.Sorting               ( sortTasks
                                                 , SortMode(SortModeTag)
                                                 )
+import           Taskwarrior.IO                 ( createTask )
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
 
@@ -76,8 +76,9 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
       tasks     <- getTasks
       showTasks <- filterCurrent $ tasksToShow tag <$> tasks
       let sortMode = SortModeTag tag
+      task <- liftIO $ createTask "TestTask"
       taskList (R.constant sortMode)
-               (sortTasks sortMode <$> showTasks)
+               (R.constDyn . replicate 50 $ TaskInfos task [] [] [] False)
                (R.constDyn [])
                taskTreeWidget
     | SubList sublists <- list'

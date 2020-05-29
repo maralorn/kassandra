@@ -39,21 +39,19 @@ mainWidget stateProvider = do
   D.divClass "header" $ D.text "Kassandra Taskmanagement"
   log I "Loaded Mainwidget"
   time    <- liftIO getZonedTime
-  timeDyn <-
+  timeDyn <- logR D show =<<
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
       <$> R.clockLossy 1 (zonedTimeToUTC time)
   let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
-      taskState <- stateProvider dataChangeEvents
+          taskState = R.constDyn mempty --stateProvider dataChangeEvents
       dragDyn   <- R.holdDyn NoDrag $ last <$> appChangeEvents
       (_, stateChanges' :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $ runReaderT
           (do
             taskDiagnosticsWidget
-            D.divClass "container" $ do
-              D.divClass "pane" widgetSwitcher
-              D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
+            D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
           )
           (AppState taskState timeDyn dragDyn filterState)
       stateChanges <- logR I (const "StateChange") stateChanges'
