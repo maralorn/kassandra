@@ -36,7 +36,7 @@ import           Common.Debug                   ( logR
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
   liftIO $ setLogLevel $ Just D
-  D.divClass "header" $ D.text "Kassandra Taskmanagement"
+  D.divClass "header" $ D.text "Kassandra ToDo Management"
   log I "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
