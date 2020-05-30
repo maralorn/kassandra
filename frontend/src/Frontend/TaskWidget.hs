@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 module Frontend.TaskWidget
   ( taskTreeWidget
   , taskList
@@ -50,7 +49,7 @@ import           Frontend.DragAndDrop           ( tellDragTask
                                                 )
 import           Frontend.TimeWidgets           ( dateSelectionWidget )
 import           Common.Debug                   ( log
-                                                , pattern D
+                                                , Severity(..)
                                                 )
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
@@ -69,7 +68,7 @@ getChildren = getTaskInfos ^. al #children >>= lookupCurrent
 taskTreeWidget
   :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskInfos -> m ()
 taskTreeWidget taskInfosD = do
-  log D "Creating Tasktree Widget"
+  log Debug "Creating Tasktree Widget"
   (appState :: AppState t) <- getAppState
   rec treeState <- R.foldDyn
         (flip $ foldr

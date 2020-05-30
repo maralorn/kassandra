@@ -1,6 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-
-
 module Frontend.DragAndDrop
   ( droppableElementConfig
   , childDropArea
@@ -27,11 +24,18 @@ import           Frontend.Types                 ( AppStateChange
 import           Frontend.Util                  ( tellSingleton
                                                 , lookupTask
                                                 )
-import Common.Debug (logRShow, pattern I)
+import           Common.Debug                   ( logRShow
+                                                , Severity(..)
+                                                )
 
 tellDragTask :: (MonadIO m, WriteApp t m e) => R.Event t (Maybe UUID) -> m ()
-tellDragTask = tellSingleton . fmap
-  ((_Typed @AppStateChange % _Typed @DragState #) . maybe NoDrag DraggedTask) <=< logRShow I
+tellDragTask =
+  tellSingleton
+    .   fmap
+          ( (_Typed @AppStateChange % _Typed @DragState #)
+          . maybe NoDrag DraggedTask
+          )
+    <=< logRShow Info
 
 taskDropArea
   :: StandardWidget t m r e

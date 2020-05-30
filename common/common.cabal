@@ -40,7 +40,6 @@ library
     , obelisk-route
     , optics
     , optics-th
-    , password              >=2.0.1.0
     , relude
     , string-interpolate
     , taskwarrior
@@ -49,14 +48,12 @@ library
     , these
     , time
     , unordered-containers
-    , uuid
     , patch
-    , co-log
-    , vector
+    , uuid
+    , password
     , reflex
-    , chronos
     , containers
-    , dhall
+    , ansi-terminal
 
   exposed-modules:
     Common.Api

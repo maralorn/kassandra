@@ -2,36 +2,31 @@ module Common.Config
   ( AccountConfig
   , RemoteBackend
   , UserConfig
+  , LocalBackend
   , Dict
+  , UIConfig
+  , PortConfig
+  , Widget
+  , TreeOption
+  , ListItem
+  , HabiticaTask
+  , HabiticaList
+  , DefinitionElement
+  , ListQuery
+  , Query
+  , QueryFilter
+  , TaskProperty
+  , UIFeatures
+  , PasswordConfig
   )
 where
 
 import           Data.Password.Argon2           ( Argon2
-                                                , PasswordHash(PasswordHash)
+                                                , PasswordHash
                                                 )
 import           Data.Sequence                  ( Seq )
-import           Dhall                          ( Interpret
-                                                , autoWith
-                                                )
-import qualified Dhall                         as Dhall
-import qualified Data.UUID                     as UUID
-
-instance Interpret (PasswordHash Argon2) where
-  autoWith = fmap PasswordHash . autoWith
 
 type Dict = Map Text
-
-instance Interpret a => Interpret (Dict a) where
-  autoWith = fmap fromList . autoWith
-
-instance Interpret UUID where
-  autoWith =
-    (\x -> x { Dhall.extract = UUID.fromText <=< Dhall.extract x }) . autoWith
-
-instance Interpret Word16 where
-  autoWith =
-    (\x -> x { Dhall.extract = integerToBounded <=< Dhall.extract x })
-      . autoWith
 
 data AccountConfig
   = AccountConfig
@@ -39,7 +34,7 @@ data AccountConfig
         userConfig :: UserConfig,
         filterTag :: Text
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data UserConfig
   = UserConfig
@@ -47,7 +42,7 @@ data UserConfig
         localBackend :: LocalBackend,
         uiConfig :: UIConfig
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data UIConfig
   = UIConfig
@@ -56,22 +51,22 @@ data UIConfig
         sideView :: Seq Widget,
         uiFeatures :: UIFeatures
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data UIFeatures
   = UIFeatures
       { sortInTag :: Bool,
         treeOption :: TreeOption
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data Widget
   = SearchWidget
   | ListWidget ListQuery
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data TreeOption = NoTree | PartOfTree | DependsTree
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 
 data ListItem
@@ -79,16 +74,16 @@ data ListItem
   | AdHocTask Text
   | HabiticaTask HabiticaTask
   | Mail Text
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data HabiticaTask = HabiticaDaily | HabiticaTodo
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data HabiticaList = HabiticaDailys | HabiticaTodos
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data DefinitionElement = SubList ListQuery (Maybe Natural) | ListElement ListItem
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data ListQuery
   = QueryList Query
@@ -99,12 +94,12 @@ data ListQuery
   | ConfigList Text
   | HabiticaList HabiticaList
   | Mails
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
-newtype Query = Seq QueryFilter deriving (Show, Eq, Ord, Generic, Interpret)
+newtype Query = Seq QueryFilter deriving (Show, Eq, Ord, Generic)
 
 data QueryFilter = HasProperty TaskProperty | HasntProperty TaskProperty
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data TaskProperty
   = DescriptionMatches Text
@@ -118,13 +113,13 @@ data TaskProperty
   | OnList
   | HasTag Text
   | HasParent
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data PortConfig = Port Word16 | PortRange Word16 Word16
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data PasswordConfig = Prompt | Password Text | PasswordCommand Text
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 
 data LocalBackend
   = TaskwarriorBackend
@@ -155,11 +150,11 @@ data LocalBackend
         watchFiles :: Bool,
         pullTimerSeconds :: Maybe Natural
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)
 data RemoteBackend
   = RemoteBackend
       { url :: Text,
         user :: Text,
         password :: PasswordConfig
       }
-  deriving (Show, Eq, Ord, Generic, Interpret)
+  deriving (Show, Eq, Ord, Generic)

@@ -49,6 +49,8 @@ library
     , stm
     , taskwarrior
     , websockets
+    , uuid
+    , password              >=2.0.1.0
     , websockets-snap
 
   exposed-modules:    Backend,

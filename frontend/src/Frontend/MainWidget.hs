@@ -27,17 +27,15 @@ import           Frontend.TextEditWidget        ( createTextWidget )
 import           Frontend.BaseWidgets           ( button )
 import           Frontend.Util                  ( tellNewTask )
 import           Common.Debug                   ( logR
-                                                , log
-                                                , pattern I
-                                                , pattern D
+                                                , log, Severity(..)
                                                 , setLogLevel
                                                 )
 
 mainWidget :: WidgetIO t m => StateProvider t m -> m ()
 mainWidget stateProvider = do
-  liftIO $ setLogLevel $ Just D
+  liftIO $ setLogLevel $ Just Debug
   D.divClass "header" $ D.text "Kassandra ToDo Management"
-  log I "Loaded Mainwidget"
+  log Info "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
@@ -56,7 +54,7 @@ mainWidget stateProvider = do
               D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
           )
           (AppState taskState timeDyn dragDyn filterState)
-      stateChanges <- logR I (const "StateChange") stateChanges'
+      stateChanges <- logR Info (const "StateChange") stateChanges'
   pass
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()

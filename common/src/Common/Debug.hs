@@ -2,41 +2,39 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 module Common.Debug
   ( log
   , logShow
   , logR
   , logRShow
   , setLogLevel
-  , pattern D
-  , pattern I
-  , pattern W
-  , pattern E
+  , Severity(..)
   )
 where
 
-import           GHC.Stack                      ( callStack )
-import           Reflex                        as R
-import           Colog                          ( showSourceLoc
-                                                , showSeverity
-                                                , Severity
-                                                , pattern D
-                                                , pattern I
-                                                , pattern W
-                                                , pattern E
+import           GHC.Stack                      ( srcLocStartLine
+                                                , srcLocModule
+                                                , callStack
+                                                , SrcLoc(SrcLoc)
                                                 )
+import           Reflex                        as R
 import           System.IO.Unsafe               ( unsafePerformIO )
 import           Control.Concurrent             ( modifyMVar
                                                 , ThreadId
                                                 , myThreadId
                                                 )
 
-import qualified Data.Text.Lazy.Builder        as TB
-import qualified Data.Text.Lazy.Builder.Int    as TB
-import qualified Chronos.Locale.English        as C
-import qualified Chronos                       as C
-import qualified Data.Vector                   as Vector
-import qualified Debug.Trace as Trace
+import qualified Debug.Trace                   as Trace
+import           System.Console.ANSI            ( Color(..)
+                                                , ColorIntensity(Vivid)
+                                                , ConsoleLayer(Foreground)
+                                                , SGR(..)
+                                                , setSGRCode
+                                                )
+
+
+data Severity = Debug | Info | Warning | Error deriving (Show, Read, Eq, Ord)
 
 class ReflexLoggable l a | l -> a where
   useLogString :: (Text -> a -> Text) -> l -> l
@@ -53,7 +51,7 @@ instance R.Reflex t => ReflexLoggable (R.Event t a) a where
 
 {-# NOINLINE logLevel #-}
 logLevel :: MVar (Maybe Severity)
-logLevel = unsafePerformIO . newMVar $ Just W
+logLevel = unsafePerformIO . newMVar $ Just Warning
 
 {-# NOINLINE traceID #-}
 traceID :: MVar Int
@@ -73,12 +71,12 @@ logR severity decorate loggable = do
   if isSevere
     then do
       myId <- liftIO $ modifyMVar traceID $ \a -> pure (succ a, a)
-      withFrozenCallStack $ log D ("Registering eventTrace " <> show myId)
+      withFrozenCallStack $ log Debug ("Registering eventTrace " <> show myId)
       let f comment value = formatMessage Message
             { msgSeverity  = severity
             , msgCallStack = callStack
             , msgThreadId  = unsafePerformIO myThreadId
-            , msgTime      = unsafePerformIO C.now
+            , msgTime      = unsafePerformIO getZonedTime
             , msgComment   = Just (comment <> " " <> show myId)
             , msgContent   = decorate value
             }
@@ -98,7 +96,7 @@ logShow s = withFrozenCallStack (log s . show)
 log :: (HasCallStack, MonadIO m) => Severity -> Text -> m ()
 log severity text = do
   thread <- liftIO myThreadId
-  time   <- liftIO C.now
+  time   <- liftIO getZonedTime
   whenM (severeEnough severity) . putTextLn . formatMessage $ Message
     { msgSeverity  = severity
     , msgCallStack = callStack
@@ -118,7 +116,7 @@ data Message = Message {
  msgSeverity :: !Severity,
  msgCallStack :: !CallStack,
  msgThreadId :: !ThreadId,
- msgTime :: !C.Time,
+ msgTime :: !ZonedTime,
  msgComment :: !(Maybe Text),
  msgContent :: !Text }
 
@@ -131,160 +129,36 @@ formatMessage Message {..} =
     <> maybe "" square msgComment
     <> msgContent
 
---------------------
--- Pastes from Colog
-
 square :: Text -> Text
 square t = "[" <> t <> "] "
 
-showTime :: C.Time -> Text
-showTime t =
-  square $ toStrict $ TB.toLazyText $ builderDmyHMSz (C.timeToDatetime t)
+-- [30 May 2020 16:44:03.534 +00:00]
+showTime :: ZonedTime -> Text
+showTime = square . toText . formatTime defaultTimeLocale "%F %T%3Q %z"
 
-
-----------------------------------------------------------------------------
--- Chronos extra
-----------------------------------------------------------------------------
-
-{- | Given a 'Datetime', constructs a 'Text' 'TB.Builder' corresponding to a
-Day\/Month\/Year,Hour\/Minute\/Second\/Offset encoding of the given 'Datetime'.
-
-Example: @29 Dec 2019 22:00:00.000 +00:00@
+{- | Formats severity in different colours with alignment.
 -}
-builderDmyHMSz :: C.Datetime -> TB.Builder
-builderDmyHMSz (C.Datetime date time) =
-  builderDmy date
-    <> spaceSep
-    <> C.builder_HMS (C.SubsecondPrecisionFixed 3) (Just ':') time
-    <> spaceSep
-    <> C.builderOffset C.OffsetFormatColonOn (C.Offset 0)
+showSeverity :: Severity -> Text
+showSeverity = \case
+  Debug   -> color Green "[Debug]   "
+  Info    -> color Blue "[Info]    "
+  Warning -> color Yellow "[Warning] "
+  Error   -> color Red "[Error]   "
  where
-  spaceSep :: TB.Builder
-  spaceSep = TB.singleton ' '
+  color :: Color -> Text -> Text
+  color c txt =
+    toText (setSGRCode [SetColor Foreground Vivid c]) <> txt <> toText
+      (setSGRCode [Reset])
 
-  {- | Given a 'Date' construct a 'Text' 'TB.Builder'
-    corresponding to a Day\/Month\/Year encoding.
+showSourceLoc :: CallStack -> Text
+showSourceLoc cs = square showCallStack
+ where
+  showCallStack :: Text
+  showCallStack = case getCallStack cs of
+    [] -> "<unknown loc>"
+    [(name, loc)] -> showLoc name loc
+    (_, loc) : (callerName, _) : _ -> showLoc callerName loc
 
-    Example: @01 Jan 2020@
-    -}
-  builderDmy :: C.Date -> TB.Builder
-  builderDmy (C.Date (C.Year y) m d) =
-    zeroPadDayOfMonth d
-      <> spaceSep
-      <> TB.fromText (C.caseMonth C.abbreviated m)
-      <> spaceSep
-      <> TB.decimal y
-
-
-  zeroPadDayOfMonth :: C.DayOfMonth -> TB.Builder
-  zeroPadDayOfMonth (C.DayOfMonth d) =
-    if d < 100 then Vector.unsafeIndex twoDigitTextBuilder d else TB.decimal d
-
-  twoDigitTextBuilder :: Vector.Vector TB.Builder
-  twoDigitTextBuilder =
-    Vector.fromList $ map (TB.fromText . toText) twoDigitStrings
-  {-# NOINLINE twoDigitTextBuilder #-}
-
-  twoDigitStrings :: [String]
-  twoDigitStrings =
-    [ "00"
-    , "01"
-    , "02"
-    , "03"
-    , "04"
-    , "05"
-    , "06"
-    , "07"
-    , "08"
-    , "09"
-    , "10"
-    , "11"
-    , "12"
-    , "13"
-    , "14"
-    , "15"
-    , "16"
-    , "17"
-    , "18"
-    , "19"
-    , "20"
-    , "21"
-    , "22"
-    , "23"
-    , "24"
-    , "25"
-    , "26"
-    , "27"
-    , "28"
-    , "29"
-    , "30"
-    , "31"
-    , "32"
-    , "33"
-    , "34"
-    , "35"
-    , "36"
-    , "37"
-    , "38"
-    , "39"
-    , "40"
-    , "41"
-    , "42"
-    , "43"
-    , "44"
-    , "45"
-    , "46"
-    , "47"
-    , "48"
-    , "49"
-    , "50"
-    , "51"
-    , "52"
-    , "53"
-    , "54"
-    , "55"
-    , "56"
-    , "57"
-    , "58"
-    , "59"
-    , "60"
-    , "61"
-    , "62"
-    , "63"
-    , "64"
-    , "65"
-    , "66"
-    , "67"
-    , "68"
-    , "69"
-    , "70"
-    , "71"
-    , "72"
-    , "73"
-    , "74"
-    , "75"
-    , "76"
-    , "77"
-    , "78"
-    , "79"
-    , "80"
-    , "81"
-    , "82"
-    , "83"
-    , "84"
-    , "85"
-    , "86"
-    , "87"
-    , "88"
-    , "89"
-    , "90"
-    , "91"
-    , "92"
-    , "93"
-    , "94"
-    , "95"
-    , "96"
-    , "97"
-    , "98"
-    , "99"
-    ]
+  showLoc :: String -> SrcLoc -> Text
+  showLoc name SrcLoc { srcLocModule, srcLocStartLine, ..} =
+    toText srcLocModule <> "." <> toText name <> "#" <> show srcLocStartLine
