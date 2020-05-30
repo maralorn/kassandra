@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "eac@bump-reflex-dom-0.6",
+  "branch": "kassandra-bug",
   "private": false,
-  "rev": "1c7984f998dd79527d4f66785d07407116bd920a",
-  "sha256": "01kr8w9k63xy69iagqhk50vws1jwwazyrx17p57dg8ill567k2rf"
+  "rev": "a9c5b06c4f2ebe7853e79e13a43bd4831e12ae51",
+  "sha256": "06fh36cl0yq5jk458ahdxrgphdpqrfpdpcx1h0k2nqm8c83j2gdz"
 }
