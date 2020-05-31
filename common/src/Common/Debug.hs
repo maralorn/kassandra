@@ -46,19 +46,9 @@ instance R.Reflex t => ReflexLoggable (R.Dynamic t a) a where
           x <- sample $ current d
           Trace.trace (toString $ f "initialized Dynamic" x) $ return x
     in  unsafeBuildDynamic getV0 e'
+
 instance R.Reflex t => ReflexLoggable (R.Event t a) a where
   useLogString f e = traceEventWith (toString . f "triggered Event") e
-
-{-# NOINLINE logLevel #-}
-logLevel :: MVar (Maybe Severity)
-logLevel = unsafePerformIO . newMVar $ Just Warning
-
-{-# NOINLINE traceID #-}
-traceID :: MVar Int
-traceID = unsafePerformIO . newMVar $ 0
-
-setLogLevel :: Maybe Severity -> IO ()
-setLogLevel = void . swapMVar logLevel
 
 logR
   :: (HasCallStack, MonadIO m, ReflexLoggable l a)
@@ -105,6 +95,18 @@ log severity text = do
     , msgComment   = Nothing
     , msgContent   = text
     }
+
+{-# NOINLINE logLevel #-}
+logLevel :: MVar (Maybe Severity)
+logLevel = unsafePerformIO . newMVar $ Just Warning
+
+{-# NOINLINE traceID #-}
+traceID :: MVar Int
+traceID = unsafePerformIO . newMVar $ 0
+
+setLogLevel :: Maybe Severity -> IO ()
+setLogLevel = void . swapMVar logLevel
+
 
 severeEnough :: MonadIO m => Severity -> m Bool
 severeEnough severity = severeEnough' <$> readMVar logLevel
