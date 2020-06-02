@@ -32,14 +32,19 @@ library
   hs-source-dirs:     src
   build-depends:
     , aeson
+    , ansi-terminal
     , async
     , base
+    , containers
     , extra
     , generic-optics
     , mtl
     , obelisk-route
     , optics
     , optics-th
+    , password
+    , patch
+    , reflex
     , relude
     , string-interpolate
     , taskwarrior
@@ -48,18 +53,13 @@ library
     , these
     , time
     , unordered-containers
-    , patch
     , uuid
-    , password
-    , reflex
-    , containers
-    , ansi-terminal
 
   exposed-modules:
     Common.Api
-    Common.Route
-    Common.Debug
     Common.Config
+    Common.Debug
+    Common.Route
     Prelude
 
   default-language:   Haskell2010
