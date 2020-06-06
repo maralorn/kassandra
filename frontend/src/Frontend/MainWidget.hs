@@ -27,7 +27,8 @@ import           Frontend.TextEditWidget        ( createTextWidget )
 import           Frontend.BaseWidgets           ( button )
 import           Frontend.Util                  ( tellNewTask )
 import           Common.Debug                   ( logR
-                                                , log, Severity(..)
+                                                , log
+                                                , Severity(..)
                                                 , setLogLevel
                                                 )
 
