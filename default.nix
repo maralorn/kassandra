@@ -18,6 +18,31 @@ project ./. ({ pkgs, ... }:
     ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
     ios.bundleName = "Obelisk Minimal Example";
     overrides = self: super: {
+      dhall = dontCheck (self.callHackageDirect {
+        pkg = "dhall";
+        ver = "1.32.0";
+        sha256 = "1qx7n2jyb9h1082434r90hfrjw5fab2j1yg0qzxh856fpksbh81n";
+      } { });
+      prettyprinter = self.callHackageDirect {
+        pkg = "prettyprinter";
+        ver = "1.5.1";
+        sha256 = "0wx01rvgwnnmg10sh9x2whif5z12058w5djh7m5swz94wvkg5cg3";
+      } { };
+      cborg-json = self.callHackageDirect {
+        pkg = "cborg-json";
+        ver = "0.2.2.0";
+        sha256 = "1s7pv3jz8s1qb0ydcc5nra9f63jp4ay4d0vncv919bakf8snj4vw";
+      } { };
+      generic-random = self.callHackageDirect {
+        pkg = "generic-random";
+        ver = "1.3.0.0";
+        sha256 = "0m7lb40wgmyszv8l6qmarkfgs8r0idgl9agwsi72236hpvp353ad";
+      } { };
+      atomic-write = self.callHackageDirect {
+        pkg = "atomic-write";
+        ver = "0.2.0.7";
+        sha256 = "1r9ckwljdbw3mi8rmzmsnh89z8nhw2qnds9n271gkjgavb6hxxf3";
+      } { };
       clay = markUnbroken (dontCheck super.clay);
       taskwarrior = self.callHackageDirect {
         pkg = "taskwarrior";
@@ -72,5 +97,8 @@ project ./. ({ pkgs, ... }:
       } { };
     };
     __withGhcide = true;
-    packages = { standalone = ./standalone; };
+    packages = {
+      kassandra = ./kassandra;
+      standalone = ./standalone;
+    };
   })

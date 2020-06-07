@@ -1,5 +1,5 @@
 
-module Frontend.Types
+module Kassandra.Types
   ( Widget
   , WidgetIO
   , TaskInfos(TaskInfos)

@@ -1,5 +1,5 @@
 
-module Frontend.Util
+module Kassandra.Util
   ( filterCurrent
   , tellSingleton
   , tellTask
@@ -16,7 +16,7 @@ where
 
 import qualified Reflex                        as R
 import           Taskwarrior.Status            as Status
-import           Frontend.Types                 ( ToggleEvent
+import           Kassandra.Types                 ( ToggleEvent
                                                 , getExpandedTasks
                                                 , AppStateChange
                                                 , StandardWidget

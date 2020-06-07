@@ -1,4 +1,4 @@
-module Frontend.State
+module Kassandra.State
   ( stateProvider
   , TaskProvider
   , StateProvider
@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict           as HashMap
 import qualified Reflex                        as R
 import qualified Data.Dependent.Map            as DMap
 import qualified Data.GADT.Compare.TH          as TH
-import           Frontend.Types                 ( DataChange
+import           Kassandra.Types                 ( DataChange
                                                   ( CreateTask
                                                   , ChangeTask
                                                   )

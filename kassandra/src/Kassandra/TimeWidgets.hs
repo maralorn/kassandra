@@ -1,16 +1,16 @@
 
-module Frontend.TimeWidgets
+module Kassandra.TimeWidgets
   ( dateSelectionWidget
   )
 where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Frontend.Types                 ( Widget
+import           Kassandra.Types                 ( Widget
                                                 , StandardWidget
                                                 , getTime
                                                 )
-import           Frontend.TextEditWidget        ( editText )
-import           Frontend.BaseWidgets           ( stateWidget
+import           Kassandra.TextEditWidget        ( editText )
+import           Kassandra.BaseWidgets           ( stateWidget
                                                 , button
                                                 , icon
                                                 )

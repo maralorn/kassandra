@@ -1,4 +1,4 @@
-module Frontend.TaskWidget
+module Kassandra.TaskWidget
   ( taskTreeWidget
   , taskList
   )
@@ -11,14 +11,14 @@ import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Taskwarrior.Status            as Status
 import           Taskwarrior.UDA                ( UDA )
-import           Frontend.Util                  ( tellNewTask
+import           Kassandra.Util                  ( tellNewTask
                                                 , lookupCurrentDyn
                                                 , lookupCurrent
                                                 , lookupTasksM
                                                 , tellTask
                                                 , tellToggle
                                                 )
-import           Frontend.Types                 ( getExpandedTasks
+import           Kassandra.Types                 ( getExpandedTasks
                                                 , getIsExpanded
                                                 , ToggleEvent(ToggleEvent)
                                                 , TaskTreeState
@@ -33,22 +33,22 @@ import           Frontend.Types                 ( getExpandedTasks
                                                 , al
                                                 , fl
                                                 )
-import           Frontend.TextEditWidget        ( lineWidget
+import           Kassandra.TextEditWidget        ( lineWidget
                                                 , createTextWidget
                                                 )
-import           Frontend.BaseWidgets           ( button
+import           Kassandra.BaseWidgets           ( button
                                                 , icon
                                                 )
-import           Frontend.Sorting               ( sortTasks
+import           Kassandra.Sorting               ( sortTasks
                                                 , SortMode(SortModePartof)
                                                 , SortPosition(SortPosition)
                                                 )
-import           Frontend.DragAndDrop           ( tellDragTask
+import           Kassandra.DragAndDrop           ( tellDragTask
                                                 , taskDropArea
                                                 , childDropArea
                                                 )
-import           Frontend.TimeWidgets           ( dateSelectionWidget )
-import           Common.Debug                   ( log
+import           Kassandra.TimeWidgets           ( dateSelectionWidget )
+import           Kassandra.Debug                   ( log
                                                 , Severity(..)
                                                 )
 

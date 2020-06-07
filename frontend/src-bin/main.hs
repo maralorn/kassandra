@@ -1,6 +1,6 @@
 module Main (main) where
 import Frontend
-import Common.Route
+import Frontend.Route
 import Obelisk.Frontend
 import Obelisk.Route.Frontend
 import Reflex.Dom

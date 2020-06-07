@@ -1,9 +1,4 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-module Common.Debug
+module Kassandra.Debug
   ( log
   , logShow
   , logR
@@ -36,10 +31,10 @@ import           System.Console.ANSI            ( Color(..)
 
 data Severity = Debug | Info | Warning | Error deriving (Show, Read, Eq, Ord)
 
-class ReflexLoggable l a | l -> a where
-  useLogString :: (Text -> a -> Text) -> l -> l
+class ReflexLoggable l where
+  useLogString :: (Text -> a -> Text) -> l a -> l a
 
-instance R.Reflex t => ReflexLoggable (R.Dynamic t a) a where
+instance R.Reflex t => ReflexLoggable (R.Dynamic t) where
   useLogString f d =
     let e'    = traceEventWith (toString . f "updated Dynamic") $ updated d
         getV0 = do
@@ -47,15 +42,15 @@ instance R.Reflex t => ReflexLoggable (R.Dynamic t a) a where
           Trace.trace (toString $ f "initialized Dynamic" x) $ return x
     in  unsafeBuildDynamic getV0 e'
 
-instance R.Reflex t => ReflexLoggable (R.Event t a) a where
+instance R.Reflex t => ReflexLoggable (R.Event t) where
   useLogString f e = traceEventWith (toString . f "triggered Event") e
 
 logR
-  :: (HasCallStack, MonadIO m, ReflexLoggable l a)
+  :: (HasCallStack, MonadIO m, ReflexLoggable l)
   => Severity
   -> (a -> Text)
-  -> l
-  -> m l
+  -> l a
+  -> m (l a)
 logR severity decorate loggable = do
   isSevere <- severeEnough severity
   if isSevere
@@ -74,10 +69,10 @@ logR severity decorate loggable = do
     else pure loggable
 
 logRShow
-  :: (HasCallStack, MonadIO m, ReflexLoggable l a, Show a)
+  :: (HasCallStack, MonadIO m, ReflexLoggable l, Show a)
   => Severity
-  -> l
-  -> m l
+  -> l a
+  -> m (l a)
 logRShow a = withFrozenCallStack (logR a show)
 
 logShow :: (HasCallStack, Show a, MonadIO m) => Severity -> a -> m ()
@@ -123,8 +118,8 @@ data Message = Message {
  msgContent :: !Text }
 
 formatMessage :: Message -> Text
-formatMessage Message {..} =
-  showSeverity msgSeverity
+formatMessage Message { msgSeverity, msgTime, msgCallStack, msgThreadId, msgComment, msgContent }
+  = showSeverity msgSeverity
     <> showTime msgTime
     <> showSourceLoc msgCallStack
     <> square (show msgThreadId)
@@ -153,14 +148,11 @@ showSeverity = \case
       (setSGRCode [Reset])
 
 showSourceLoc :: CallStack -> Text
-showSourceLoc cs = square showCallStack
+showSourceLoc = square . showCallStack . fmap (first toText) . getCallStack
  where
-  showCallStack :: Text
-  showCallStack = case getCallStack cs of
+  showCallStack = \case
     [] -> "<unknown loc>"
-    [(name, loc)] -> showLoc name loc
-    (_, loc) : (callerName, _) : _ -> showLoc callerName loc
-
-  showLoc :: String -> SrcLoc -> Text
-  showLoc name SrcLoc { srcLocModule, srcLocStartLine, ..} =
-    toText srcLocModule <> "." <> toText name <> "#" <> show srcLocStartLine
+    [(name, SrcLoc { srcLocModule, srcLocStartLine})] ->
+      name <> "@" <> toText srcLocModule <> "#" <> show srcLocStartLine
+    (_, SrcLoc { srcLocModule, srcLocStartLine}) : (callerName, _) : _ ->
+      toText srcLocModule <> "." <> callerName <> "#" <> show srcLocStartLine

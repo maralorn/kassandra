@@ -1,6 +1,6 @@
 cabal-version:      2.4
-name:               frontend
-version:            0.1
+name:               kassandra
+version:            0.1.0.0
 
 -- BEGIN dhall generated common configuration
 license-file:       LICENSE
@@ -55,17 +55,39 @@ common common-config
 
 library
   import:          common-config
-  hs-source-dirs:  src
+  exposed-modules:
+    Kassandra.Api
+    Kassandra.Config
+    Kassandra.Css
+    Kassandra.Debug
+    Kassandra.MainWidget
+    Kassandra.State
+    Kassandra.Types
+    Prelude
+
+  other-modules:
+    Kassandra.BaseWidgets
+    Kassandra.DragAndDrop
+    Kassandra.ListWidget
+    Kassandra.ReflexUtil
+    Kassandra.Sorting
+    Kassandra.TaskWidget
+    Kassandra.TextEditWidget
+    Kassandra.TimeWidgets
+    Kassandra.Util
+
   build-depends:
     , aeson
+    , ansi-terminal
+    , async
     , base
     , clay
+    , containers
     , dependent-map
     , dependent-sum-template
     , extra
     , generic-optics
     , jsaddle
-    , kassandra
     , mtl
     , obelisk-executable-config-lookup
     , obelisk-frontend
@@ -73,31 +95,19 @@ library
     , obelisk-route
     , optics
     , optics-th
+    , password
+    , patch
     , reflex
     , reflex-dom
+    , relude
     , scientific
+    , string-interpolate
     , taskwarrior
+    , template-haskell
     , text
     , these
     , time
     , unordered-containers
     , uuid
 
-  exposed-modules:
-    Frontend
-    Frontend.Route
-
-executable frontend
-  import:         common-config
-  main-is:        main.hs
-  hs-source-dirs: src-bin
-  build-depends:
-    , base
-    , frontend
-    , kassandra
-    , obelisk-frontend
-    , obelisk-generated-static
-    , obelisk-route
-    , reflex-dom
-
-  ghc-options:    -threaded
+  hs-source-dirs:  src

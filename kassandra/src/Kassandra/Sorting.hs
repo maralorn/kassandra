@@ -1,5 +1,4 @@
-
-module Frontend.Sorting
+module Kassandra.Sorting
   ( sortTasks
   , saveSorting
   , SortPosition(SortPosition)
@@ -12,7 +11,7 @@ import qualified Data.Aeson                    as Aeson
 import qualified Reflex                        as R
 import           Data.Scientific                ( toRealFloat )
 import           Relude.Extra.Foldable1         ( maximum1 )
-import           Frontend.Types                 ( TaskInfos )
+import           Kassandra.Types                ( TaskInfos )
 
 data SortMode = SortModePartof UUID | SortModeTag Task.Tag deriving (Show, Eq, Ord, Generic)
 makePrismLabels ''SortMode
@@ -24,8 +23,7 @@ declareFieldLabels [d|data SortPosition t = SortPosition {
     mode :: R.Behavior t SortMode,
     list :: R.Behavior t [Task],
     before :: R.Behavior t (Maybe UUID)
-};|]
-
+}|]
 
 sortTasks :: SortMode -> [TaskInfos] -> [TaskInfos]
 sortTasks mode = sortOn (getSortOrder mode . (^. #task))

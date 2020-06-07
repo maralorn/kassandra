@@ -1,27 +1,46 @@
-cabal-version: 2.4
-name:          backend
-version:       0.1
-build-type:    Simple
+cabal-version:      2.4
+name:               backend
+version:            0.1
 
-library
+-- BEGIN dhall generated common configuration
+license-file:       LICENSE
+author:             Malte Brandy
+maintainer:         malte.brandy@maralorn.de
+build-type:         Simple
+extra-source-files: CHANGELOG.md
+
+common common-config
   default-extensions:
+    AllowAmbiguousTypes
     ConstraintKinds
     DataKinds
     DeriveAnyClass
     DeriveGeneric
+    DuplicateRecordFields
+    EmptyCase
     FlexibleContexts
     FlexibleInstances
     GADTs
     LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
+    OverloadedLabels
     OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
     PatternSynonyms
     QuasiQuotes
+    RankNTypes
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
     StrictData
+    TemplateHaskell
+    TupleSections
     TypeApplications
     TypeFamilies
     UndecidableInstances
+    ViewPatterns
 
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-all-missed-specialisations
@@ -30,36 +49,45 @@ library
     -Wno-missing-import-lists -Wno-orphans -Wcompat
 
   mixins:             base hiding (Prelude)
-  hs-source-dirs:     src
+  default-language:   Haskell2010
+
+-- END dhall generated common configuration
+
+
+library
+  import:          common-config
+  hs-source-dirs:  src
 
   if impl(ghcjs -any)
     buildable: False
 
   build-depends:
     , aeson
-    , dhall
     , async
     , base
-    , common
+    , dhall
     , frontend
+    , kassandra
     , network-simple
     , obelisk-backend
     , obelisk-route
+    , password         >=2.0.1.0
     , snap-core
+    , standalone
     , stm
     , taskwarrior
-    , websockets
     , uuid
-    , password              >=2.0.1.0
+    , websockets
     , websockets-snap
 
-  exposed-modules:    Backend,
-                      Backend.Config
-  default-language:   Haskell2010
+  exposed-modules:
+    Backend
+    Backend.Config
 
 executable backend
-  main-is:          main.hs
-  hs-source-dirs:   src-bin
+  import:         common-config
+  main-is:        main.hs
+  hs-source-dirs: src-bin
 
   if impl(ghcjs -any)
     buildable: False
@@ -67,10 +95,8 @@ executable backend
   build-depends:
     , backend
     , base
-    , common
     , frontend
+    , kassandra
     , obelisk-backend
 
-  ghc-options:      -threaded
-  mixins:           base hiding (Prelude)
-  default-language: Haskell2010
+  ghc-options:    -threaded

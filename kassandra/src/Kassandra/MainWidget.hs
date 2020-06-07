@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
-module Frontend.MainWidget
+module Kassandra.MainWidget
   ( mainWidget
   )
 where
@@ -7,7 +7,7 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Frontend.Types                 ( DragState(NoDrag)
+import           Kassandra.Types                 ( DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
                                                 , getTasks
@@ -17,16 +17,16 @@ import           Frontend.Types                 ( DragState(NoDrag)
                                                 , StandardWidget
                                                 , TaskState
                                                 )
-import           Frontend.ListWidget            ( listsWidget
+import           Kassandra.ListWidget            ( listsWidget
                                                 , listWidget
                                                 , TaskList(TagList)
                                                 )
-import           Frontend.State                 ( StateProvider )
-import           Frontend.TaskWidget            ( taskTreeWidget )
-import           Frontend.TextEditWidget        ( createTextWidget )
-import           Frontend.BaseWidgets           ( button )
-import           Frontend.Util                  ( tellNewTask )
-import           Common.Debug                   ( logR
+import           Kassandra.State                 ( StateProvider )
+import           Kassandra.TaskWidget            ( taskTreeWidget )
+import           Kassandra.TextEditWidget        ( createTextWidget )
+import           Kassandra.BaseWidgets           ( button )
+import           Kassandra.Util                  ( tellNewTask )
+import           Kassandra.Debug                   ( logR
                                                 , log
                                                 , Severity(..)
                                                 , setLogLevel

@@ -1,5 +1,4 @@
-
-module Frontend.BaseWidgets
+module Kassandra.BaseWidgets
   ( icon
   , button
   , stateWidget
@@ -7,7 +6,7 @@ module Frontend.BaseWidgets
 where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Frontend.Types                 ( Widget )
+import           Kassandra.Types                 ( Widget )
 import           Relude.Extra.Bifunctor         ( secondF )
 
 

@@ -1,4 +1,4 @@
-module Frontend.DragAndDrop
+module Kassandra.DragAndDrop
   ( droppableElementConfig
   , childDropArea
   , taskDropArea
@@ -9,10 +9,10 @@ where
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
 import           Data.Proxy                     ( Proxy(Proxy) )
-import           Frontend.Sorting               ( SortPosition
+import           Kassandra.Sorting              ( SortPosition
                                                 , saveSorting
                                                 )
-import           Frontend.Types                 ( AppStateChange
+import           Kassandra.Types                ( AppStateChange
                                                 , StandardWidget
                                                 , TaskInfos
                                                 , DragState(DraggedTask, NoDrag)
@@ -21,10 +21,10 @@ import           Frontend.Types                 ( AppStateChange
                                                 , DataChange
                                                 , WriteApp
                                                 )
-import           Frontend.Util                  ( tellSingleton
+import           Kassandra.Util                 ( tellSingleton
                                                 , lookupTask
                                                 )
-import           Common.Debug                   ( logRShow
+import           Kassandra.Debug                ( logRShow
                                                 , Severity(..)
                                                 )
 
@@ -78,8 +78,8 @@ childDropArea
   -> m ()
 childDropArea pos blacklistD areaW =
   taskDropArea blacklistD areaW
-    $ saveSorting (pos ^. #mode) (pos ^. #list)
-    . R.attachWith (\u t -> (t ^. #task, u)) (pos ^. #before)
+    $ saveSorting (pos ^. (labelOptic @"$sel:mode:SortPosition")) (pos ^. (labelOptic @"$sel:list:SortPosition"))
+    . R.attachWith (\u t -> (t ^. #task, u)) (pos ^. (labelOptic @"$sel:before:SortPosition"))
 
 
 droppableElementConfig

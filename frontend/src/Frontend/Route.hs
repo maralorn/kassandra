@@ -1,4 +1,4 @@
-module Common.Route
+module Frontend.Route
   ( BackendRoute(..)
   , FrontendRoute(..)
   , fullRouteEncoder

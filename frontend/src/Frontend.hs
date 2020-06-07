@@ -7,21 +7,20 @@ where
 import           Obelisk.Frontend
 import           Obelisk.Route
 
-import           Frontend.Css                   ( css )
-import           Frontend.MainWidget            ( mainWidget )
-import           Frontend.Types
-import           Frontend.State                 ( StateProvider
+import           Kassandra.Css                  ( css )
+import           Kassandra.MainWidget           ( mainWidget )
+import           Kassandra.Types
+import           Kassandra.Api                  ( _ChangeTasks
+                                                , _TaskUpdates
+                                                )
+import           Kassandra.State                ( StateProvider
                                                 , stateProvider
                                                 , TaskProvider
                                                 )
+import           Frontend.Route                 ( FrontendRoute )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
 import qualified Data.HashMap.Strict           as HashMap
-
-import           Common.Route                   ( FrontendRoute )
-import           Common.Api                     ( _ChangeTasks
-                                                , _TaskUpdates
-                                                )
 import           Language.Javascript.JSaddle    ( MonadJSM )
 
 -- This runs in a monad that can be run on the client or the server.

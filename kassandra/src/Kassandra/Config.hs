@@ -1,4 +1,4 @@
-module Common.Config
+module Kassandra.Config
   ( AccountConfig
   , RemoteBackend
   , UserConfig
@@ -18,6 +18,7 @@ module Common.Config
   , TaskProperty
   , UIFeatures
   , PasswordConfig
+  , NamedListQuery
   )
 where
 
@@ -27,6 +28,7 @@ import           Data.Password.Argon2           ( Argon2
 import           Data.Sequence                  ( Seq )
 
 type Dict = Map Text
+
 
 data AccountConfig
   = AccountConfig
@@ -38,8 +40,7 @@ data AccountConfig
 
 data UserConfig
   = UserConfig
-      {
-        localBackend :: LocalBackend,
+      { localBackend :: LocalBackend,
         uiConfig :: UIConfig
       }
   deriving (Show, Eq, Ord, Generic)
@@ -47,8 +48,8 @@ data UserConfig
 data UIConfig
   = UIConfig
       { viewList :: Seq Widget,
-        configuredLists :: Dict ListQuery,
         sideView :: Seq Widget,
+        configuredLists :: Seq NamedListQuery,
         uiFeatures :: UIFeatures
       }
   deriving (Show, Eq, Ord, Generic)
@@ -62,18 +63,17 @@ data UIFeatures
 
 data Widget
   = SearchWidget
-  | ListWidget ListQuery
+  | ListWidget {query :: ListQuery}
   deriving (Show, Eq, Ord, Generic)
 
 data TreeOption = NoTree | PartOfTree | DependsTree
   deriving (Show, Eq, Ord, Generic)
 
-
 data ListItem
-  = TaskwarriorTask UUID
-  | AdHocTask Text
-  | HabiticaTask HabiticaTask
-  | Mail Text
+  = TaskwarriorTask {uuid :: UUID}
+  | AdHocTask {description :: Text}
+  | HabiticaTask {task :: HabiticaTask}
+  | Mail {id :: Text}
   deriving (Show, Eq, Ord, Generic)
 
 data HabiticaTask = HabiticaDaily | HabiticaTodo
@@ -82,27 +82,33 @@ data HabiticaTask = HabiticaDaily | HabiticaTodo
 data HabiticaList = HabiticaDailys | HabiticaTodos
   deriving (Show, Eq, Ord, Generic)
 
-data DefinitionElement = SubList ListQuery (Maybe Natural) | ListElement ListItem
+data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | ListElement {item :: ListItem}
+  deriving (Show, Eq, Ord, Generic)
+
+data NamedListQuery
+  = NamedListQuery
+      { name :: Text,
+        list :: ListQuery
+      }
   deriving (Show, Eq, Ord, Generic)
 
 data ListQuery
-  = QueryList Query
-  | TagList Text
-  | DefinitionList (Seq DefinitionElement)
-  | ChildrenList UUID
-  | DependenciesList UUID
-  | ConfigList Text
-  | HabiticaList HabiticaList
+  = QueryList {query :: Query}
+  | TagList {name :: Text}
+  | DefinitionList {elements :: Seq DefinitionElement}
+  | ChildrenList {uuid :: UUID}
+  | DependenciesList {uuid :: UUID}
+  | HabiticaList {list :: HabiticaList}
   | Mails
   deriving (Show, Eq, Ord, Generic)
 
-newtype Query = Seq QueryFilter deriving (Show, Eq, Ord, Generic)
+type Query = Seq QueryFilter
 
-data QueryFilter = HasProperty TaskProperty | HasntProperty TaskProperty
+data QueryFilter = HasProperty {property :: TaskProperty} | HasntProperty {property :: TaskProperty}
   deriving (Show, Eq, Ord, Generic)
 
 data TaskProperty
-  = DescriptionMatches Text
+  = DescriptionMatches {filter :: Text}
   | ParentBlocked
   | Blocked
   | Waiting
@@ -111,14 +117,14 @@ data TaskProperty
   | Deleted
   | IsParent
   | OnList
-  | HasTag Text
+  | HasTag {tag :: Text}
   | HasParent
   deriving (Show, Eq, Ord, Generic)
 
-data PortConfig = Port Word16 | PortRange Word16 Word16
+data PortConfig = Port {port :: Word16} | PortRange {min :: Word16, max :: Word16}
   deriving (Show, Eq, Ord, Generic)
 
-data PasswordConfig = Prompt | Password Text | PasswordCommand Text
+data PasswordConfig = Prompt | Password {plaintext :: Text} | PasswordCommand {command :: Text}
   deriving (Show, Eq, Ord, Generic)
 
 data LocalBackend
@@ -151,6 +157,7 @@ data LocalBackend
         pullTimerSeconds :: Maybe Natural
       }
   deriving (Show, Eq, Ord, Generic)
+
 data RemoteBackend
   = RemoteBackend
       { url :: Text,

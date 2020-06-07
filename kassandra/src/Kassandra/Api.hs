@@ -1,4 +1,4 @@
-module Common.Api
+module Kassandra.Api
   ( SocketMessage
   , _TaskUpdates
   , SocketRequest(AllTasks, ChangeTasks)

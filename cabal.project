@@ -1,5 +1,5 @@
 packages:
-  common/
+  kassandra/
   standalone/
 
 optional-packages:

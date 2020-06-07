@@ -1,6 +1,5 @@
 module Backend
   ( backend
-  , taskMonitor
   )
 where
 
@@ -11,15 +10,14 @@ import           Network.WebSockets             ( rejectRequest
                                                 , receiveData
                                                 , sendTextData
                                                 )
-import qualified Network.Simple.TCP            as Net
 import           Network.WebSockets.Snap        ( runWebSocketsSnap )
-import           Common.Api                     ( _TaskUpdates
+import           Kassandra.Api                     ( _TaskUpdates
                                                 , SocketRequest
                                                   ( AllTasks
                                                   , ChangeTasks
                                                   )
                                                 )
-import           Common.Route                   ( BackendRoute
+import           Frontend.Route                   ( BackendRoute
                                                   ( BackendRouteSocket
                                                   , BackendRouteMissing
                                                   )
@@ -42,6 +40,7 @@ import           Control.Concurrent.STM.TChan   ( newBroadcastTChan
                                                 , TChan
                                                 )
 import           Backend.Config                 ( readConfig )
+import Kassandra.Standalone.State (taskMonitor)
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
@@ -87,16 +86,3 @@ acceptSocket broadCastChannel user pendingConnection = do
           AllTasks          -> sendAll
           ChangeTasks tasks -> saveTasks . toList $ tasks
   forConcurrently_ [sendAll, sendUpdates, waitForRequests] id
-
-taskMonitor :: (NonEmpty Task -> IO ()) -> IO ()
-taskMonitor newTasksCallBack = do
-  putStrLn "Listening for changed or new tasks on 127.0.0.1:6545."
-  Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
-    Net.recv socket 4096 >>= maybe
-      (putStrLn "Unsuccessful connection attempt.")
-      (\changes ->
-        either
-            (\err -> putStrLn [i|Couldn‘t decode #{changes} as Task: #{err}|])
-            (newTasksCallBack . one)
-          $ Aeson.eitherDecodeStrict @Task changes
-      )

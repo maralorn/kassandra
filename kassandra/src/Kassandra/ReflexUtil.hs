@@ -1,6 +1,6 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Common.ReflexUtil
+module Kassandra.ReflexUtil
   ( smartSimpleList
   , keyDynamic
   )

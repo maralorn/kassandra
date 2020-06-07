@@ -1,4 +1,4 @@
-module Frontend.TextEditWidget
+module Kassandra.TextEditWidget
   ( lineWidget
   , createTextWidget
   , editText
@@ -6,8 +6,8 @@ module Frontend.TextEditWidget
 where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
-import           Frontend.Types                 ( Widget )
-import           Frontend.BaseWidgets           ( stateWidget
+import           Kassandra.Types                 ( Widget )
+import           Kassandra.BaseWidgets           ( stateWidget
                                                 , button
                                                 , icon
                                                 )
