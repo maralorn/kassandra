@@ -9,6 +9,7 @@ where
 import qualified Taskwarrior.Task              as Task
 import qualified Data.Aeson                    as Aeson
 import qualified Reflex                        as R
+import           Data.Set                       ( member )
 import           Data.Scientific                ( toRealFloat )
 import           Relude.Extra.Foldable1         ( maximum1 )
 import           Kassandra.Types                ( TaskInfos )
@@ -48,18 +49,17 @@ setSortOrder mode val = #uda %~ at (sortFieldName mode) ?~ Aeson.toJSON val
 
 taskInList :: SortMode -> Task -> Bool
 taskInList (SortModePartof uuid) = (Just uuid ==) . (^. #partof)
-taskInList (SortModeTag    tag ) = elem tag . Task.tags
+taskInList (SortModeTag    tag ) = member tag . Task.tags
 
 insertInList :: SortMode -> Task -> Task
 insertInList (SortModePartof uuid) = #partof ?~ uuid
 insertInList (SortModeTag    tag ) = #tags %~ addTag
  where
-  addTag tags | tag `elem` tags = tags
-              | otherwise       = tags <> one tag
+  addTag tags | tag `member` tags = tags
+              | otherwise         = tags <> one tag
 
 unSetSortOrder :: SortMode -> Task -> Task
 unSetSortOrder mode = #uda %~ sans (sortFieldName mode)
-
 
 -- ! Returns a list of tasks for which the UDA attributes need to be changed to reflect the order of the given list.
 sortingChanges :: SortMode -> [Task] -> [Task]

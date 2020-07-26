@@ -8,7 +8,7 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import qualified Data.HashSet                  as HashSet
+import qualified Data.Set                  as Set
 import           Kassandra.Types                 ( al
                                                 , StandardWidget
                                                 , TaskInfos
@@ -36,9 +36,9 @@ listsWidget = do
   getLists :: TaskState -> [TaskList]
   getLists =
     fmap TagList
-      . HashSet.toList
+      . toList
       . fold
-      . fmap (^. (#tags % to HashSet.fromList))
+      . fmap (^. #tags)
       . filter (has $ #status % #_Pending)
       . (^. al #task)
       . HashMap.elems
@@ -90,4 +90,4 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
     maybePredicate taskInfo =
       if inList taskInfo then Just taskInfo else Nothing
     inList :: TaskInfos -> Bool
-    inList = (tag `elem`) . (^. #tags)
+    inList = (tag `Set.member`) . (^. #tags)

@@ -7,7 +7,8 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import           Kassandra.Types                 ( DragState(NoDrag)
+import qualified Data.Set                      as Set
+import           Kassandra.Types                ( DragState(NoDrag)
                                                 , AppState(AppState)
                                                 , FilterState(FilterState)
                                                 , getTasks
@@ -17,16 +18,16 @@ import           Kassandra.Types                 ( DragState(NoDrag)
                                                 , StandardWidget
                                                 , TaskState
                                                 )
-import           Kassandra.ListWidget            ( listsWidget
+import           Kassandra.ListWidget           ( listsWidget
                                                 , listWidget
                                                 , TaskList(TagList)
                                                 )
-import           Kassandra.State                 ( StateProvider )
-import           Kassandra.TaskWidget            ( taskTreeWidget )
-import           Kassandra.TextEditWidget        ( createTextWidget )
-import           Kassandra.BaseWidgets           ( button )
-import           Kassandra.Util                  ( tellNewTask )
-import           Kassandra.Debug                   ( logR
+import           Kassandra.State                ( StateProvider )
+import           Kassandra.TaskWidget           ( taskTreeWidget )
+import           Kassandra.TextEditWidget       ( createTextWidget )
+import           Kassandra.BaseWidgets          ( button )
+import           Kassandra.Util                 ( tellNewTask )
+import           Kassandra.Debug                ( logR
                                                 , log
                                                 , Severity(..)
                                                 , setLogLevel
@@ -102,7 +103,7 @@ filterInbox tasks =
       && has (#children % _Empty)  taskInfos
       && (  not
          .  any (`notElem` ["kategorie", "project", "root"])
-         .  join
+         .  Set.unions
          $  lookupTasks tasks (taskInfos ^. #parents)
          ^. #tags
          )
@@ -133,10 +134,9 @@ unsortedWidget = do
     fmap
         ( filter
             (\task ->
-              "root"
-                `notElem` (task ^. #tags)
-                &&        has (#partof % _Nothing)  task
-                &&        has (#status % #_Pending) task
+              not (Set.member "root" (task ^. #tags))
+                && has (#partof % _Nothing)  task
+                && has (#status % #_Pending) task
             )
         . HashMap.elems
         )

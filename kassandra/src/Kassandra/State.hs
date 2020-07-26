@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict           as HashMap
 import qualified Reflex                        as R
 import qualified Data.Dependent.Map            as DMap
 import qualified Data.GADT.Compare.TH          as TH
-import           Kassandra.Types                 ( DataChange
+import           Kassandra.Types                ( DataChange
                                                   ( CreateTask
                                                   , ChangeTask
                                                   )
@@ -89,7 +89,9 @@ buildChildrenMap =
 buildDependenciesMap :: HashMap a Task -> HashMap UUID [a]
 buildDependenciesMap =
   HashMap.fromListWith (++)
-    . (HashMap.toList >=> \(uuid, task) -> (, pure uuid) <$> task ^. #depends)
+    . (   HashMap.toList
+      >=> \(uuid, task) -> (, pure uuid) <$> (toList $ task ^. #depends)
+      )
 
 buildTaskInfosMap :: HashMap UUID Task -> TaskState
 buildTaskInfosMap tasks = HashMap.mapWithKey
@@ -110,5 +112,6 @@ isBlocked :: HashMap UUID Task -> Task -> Bool
 isBlocked tasks task =
   any (\t -> has (#status % #_Pending) t || has (#status % #_Waiting) t)
     .  mapMaybe (`HashMap.lookup` tasks)
+    .  toList
     $  task
     ^. #depends

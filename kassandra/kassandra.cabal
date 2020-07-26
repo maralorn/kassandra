@@ -89,10 +89,6 @@ library
     , generic-optics
     , jsaddle
     , mtl
-    , obelisk-executable-config-lookup
-    , obelisk-frontend
-    , obelisk-generated-static
-    , obelisk-route
     , optics
     , optics-th
     , password

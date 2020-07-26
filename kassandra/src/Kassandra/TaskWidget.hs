@@ -6,6 +6,7 @@ where
 
 import qualified Data.Text                     as Text
 import qualified Data.HashSet                  as HashSet
+import qualified Data.Set as Set
 import           Reflex.Dom                     ( (=:) )
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
@@ -134,7 +135,7 @@ dependenciesWidget :: (TaskWidget t m r e) => m ()
 dependenciesWidget = do
   taskInfos  <- getTaskInfos
   revDepends <- lookupTasksM $ taskInfos ^. #revDepends
-  depends    <- lookupTasksM $ taskInfos ^. #depends
+  depends    <- lookupTasksM . toList $ taskInfos ^. #depends
   D.dyn_ $ whenNotNull <$> depends <*> pure
     (\ds -> do
       br
@@ -159,14 +160,14 @@ dependenciesWidget = do
   removeDep
     :: ( Is k1 A_Getter
        , Is k2 A_Setter
-       , LabelOptic "depends" k2 s1 t [UUID] [UUID]
+       , LabelOptic "depends" k2 s1 t (Set UUID) (Set UUID)
        , LabelOptic "uuid" k1 s2 s2 UUID UUID
        )
     => s1
     -> s2
     -> t
   removeDep task dependency =
-    #depends %~ filter (dependency ^. #uuid /=) $ task
+    #depends %~ Set.filter (dependency ^. #uuid /=) $ task
 
 makeOwnPath :: (TaskWidget t m r e) => TaskInfos -> m ()
 makeOwnPath task =
@@ -195,12 +196,11 @@ dropChildWidget = do
                (icon "dropHere plusOne" "block")
     $ fmap
         (\dependency ->
-          one $ #depends %~ (dependency ^. #uuid :) $ taskInfos ^. #task
+          one $ #depends %~ (Set.insert $ dependency ^. #uuid) $ taskInfos ^. #task
         )
   taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
                (icon "dropHere plusTwo" "schedule")
-    $ fmap (\task -> one $ #depends %~ (taskInfos ^. #uuid :) $ task ^. #task)
-
+    $ fmap (\task -> one $ #depends %~ (Set.insert $ taskInfos ^. #uuid) $ task ^. #task)
 
 tagsWidget :: forall t m r e . TaskWidget t m r e => m ()
 tagsWidget = do
@@ -208,9 +208,9 @@ tagsWidget = do
   forM_ (task ^. #tags) $ \tag -> D.elClass "span" "tag" $ do
     D.text tag
     deleteEvent <- button "edit" $ icon "" "delete"
-    tellTask $ (#tags %~ filter (tag /=) $ task) <$ deleteEvent
+    tellTask $ (#tags %~ Set.filter (tag /=) $ task) <$ deleteEvent
   tagEvent <- createTextWidget . button "edit" $ icon "" "add_circle"
-  tellTask $ (\tag -> #tags %~ (tag :) $ task) <$> tagEvent
+  tellTask $ (\tag -> #tags %~ Set.insert tag $ task) <$> tagEvent
 
 getNewUDA :: forall t m r e . TaskWidget t m r e => m UDA
 getNewUDA = one . ("partof", ) . toJSON <$> getTaskInfos ^. al #uuid

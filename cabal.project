@@ -1,6 +1,3 @@
 packages:
   kassandra/
   standalone/
-
-optional-packages:
-  *

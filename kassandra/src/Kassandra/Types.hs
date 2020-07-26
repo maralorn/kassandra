@@ -141,13 +141,13 @@ instance LabelOptic "uuid" A_Lens TaskInfos TaskInfos UUID UUID where
   labelOptic = #task % #uuid
 instance LabelOptic "status" A_Lens TaskInfos TaskInfos Status Status where
   labelOptic = #task % #status
-instance LabelOptic "tags" A_Lens TaskInfos TaskInfos [Text] [Text] where
+instance LabelOptic "tags" A_Lens TaskInfos TaskInfos (Set Text) (Set Text) where
   labelOptic = #task % #tags
 instance LabelOptic "partof" A_Lens TaskInfos TaskInfos (Maybe UUID) (Maybe UUID) where
   labelOptic = #task % #partof
 instance LabelOptic "modified" A_Lens TaskInfos TaskInfos (Maybe UTCTime) (Maybe UTCTime) where
   labelOptic = #task % #modified
-instance LabelOptic "depends" A_Lens TaskInfos TaskInfos [UUID] [UUID] where
+instance LabelOptic "depends" A_Lens TaskInfos TaskInfos (Set UUID) (Set UUID) where
   labelOptic = #task % #depends
 instance Field1 s t a b =>LabelOptic "_1" A_Lens s t a b where
   labelOptic = _1
