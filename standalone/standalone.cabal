@@ -16,6 +16,7 @@ common common-config
     DataKinds
     DeriveAnyClass
     DeriveGeneric
+    DerivingStrategies
     DuplicateRecordFields
     EmptyCase
     FlexibleContexts
@@ -66,6 +67,7 @@ library
     , base
     , dependent-map
     , dependent-sum-template
+    , paths
     , dhall
     , kassandra
     , network-simple

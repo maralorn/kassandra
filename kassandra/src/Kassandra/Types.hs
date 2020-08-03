@@ -50,18 +50,18 @@ type Widget t m
     , HasCallStack
     )
 type WidgetIO t m = Widget t m
-data TaskInfos = TaskInfos { task :: Task, children :: [UUID], parents :: [UUID], revDepends :: [UUID], blocked :: Bool} deriving (Eq, Show, Generic)
+data TaskInfos = TaskInfos { task :: Task, children :: [UUID], parents :: [UUID], revDepends :: [UUID], blocked :: Bool} deriving stock (Eq, Show, Generic)
 makeLabels ''TaskInfos
 
 type TaskState = (HashMap UUID TaskInfos)
 
-data DragState = DraggedTask UUID | DraggedTag Text | NoDrag deriving (Eq, Show, Generic)
+data DragState = DraggedTask UUID | DraggedTag Text | NoDrag deriving stock (Eq, Show, Generic)
 makePrismLabels ''DragState
 
-data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) deriving (Generic)
+data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) deriving stock (Generic)
 makePrismLabels ''DataChange
 
-data ToggleEvent = ToggleEvent UUID Bool deriving (Eq, Show, Generic)
+data ToggleEvent = ToggleEvent UUID Bool deriving stock (Eq, Show, Generic)
 makePrismLabels ''ToggleEvent
 
 type AppStateChange = Either DragState DataChange
@@ -72,13 +72,13 @@ instance {-# OVERLAPPING #-} AsType AppStateChange AppStateChange where
 instance {-# OVERLAPPING #-} AsType TaskTreeStateChange TaskTreeStateChange where
   _Typed = castOptic equality
 
-data FilterState = FilterState { deletedFade :: NominalDiffTime,  completedFade :: NominalDiffTime}deriving (Eq, Show, Generic)
+data FilterState = FilterState { deletedFade :: NominalDiffTime,  completedFade :: NominalDiffTime} deriving stock (Eq, Show, Generic)
 makeLabels ''FilterState
 
 type ExpandedTasks = HashSet UUID
 type TaskTreeState t = R.Dynamic t ExpandedTasks
 
-data AppState t = AppState { taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime , dragState :: R.Dynamic t DragState, filterState :: R.Dynamic t FilterState} deriving (Generic)
+data AppState t = AppState { taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime , dragState :: R.Dynamic t DragState, filterState :: R.Dynamic t FilterState} deriving stock (Generic)
 makeLabels ''AppState
 
 type Have m r s = (MonadReader r m, HasType s r)
@@ -122,12 +122,12 @@ al
   -> Lens' (a s) (a b)
 al a = lens (view a <$>) (flip (liftA2 (set a)))
 
-deriving instance Generic Task
+deriving stock instance Generic Task
 makeLabels ''Task
-deriving instance Generic Status
+deriving stock instance Generic Status
 makeLabels ''Status
 makePrismLabels ''Status
-deriving instance Generic (Aeson.Result a)
+deriving stock instance Generic (Aeson.Result a)
 makePrismLabels ''Aeson.Result
 
 

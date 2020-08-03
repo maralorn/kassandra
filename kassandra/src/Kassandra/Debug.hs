@@ -10,7 +10,6 @@ where
 
 import           GHC.Stack                      ( srcLocStartLine
                                                 , srcLocModule
-                                                , callStack
                                                 , SrcLoc(SrcLoc)
                                                 )
 import           Reflex                        as R
@@ -29,7 +28,7 @@ import           System.Console.ANSI            ( Color(..)
                                                 )
 
 
-data Severity = Debug | Info | Warning | Error deriving (Show, Read, Eq, Ord)
+data Severity = Debug | Info | Warning | Error deriving stock (Show, Read, Eq, Ord)
 
 class ReflexLoggable l where
   useLogString :: (Text -> a -> Text) -> l a -> l a

@@ -21,6 +21,7 @@ import           Data.Password.Argon2           ( Argon2
                                                 , PasswordHash(PasswordHash)
                                                 )
 import qualified Data.UUID                     as UUID
+import           System.Environment             ( lookupEnv )
 
 
 import           Kassandra.Config               ( AccountConfig
@@ -41,6 +42,11 @@ import           Kassandra.Config               ( AccountConfig
                                                 , PasswordConfig
                                                 , RemoteBackend
                                                 , NamedListQuery
+                                                , TaskwarriorOption
+                                                )
+import           System.Path.IO                 ( FsPath(FsPath)
+                                                , doesFileExist
+                                                , fromFilePath
                                                 )
 
 
@@ -60,6 +66,7 @@ instance FromDhall UIConfig
 instance FromDhall NamedListQuery
 instance FromDhall PortConfig
 instance FromDhall LocalBackend
+instance FromDhall TaskwarriorOption
 instance FromDhall UserConfig
 instance FromDhall AccountConfig
 
@@ -74,11 +81,13 @@ postComposeMayDecoder err f dec = dec
   }
 instance FromDhall UUID where
   autoWith =
-    postComposeMayDecoder "Text was on valid UUID" UUID.fromText . autoWith
+    postComposeMayDecoder "Text was no valid UUID" UUID.fromText . autoWith
 
 instance FromDhall Word16 where
   autoWith =
-    postComposeMayDecoder "Integer was not a Word16" integerToBounded . autoWith
+    postComposeMayDecoder "Natural was not a Word16"
+                          (integerToBounded . toInteger @Natural)
+      . autoWith
 
 instance FromDhall (PasswordHash Argon2) where
   autoWith = fmap PasswordHash . autoWith
@@ -89,21 +98,25 @@ data DhallLoadConfig
         defaultFile :: Text,
         defaultConfig :: Text
       }
-  deriving (Show, Eq, Ord)
+  deriving stock (Show, Eq, Ord)
 
 dhallType :: forall a . FromDhall a => Text
 dhallType = pretty . expected $ auto @a
 
 loadDhallConfig :: FromDhall a => DhallLoadConfig -> Maybe Text -> IO a
-loadDhallConfig loadConfig configFile = input
-  auto
-  (defaultConfig loadConfig <> " // " <> config)
- where
-  config = fromMaybe
-    (  "((env:"
-    <> envName loadConfig
-    <> " ? "
-    <> defaultFile loadConfig
-    <> ") ? { = })"
-    )
-    configFile
+loadDhallConfig loadConfig givenConfigFile = do
+  let defFile = defaultFile loadConfig
+      defConf = defaultConfig loadConfig
+  filename <- firstJustM
+    [ pure givenConfigFile
+    , fmap toText <$> lookupEnv (toString $ envName loadConfig)
+    , doesPathExist defFile
+      <&> \doesExist -> if doesExist then Just defFile else Nothing
+    ]
+  input auto $ maybe defConf (\name -> [i|(#{defConf}) // #{name}|]) filename
+
+doesPathExist :: ToString a => a -> IO Bool
+doesPathExist (fromFilePath . toString -> (FsPath path)) = doesFileExist path
+firstJustM :: Monad m => [m (Maybe a)] -> m (Maybe a)
+firstJustM []       = pure Nothing
+firstJustM (a : as) = a >>= \x -> if isJust x then pure x else firstJustM as

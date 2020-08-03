@@ -14,10 +14,12 @@ import           Data.Scientific                ( toRealFloat )
 import           Relude.Extra.Foldable1         ( maximum1 )
 import           Kassandra.Types                ( TaskInfos )
 
-data SortMode = SortModePartof UUID | SortModeTag Task.Tag deriving (Show, Eq, Ord, Generic)
+data SortMode = SortModePartof UUID | SortModeTag Task.Tag
+   deriving stock (Show, Eq, Ord, Generic)
 makePrismLabels ''SortMode
 
-data SortState = HasSortPos Double | WillWrite { iprev :: Double, dprev :: Int, inext :: Double, dnext :: Int } deriving (Eq, Show, Ord, Read, Generic)
+data SortState = HasSortPos Double | WillWrite { iprev :: Double, dprev :: Int, inext :: Double, dnext :: Int } 
+   deriving stock (Eq, Show, Ord, Read, Generic)
 makePrismLabels ''SortState
 
 declareFieldLabels [d|data SortPosition t = SortPosition {

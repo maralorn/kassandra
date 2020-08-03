@@ -6,6 +6,7 @@ let extensions =
       , "DataKinds"
       , "DeriveAnyClass"
       , "DeriveGeneric"
+      , "DerivingStrategies"
       , "DuplicateRecordFields"
       , "EmptyCase"
       , "FlexibleContexts"

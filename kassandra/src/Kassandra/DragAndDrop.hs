@@ -8,7 +8,6 @@ where
 
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
-import           Data.Proxy                     ( Proxy(Proxy) )
 import           Kassandra.Sorting              ( SortPosition
                                                 , saveSorting
                                                 )

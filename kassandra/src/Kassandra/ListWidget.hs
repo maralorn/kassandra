@@ -8,23 +8,23 @@ where
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
-import qualified Data.Set                  as Set
-import           Kassandra.Types                 ( al
+import qualified Data.Set                      as Set
+import           Kassandra.Types                ( al
                                                 , StandardWidget
                                                 , TaskInfos
                                                 , TaskState
                                                 , Widget
                                                 , getTasks
                                                 )
-import           Kassandra.Util                  ( filterCurrent )
-import           Kassandra.TaskWidget            ( taskList
+import           Kassandra.Util                 ( filterCurrent )
+import           Kassandra.TaskWidget           ( taskList
                                                 , taskTreeWidget
                                                 )
-import           Kassandra.Sorting               ( sortTasks
+import           Kassandra.Sorting              ( sortTasks
                                                 , SortMode(SortModeTag)
                                                 )
 
-data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving (Eq, Show, Read)
+data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving stock (Eq, Show, Read)
 
 listsWidget :: (StandardWidget t m r e) => m ()
 listsWidget = do
