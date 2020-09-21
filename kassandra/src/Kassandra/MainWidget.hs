@@ -32,9 +32,10 @@ import           Kassandra.Debug                ( logR
                                                 , Severity(..)
                                                 , setLogLevel
                                                 )
+import           Kassandra.Config (UIConfig)
 
-mainWidget :: WidgetIO t m => StateProvider t m -> m ()
-mainWidget stateProvider = do
+mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
+mainWidget uiConfig stateProvider = do
   liftIO $ setLogLevel $ Just Debug
   D.divClass "header" $ D.text "Kassandra ToDo Management"
   log Info "Loaded Mainwidget"

@@ -18,7 +18,7 @@ data SortMode = SortModePartof UUID | SortModeTag Task.Tag
    deriving stock (Show, Eq, Ord, Generic)
 makePrismLabels ''SortMode
 
-data SortState = HasSortPos Double | WillWrite { iprev :: Double, dprev :: Int, inext :: Double, dnext :: Int } 
+data SortState = HasSortPos Double | WillWrite { iprev :: Double, dprev :: Int, inext :: Double, dnext :: Int }
    deriving stock (Eq, Show, Ord, Read, Generic)
 makePrismLabels ''SortState
 

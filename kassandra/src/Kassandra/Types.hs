@@ -1,4 +1,3 @@
-
 module Kassandra.Types
   ( Widget
   , WidgetIO

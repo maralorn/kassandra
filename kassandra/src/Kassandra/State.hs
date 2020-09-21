@@ -1,7 +1,10 @@
 module Kassandra.State
   ( stateProvider
   , TaskProvider
+  , makeStateProvider
   , StateProvider
+  , AppContext
+  , ClientSocket
   )
 where
 
@@ -20,6 +23,11 @@ import           Kassandra.Types                ( DataChange
                                                 , DataChange
                                                 , TaskInfos(TaskInfos)
                                                 )
+import           Kassandra.Config               ( UIConfig )
+import           Kassandra.Api                  ( SocketRequest
+                                                , SocketMessage
+                                                )
+
 
 data FanTag a where
    ToggleEventTag ::FanTag (NonEmpty (UUID, Bool))
@@ -42,6 +50,15 @@ getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
 
 type StateProvider t m
   = R.Event t (NonEmpty DataChange) -> m (R.Dynamic t TaskState)
+
+type AppContext t m = (StateProvider t m, UIConfig)
+
+type ClientSocket t m e
+  =  R.Event t SocketRequest
+  -> m (R.Dynamic t (Either e (R.Event t SocketMessage)))
+
+makeStateProvider :: ClientSocket t m e -> StateProvider t m
+makeStateProvider = undefined
 
 stateProvider
   :: forall t m . (WidgetIO t m) => TaskProvider t m -> StateProvider t m

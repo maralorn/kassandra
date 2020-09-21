@@ -68,6 +68,11 @@ library
     Kassandra.MainWidget
     Kassandra.State
     Kassandra.Types
+    Kassandra.SelectorWidget
+    Kassandra.RemoteBackendWidget
+    Kassandra.LocalBackendWidget
+    Kassandra.LocalBackend
+    Kassandra.Util
     Prelude
 
   other-modules:
@@ -79,7 +84,6 @@ library
     Kassandra.TaskWidget
     Kassandra.TextEditWidget
     Kassandra.TimeWidgets
-    Kassandra.Util
 
   build-depends:
     , aeson
@@ -102,6 +106,7 @@ library
     , reflex-dom
     , relude
     , scientific
+    , stm
     , string-interpolate
     , taskwarrior
     , template-haskell

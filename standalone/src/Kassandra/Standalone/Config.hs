@@ -3,7 +3,10 @@ module Kassandra.Standalone.Config
   ( readConfig
   , writeDeclarations
   , StandaloneConfig
-  ) where
+  , StandaloneAccount(RemoteAccount, LocalAccount)
+  , backends
+  )
+where
 
 import           Dhall                          ( FromDhall )
 import           Kassandra.Config               ( LocalBackend
@@ -70,7 +73,7 @@ readConfig = loadDhallConfig DhallLoadConfig
       backends = [
         {
           name = "standardbackend",
-          account = types.StandaloneAccount.LocalAccount {
+          backend = types.StandaloneAccount.LocalAccount {
             userConfig = {
               localBackend = types.LocalBackend.TaskwarriorBackend {
                 createHooksOnStart = True,

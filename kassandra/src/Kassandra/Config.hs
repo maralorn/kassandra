@@ -1,8 +1,8 @@
-{-# LANGUAGE DerivingStrategies #-}
 module Kassandra.Config
   ( AccountConfig
   , RemoteBackend
-  , UserConfig
+  , NamedBackend(NamedBackend, name), backend
+  , UserConfig(UserConfig, localBackend, uiConfig)
   , LocalBackend
   , Dict
   , UIConfig
@@ -52,38 +52,46 @@ data UIConfig
         configuredLists :: Seq NamedListQuery,
         uiFeatures :: UIFeatures
       }
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data UIFeatures
   = UIFeatures
       { sortInTag :: Bool,
         treeOption :: TreeOption
       }
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data Widget
   = SearchWidget
   | ListWidget {query :: ListQuery}
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data TreeOption = NoTree | PartOfTree | DependsTree
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data ListItem
   = TaskwarriorTask {uuid :: UUID}
   | AdHocTask {description :: Text}
   | HabiticaTask {task :: HabiticaTask}
   | Mail {id :: Text}
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data HabiticaTask = HabiticaDaily | HabiticaTodo
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data HabiticaList = HabiticaDailys | HabiticaTodos
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | ListElement {item :: ListItem}
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data TaskwarriorOption = TaskwarriorOption {name :: Text, value :: Text}
   deriving stock (Show, Eq, Ord, Generic)
@@ -93,7 +101,8 @@ data NamedListQuery
       { name :: Text,
         list :: ListQuery
       }
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data ListQuery
   = QueryList {query :: Query}
@@ -103,12 +112,14 @@ data ListQuery
   | DependenciesList {uuid :: UUID}
   | HabiticaList {list :: HabiticaList}
   | Mails
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 type Query = Seq QueryFilter
 
 data QueryFilter = HasProperty {property :: TaskProperty} | HasntProperty {property :: TaskProperty}
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data TaskProperty
   = DescriptionMatches {filter :: Text}
@@ -122,7 +133,8 @@ data TaskProperty
   | OnList
   | HasTag {tag :: Text}
   | HasParent
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data PortConfig = Port {port :: Word16} | PortRange {min :: Word16, max :: Word16}
   deriving stock (Show, Eq, Ord, Generic)
@@ -168,3 +180,11 @@ data RemoteBackend
         password :: PasswordConfig
       }
   deriving stock (Show, Eq, Ord, Generic)
+
+data NamedBackend b
+  = NamedBackend
+      { name :: Text,
+        backend :: b
+      }
+  deriving stock (Show, Eq, Ord, Generic)
+

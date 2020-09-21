@@ -1,4 +1,3 @@
-
 module Kassandra.ListWidget
   ( listsWidget
   , listWidget

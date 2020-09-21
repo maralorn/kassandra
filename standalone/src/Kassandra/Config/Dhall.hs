@@ -42,6 +42,7 @@ import           Kassandra.Config               ( AccountConfig
                                                 , PasswordConfig
                                                 , RemoteBackend
                                                 , NamedListQuery
+                                                , NamedBackend
                                                 , TaskwarriorOption
                                                 )
 import           System.Path.IO                 ( FsPath(FsPath)
@@ -69,6 +70,7 @@ instance FromDhall LocalBackend
 instance FromDhall TaskwarriorOption
 instance FromDhall UserConfig
 instance FromDhall AccountConfig
+instance FromDhall b => FromDhall (NamedBackend b)
 
 postComposeMayDecoder :: Text -> (a -> Maybe b) -> Decoder a -> Decoder b
 postComposeMayDecoder err f dec = dec

@@ -7,14 +7,38 @@ import           Kassandra.Debug                ( Severity(..)
                                                 , log
                                                 , setLogLevel
                                                 )
+import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 import           Kassandra.MainWidget           ( mainWidget )
 import           Kassandra.Standalone.Config    ( readConfig
                                                 , writeDeclarations
+                                                , StandaloneAccount
+                                                  ( RemoteAccount
+                                                  , LocalAccount
+                                                  )
+                                                , backends
                                                 )
 import           Kassandra.Standalone.State     ( ioStateFeeder
                                                 , ioStateProvider
                                                 )
-import qualified Reflex.Dom                    as D
+import           Kassandra.Config               ( NamedBackend
+                                                  ( NamedBackend
+                                                  , name
+                                                  , backend
+                                                  )
+                                                )
+import           Kassandra.Types                ( WidgetIO )
+import           Kassandra.Util                 ( defDynDyn )
+import           Kassandra.State                ( AppContext )
+import           Kassandra.Standalone.State     ( localBackendProvider )
+import           Kassandra.LocalBackendWidget   ( localBackendWidget )
+import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget )
+import           Kassandra.LocalBackend         ( LocalBackendRequest )
+import           Kassandra.SelectorWidget       ( backendSelector )
+import           Control.Concurrent.STM         ( newTQueue
+                                                , TQueue
+                                                )
+
 
 standalone :: IO ()
 standalone = do
@@ -26,23 +50,27 @@ standalone = do
   --config <- readConfig Nothing
   --print config
   log Debug "Loaded Config"
-  callbackSlot <- newEmptyMVar
-  race_
-    (ioStateFeeder callbackSlot)
-    (D.mainWidgetWithCss cssAsBS $ mainWidget $ ioStateProvider
-      callbackSlot
-    )
+  requestQueue <- atomically $ newTQueue
+  race_ (localBackendProvider requestQueue)
+    $   D.mainWidgetWithCss cssAsBS
+    $   D.dyn_
+    . (maybe pass
+             (\(stateProvider, uiConfig) -> mainWidget uiConfig stateProvider) <$>
+      )
+    =<< standaloneWidget requestQueue
+    =<< backendSelector (backends config)
 
-
---type AppContext = (StateProvider, UIConfig)
-
---backendSelector :: [(Text, a)] -> m (R.Dynamic t (Text, a))
---standaloneWidget :: R.Dynamic t StandaloneAccount -> m (R.Dynamic t AppContext)
---localBackendWidget :: R.Dynamic t UserConfig -> m (R.Dynamic t AppContext)
---remoteBackendWidget :: R.Dynamic t RemoteBackend -> m (R.Dynamic t AppContext)
---mainWidget :: (StateProvider, UIConfig) -> m ()
-
-
---remoteBackend
---localBackend
-
+standaloneWidget
+  :: WidgetIO t m
+  => TQueue LocalBackendRequest
+  -> R.Dynamic t (NamedBackend StandaloneAccount)
+  -> m (R.Dynamic t (Maybe (AppContext t m)))
+standaloneWidget requestQueue accountDyn =
+  defDynDyn (R.constDyn Nothing)
+    $   accountDyn
+    <&> \(NamedBackend { name, backend }) -> case backend of
+          RemoteAccount remoteAccount ->
+            remoteBackendWidget NamedBackend { name, backend = remoteAccount }
+          LocalAccount localAccount -> localBackendWidget
+            requestQueue
+            NamedBackend { name, backend = localAccount }

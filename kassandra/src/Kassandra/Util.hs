@@ -11,9 +11,12 @@ module Kassandra.Util
   , lookupTasksM
   , lookupCurrentDyn
   , lookupCurrent
+  , defDyn
+  , defDynDyn
   )
 where
 
+import qualified Reflex.Dom                        as D
 import qualified Reflex                        as R
 import           Taskwarrior.Status            as Status
 import           Kassandra.Types                 ( ToggleEvent
@@ -109,3 +112,13 @@ filterTask (deletedThreshold, completedThreshold) ((^. #status) -> status)
   | Status.Deleted time <- status   = time >= deletedThreshold
   | Status.Completed time <- status = time >= completedThreshold
   | otherwise                       = True
+
+defDyn :: Widget t m => a -> R.Dynamic t (m a) -> m (R.Dynamic t a)
+defDyn defVal = R.holdDyn defVal <=< D.dyn
+
+defDynDyn
+  :: Widget t m
+  => R.Dynamic t a
+  -> R.Dynamic t (m (R.Dynamic t a))
+  -> m (R.Dynamic t a)
+defDynDyn defDynamic = fmap join . defDyn defDynamic
