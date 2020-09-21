@@ -1,11 +1,19 @@
 module Kassandra.Api
-  ( SocketMessage
+  ( SocketMessage(TaskUpdates)
   , _TaskUpdates
-  , SocketRequest(AllTasks, ChangeTasks)
+  , SocketRequest(AllTasks, ChangeTasks, UIConfigRequest)
   , _AllTasks
   , _ChangeTasks
   )
 where
 
-declarePrisms [d|newtype SocketMessage = TaskUpdates [Task] deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)|]
-declarePrisms [d|data SocketRequest = AllTasks | ChangeTasks (NonEmpty Task) deriving (Show, Read, Eq, ToJSON, FromJSON, Generic)|]
+import Kassandra.Config (UIConfig)
+
+declarePrisms [d|
+  data SocketMessage = TaskUpdates (NonEmpty Task) | UIConfigResponse UIConfig
+   deriving stock (Show, Read, Eq, Generic)
+   deriving anyclass (ToJSON, FromJSON)|]
+declarePrisms [d|
+  data SocketRequest = UIConfigRequest | AllTasks | ChangeTasks (NonEmpty Task)
+   deriving stock (Show, Read, Eq, Generic)
+   deriving anyclass (ToJSON, FromJSON)|]

@@ -64,6 +64,7 @@ library
 
   build-depends:
     , aeson
+    , async
     , base
     , dependent-map
     , dependent-sum-template
@@ -73,6 +74,7 @@ library
     , network-simple
     , reflex
     , reflex-dom
+    , stm
     , taskwarrior
     , unordered-containers
     , password         >=2.0.1.0

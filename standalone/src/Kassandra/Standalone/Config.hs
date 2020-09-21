@@ -3,6 +3,9 @@ module Kassandra.Standalone.Config
   ( readConfig
   , writeDeclarations
   , StandaloneConfig
+  , StandaloneAccount(RemoteAccount, LocalAccount)
+  , backends
+  , NamedBackend
   )
 where
 
@@ -19,19 +22,12 @@ import           Kassandra.Config               ( RemoteBackend
                                                 , LocalBackend
                                                 , PortConfig
                                                 , TaskwarriorOption
+                                                , NamedBackend
                                                 )
 
 data StandaloneConfig
   = Config
-      { backends :: Seq StandaloneBackend
-      }
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass FromDhall
-
-data StandaloneBackend
-  = StandaloneBackend
-      { name :: Text,
-        account :: StandaloneAccount
+      { backends :: NonEmpty (NamedBackend StandaloneAccount)
       }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
@@ -43,7 +39,7 @@ data StandaloneAccount = RemoteAccount {backend :: RemoteBackend} | LocalAccount
 dhallTypes :: Text
 dhallTypes = [i|
   {
-    StandaloneBackend = #{dhallType @StandaloneBackend},
+    StandaloneBackend = #{dhallType @(NamedBackend StandaloneAccount)},
     StandaloneAccount = #{dhallType @StandaloneAccount},
     Widget = #{dhallType @Widget},
     NamedListQuery = #{dhallType @NamedListQuery},
@@ -69,7 +65,7 @@ readConfig = loadDhallConfig DhallLoadConfig
       backends = [
         {
           name = "standardbackend",
-          account = types.StandaloneAccount.LocalAccount {
+          backend = types.StandaloneAccount.LocalAccount {
             userConfig = {
               localBackend = types.LocalBackend.TaskwarriorBackend {
                 createHooksOnStart = True,
