@@ -23,9 +23,9 @@ standalone = do
   log Info "Started kassandra"
   log Debug "Writing Types file"
   writeDeclarations
-  log Debug "Loading Config"
-  config <- readConfig Nothing
-  print config
+  --log Debug "Loading Config"
+  --config <- readConfig Nothing
+  --print config
   log Debug "Loaded Config"
   callbackSlot <- newEmptyMVar
   race_
