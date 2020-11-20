@@ -48,7 +48,7 @@ import           System.Path.IO                 ( FsPath(FsPath)
                                                 , doesFileExist
                                                 , fromFilePath
                                                 )
-
+import Data.Either.Validation (validationToEither)
 
 instance FromDhall PasswordConfig
 instance FromDhall RemoteBackend
@@ -86,16 +86,15 @@ instance FromDhall UUID where
 instance FromDhall (PasswordHash Argon2) where
   autoWith = fmap PasswordHash . autoWith
 
-data DhallLoadConfig
-  = DhallLoadConfig
-      { envName :: Text,
-        defaultFile :: Text,
-        defaultConfig :: Text
-      }
+data DhallLoadConfig = DhallLoadConfig
+  { envName       :: Text
+  , defaultFile   :: Text
+  , defaultConfig :: Text
+  }
   deriving stock (Show, Eq, Ord)
 
 dhallType :: forall a . FromDhall a => Text
-dhallType = pretty . expected $ auto @a
+dhallType = fromRight "" . validationToEither $ pretty <$> expected (auto @a)
 
 loadDhallConfig :: FromDhall a => DhallLoadConfig -> Maybe Text -> IO a
 loadDhallConfig loadConfig givenConfigFile = do
@@ -111,6 +110,7 @@ loadDhallConfig loadConfig givenConfigFile = do
 
 doesPathExist :: ToString a => a -> IO Bool
 doesPathExist (fromFilePath . toString -> (FsPath path)) = doesFileExist path
+
 firstJustM :: Monad m => [m (Maybe a)] -> m (Maybe a)
 firstJustM []       = pure Nothing
 firstJustM (a : as) = a >>= \x -> if isJust x then pure x else firstJustM as
