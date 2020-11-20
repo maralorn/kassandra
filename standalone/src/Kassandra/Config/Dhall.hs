@@ -83,12 +83,6 @@ instance FromDhall UUID where
   autoWith =
     postComposeMayDecoder "Text was no valid UUID" UUID.fromText . autoWith
 
-instance FromDhall Word16 where
-  autoWith =
-    postComposeMayDecoder "Natural was not a Word16"
-                          (integerToBounded . toInteger @Natural)
-      . autoWith
-
 instance FromDhall (PasswordHash Argon2) where
   autoWith = fmap PasswordHash . autoWith
 
