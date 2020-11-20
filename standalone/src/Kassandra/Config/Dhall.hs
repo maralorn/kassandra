@@ -85,6 +85,9 @@ instance FromDhall UUID where
   autoWith =
     postComposeMayDecoder "Text was no valid UUID" UUID.fromText . autoWith
 
+instance FromDhall a => FromDhall (NonEmpty a) where
+  autoWith = postComposeMayDecoder "List was empty" nonEmpty . autoWith
+
 instance FromDhall (PasswordHash Argon2) where
   autoWith = fmap PasswordHash . autoWith
 
