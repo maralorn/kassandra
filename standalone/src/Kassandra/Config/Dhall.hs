@@ -88,11 +88,6 @@ instance FromDhall UUID where
 instance FromDhall a => FromDhall (NonEmpty a) where
   autoWith = postComposeMayDecoder "List was empty" nonEmpty . autoWith
 
-instance FromDhall Word16 where
-  autoWith =
-    postComposeMayDecoder "Natural was not a Word16"
-                          (integerToBounded . toInteger @Natural)
-      . autoWith
 
 instance FromDhall (PasswordHash Argon2) where
   autoWith = fmap PasswordHash . autoWith
