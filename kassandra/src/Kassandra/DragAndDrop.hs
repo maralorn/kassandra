@@ -77,8 +77,8 @@ childDropArea
   -> m ()
 childDropArea pos blacklistD areaW =
   taskDropArea blacklistD areaW
-    $ saveSorting (pos ^. (labelOptic @"$sel:mode:SortPosition")) (pos ^. (labelOptic @"$sel:list:SortPosition"))
-    . R.attachWith (\u t -> (t ^. #task, u)) (pos ^. (labelOptic @"$sel:before:SortPosition"))
+    $ saveSorting (pos ^. #mode) (pos ^. #list)
+    . R.attachWith (\u t -> (t ^. #task, u)) (pos ^. #before)
 
 
 droppableElementConfig
