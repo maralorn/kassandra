@@ -10,9 +10,7 @@ import qualified Reflex                        as R
 import qualified Data.Patch.MapWithMove        as Patch
 import qualified Data.Patch.Map                as Patch
 import qualified Data.Sequence                 as Seq
-import           Data.Sequence                  ( Seq )
 import qualified Data.Map                      as Map
-import           Data.Map                       ( Map )
 
 -- | Renders a list of widgets depending on a Dynamic list of inputs. This will
 -- call the widget constructor once per value in the list.
@@ -33,7 +31,7 @@ smartSimpleList widget listElements = do
       initialKeyMap =
         Patch.patchMapWithMoveInsertAll <$> R.tag (R.current keyMap) postBuild
       keyMapEvents = keyMapChange <> initialKeyMap
-  void $ R.mapMapWithAdjustWithMove (const (widget)) mempty keyMapEvents
+  void $ R.mapMapWithAdjustWithMove (const widget) mempty keyMapEvents
 
 keyDynamic
   :: forall t k v
