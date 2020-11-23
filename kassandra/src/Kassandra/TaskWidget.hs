@@ -6,20 +6,20 @@ where
 
 import qualified Data.Text                     as Text
 import qualified Data.HashSet                  as HashSet
-import qualified Data.Set as Set
+import qualified Data.Set                      as Set
 import           Reflex.Dom                     ( (=:) )
 import qualified Reflex.Dom                    as D
 import qualified Reflex                        as R
 import qualified Taskwarrior.Status            as Status
 import           Taskwarrior.UDA                ( UDA )
-import           Kassandra.Util                  ( tellNewTask
+import           Kassandra.Util                 ( tellNewTask
                                                 , lookupCurrentDyn
                                                 , lookupCurrent
                                                 , lookupTasksM
                                                 , tellTask
                                                 , tellToggle
                                                 )
-import           Kassandra.Types                 ( getExpandedTasks
+import           Kassandra.Types                ( getExpandedTasks
                                                 , getIsExpanded
                                                 , ToggleEvent(ToggleEvent)
                                                 , TaskTreeState
@@ -34,22 +34,22 @@ import           Kassandra.Types                 ( getExpandedTasks
                                                 , al
                                                 , fl
                                                 )
-import           Kassandra.TextEditWidget        ( lineWidget
+import           Kassandra.TextEditWidget       ( lineWidget
                                                 , createTextWidget
                                                 )
-import           Kassandra.BaseWidgets           ( button
+import           Kassandra.BaseWidgets          ( button
                                                 , icon
                                                 )
-import           Kassandra.Sorting               ( sortTasks
+import           Kassandra.Sorting              ( sortTasks
                                                 , SortMode(SortModePartof)
                                                 , SortPosition(SortPosition)
                                                 )
-import           Kassandra.DragAndDrop           ( tellDragTask
+import           Kassandra.DragAndDrop          ( tellDragTask
                                                 , taskDropArea
                                                 , childDropArea
                                                 )
-import           Kassandra.TimeWidgets           ( dateSelectionWidget )
-import           Kassandra.Debug                   ( log
+import           Kassandra.TimeWidgets          ( dateSelectionWidget )
+import           Kassandra.Debug                ( log
                                                 , Severity(..)
                                                 )
 
@@ -196,11 +196,18 @@ dropChildWidget = do
                (icon "dropHere plusOne" "block")
     $ fmap
         (\dependency ->
-          one $ #depends %~ (Set.insert $ dependency ^. #uuid) $ taskInfos ^. #task
+          one
+            $  #depends
+            %~ Set.insert (dependency ^. #uuid)
+            $  taskInfos
+            ^. #task
         )
   taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
                (icon "dropHere plusTwo" "schedule")
-    $ fmap (\task -> one $ #depends %~ (Set.insert $ taskInfos ^. #uuid) $ task ^. #task)
+    $ fmap
+        (\task ->
+          one $ #depends %~ Set.insert (taskInfos ^. #uuid) $ task ^. #task
+        )
 
 tagsWidget :: forall t m r e . TaskWidget t m r e => m ()
 tagsWidget = do
@@ -376,7 +383,7 @@ statusWidget = do
 collapseButton :: forall t m r e . TaskWidget t m r e => m ()
 collapseButton = do
   taskInfos   <- getTaskInfos
-  hasChildren <- R.holdUniqDyn =<< fmap null <$> lookupCurrent
+  hasChildren <- R.holdUniqDyn . fmap null =<< lookupCurrent
     (taskInfos ^. #children)
   D.dyn_ $ unless <$> hasChildren <*> pure
     (do
