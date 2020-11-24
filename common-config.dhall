@@ -35,17 +35,15 @@ let extensions =
       ]
 
 let ghc-options =
-      [ "-Weverything"
-      , "-Wno-unsafe"
-      , "-Wno-safe"
-      , "-Wno-all-missed-specialisations"
-      , "-Wno-implicit-prelude"
-      , "-Wno-missed-specialisations"
-      , "-Wno-monomorphism-restriction"
-      , "-Wno-partial-fields"
-      , "-Wno-missing-import-lists"
-      , "-Wno-orphans"
+      [ "-Wall"
       , "-Wcompat"
+      , "-Wno-orphans"
+      , "-Wincomplete-uni-patterns"
+      , "-Wincomplete-record-updates"
+      , "-Wmissing-export-lists"
+      , "-Widentities"
+      , "-Wredundant-constraints"
+      , "-Wmissing-home-modules"
       ]
 
 let multiLineList =
@@ -53,6 +51,7 @@ let multiLineList =
 
 in  ''
     -- BEGIN dhall generated common configuration
+    -- generate with: dhall text --file common-config.dhall
     license-file:       LICENSE
     author:             Malte Brandy
     maintainer:         malte.brandy@maralorn.de
