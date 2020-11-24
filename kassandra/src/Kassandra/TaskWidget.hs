@@ -19,7 +19,7 @@ import           Kassandra.Util                 ( tellNewTask
                                                 , tellTask
                                                 , tellToggle
                                                 )
-import           Kassandra.Types                ( getExpandedTasks
+import           Kassandra.Types                (DragState(DraggedTask), getDragState,  getExpandedTasks
                                                 , getIsExpanded
                                                 , ToggleEvent(ToggleEvent)
                                                 , TaskTreeState
@@ -295,11 +295,12 @@ dueWidget = do
 descriptionWidget :: TaskWidget t m r e => m ()
 descriptionWidget = do
   task        <- getTaskInfos ^. al #task
-  (dragEl, _) <- D.elAttr' "span" ("draggable" =: "true")
+  let uuid = task ^. #uuid
+  (dragEl, _) <- D.el' "span"
     $ icon "edit slimButton" "open_with"
   event <- lineWidget $ task ^. #description
-  tellDragTask $ Just (task ^. #uuid) <$ D.domEvent D.Dragstart dragEl
-  tellDragTask $ Nothing <$ D.domEvent D.Dragend dragEl
+  dragStateB <- R.current <$> getDragState
+  tellDragTask $ R.attachWith (\dragState _ -> if dragState == DraggedTask uuid then Nothing else Just uuid) dragStateB (D.domEvent D.Click dragEl)
   tellTask $ flip (#description .~) task <$> event
 
 tellStatusByTime

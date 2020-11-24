@@ -57,8 +57,8 @@ taskDropArea blacklistD areaW handler = do
         pure retval
   D.dyn_ $ dropActive <&> \case
     Just draggedUuid -> do
-      dropEl <- fmap fst <$> D.element "span" droppableElementConfig $ areaW
-      let event = D.domEvent D.Drop dropEl
+      dropEl <- fmap fst <$> D.element "span" D.def $ areaW
+      let event = D.domEvent D.Click dropEl
       tellSingleton $ (_Typed @AppStateChange % _Typed # NoDrag) <$ event
       let droppedTaskEvent = R.attachWithMaybe
             (const . flip lookupTask draggedUuid)
