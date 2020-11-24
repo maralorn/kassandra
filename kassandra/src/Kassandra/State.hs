@@ -70,6 +70,8 @@ mkCreateTaskEvent list = liftIO . (mapM createTaskWithHandler list >>=)
 createTaskWithHandler :: (Text, Task -> Task) -> IO Task
 createTaskWithHandler (description, handler) =
   handler <$> createTask description
+
+mapToMap :: DataChange -> DMap.DMap FanTag Identity
 mapToMap = \case
   ChangeTask a   -> DMap.singleton ChangeTaskTag (Identity $ pure a)
   CreateTask a b -> DMap.singleton CreateTaskTag (Identity $ pure (a, b))
