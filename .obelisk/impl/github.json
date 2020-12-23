@@ -1,8 +1,8 @@
 {
-  "owner": "maralorn",
+  "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "kassandra-bug",
+  "branch": "master",
   "private": false,
-  "rev": "5c272b3d454e85cfdc22cc34fca472474f806b38",
-  "sha256": "1nxc60yak4l2sjnjijkiqz9frr95xkqay6mg2ivk8rsjjdr5vv4a"
+  "rev": "7ad33cbe3e84b209e83c505ce25486445bbd602e",
+  "sha256": "0dlk8y6rxc87crw7764zq2py7nqn38lw496ca1y893m9gdq8qdkz"
 }
