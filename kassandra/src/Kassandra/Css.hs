@@ -1,17 +1,29 @@
 module Kassandra.Css
-  ( css
-  )
-where
+  ( cssAsBS
+  , cssAsText
+  ) where
 
-import           Prelude                 hiding ( (&)
-                                                , (|>)
-                                                , i
-                                                )
 import           Clay
+import           Prelude                 hiding ( (&)
+                                                , i
+                                                , (|>)
+                                                )
 
 
-css :: Text
-css = toStrict . render $ do
+cssToBS :: Css -> ByteString
+cssToBS = encodeUtf8 . cssToText
+
+cssToText :: Css -> Text
+cssToText = toStrict . render
+
+cssAsBS :: ByteString
+cssAsBS = $$([||cssToBS css||])
+
+cssAsText :: Text
+cssAsText = $$([||cssToText css||])
+
+css :: Css
+css = do
   let darkBlue      = rgb 0 0 33
       veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
@@ -29,7 +41,7 @@ css = toStrict . render $ do
     minHeight (pct 100)
   ".header" ? do
     padding (em 0.2) (em 0.2) (em 0.2) (em 0.2)
-    background (black)
+    background black
     fontWeight bold
     fontSize (em 1.5)
   ".footer" ? do
@@ -38,7 +50,7 @@ css = toStrict . render $ do
     width (pct 100)
     padding (em 2) (em 2) (em 2) (em 2)
     fontSize (em 0.8)
-    background (black)
+    background black
     color (grayish 180)
   ".container" ? do
     display flex

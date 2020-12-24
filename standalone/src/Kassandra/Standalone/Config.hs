@@ -3,36 +3,32 @@ module Kassandra.Standalone.Config
   ( readConfig
   , writeDeclarations
   , StandaloneConfig
-  )
-where
+  ) where
 
 import           Dhall                          ( FromDhall )
+import           Kassandra.Config               ( LocalBackend
+                                                , NamedListQuery
+                                                , PortConfig
+                                                , RemoteBackend
+                                                , TaskwarriorOption
+                                                , TreeOption
+                                                , UserConfig
+                                                , Widget
+                                                )
 import           Kassandra.Config.Dhall         ( DhallLoadConfig(..)
                                                 , dhallType
                                                 , loadDhallConfig
                                                 )
-import           Kassandra.Config               ( RemoteBackend
-                                                , UserConfig
-                                                , Widget
-                                                , TreeOption
-                                                , NamedListQuery
-                                                , LocalBackend
-                                                , PortConfig
-                                                , TaskwarriorOption
-                                                )
-
-data StandaloneConfig
-  = Config
-      { backends :: Seq StandaloneBackend
-      }
+data StandaloneConfig = Config
+  { backends :: Seq StandaloneBackend
+  }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
 
-data StandaloneBackend
-  = StandaloneBackend
-      { name :: Text,
-        account :: StandaloneAccount
-      }
+data StandaloneBackend = StandaloneBackend
+  { name    :: Text
+  , account :: StandaloneAccount
+  }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
 
@@ -41,18 +37,23 @@ data StandaloneAccount = RemoteAccount {backend :: RemoteBackend} | LocalAccount
   deriving anyclass FromDhall
 
 dhallTypes :: Text
-dhallTypes = [i|
-  {
-    StandaloneBackend = #{dhallType @StandaloneBackend},
-    StandaloneAccount = #{dhallType @StandaloneAccount},
-    Widget = #{dhallType @Widget},
-    NamedListQuery = #{dhallType @NamedListQuery},
-    LocalBackend = #{dhallType @LocalBackend},
-    TreeOption = #{dhallType @TreeOption},
-    PortConfig = #{dhallType @PortConfig},
-    TaskwarriorOption = #{dhallType @TaskwarriorOption}
-  }
-|]
+dhallTypes = [i|{
+                 #{assignments}
+               }|]
+ where
+  types :: [(String, Text)]
+  types =
+    [ ("StandaloneAccount", dhallType @StandaloneAccount)
+    , ("Widget"           , dhallType @Widget)
+    , ("NamedListQuery"   , dhallType @NamedListQuery)
+    , ("LocalBackend"     , dhallType @LocalBackend)
+    , ("TreeOption"       , dhallType @TreeOption)
+    , ("PortConfig"       , dhallType @PortConfig)
+    , ("TaskwarriorOption", dhallType @TaskwarriorOption)
+    , ("StandaloneBackend", dhallType @StandaloneBackend)
+    ]
+  assignments =
+    intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types
 
 writeDeclarations :: IO ()
 writeDeclarations =

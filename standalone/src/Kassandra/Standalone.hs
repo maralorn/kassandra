@@ -1,26 +1,25 @@
 module Kassandra.Standalone
   ( standalone
-  )
-where
+  ) where
 
-import qualified Reflex.Dom                    as D
-import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.Standalone.State     ( ioStateProvider
-                                                , ioStateFeeder
+import           Kassandra.Css                  ( cssAsBS )
+import           Kassandra.Debug                ( Severity(..)
+                                                , log
+                                                , setLogLevel
                                                 )
+import           Kassandra.MainWidget           ( mainWidget )
 import           Kassandra.Standalone.Config    ( readConfig
                                                 , writeDeclarations
                                                 )
-import           Kassandra.Css                  ( css )
-import           Kassandra.Debug                ( setLogLevel
-                                                , Severity(..)
-                                                , log
+import           Kassandra.Standalone.State     ( ioStateFeeder
+                                                , ioStateProvider
                                                 )
+import qualified Reflex.Dom                    as D
 
 standalone :: IO ()
 standalone = do
   setLogLevel $ Just Debug
-  log Info "Started kassandra"
+  log Info  "Started kassandra"
   log Debug "Writing Types file"
   writeDeclarations
   --log Debug "Loading Config"
@@ -30,7 +29,7 @@ standalone = do
   callbackSlot <- newEmptyMVar
   race_
     (ioStateFeeder callbackSlot)
-    (D.mainWidgetWithCss (encodeUtf8 css) $ mainWidget $ ioStateProvider
+    (D.mainWidgetWithCss cssAsBS $ mainWidget $ ioStateProvider
       callbackSlot
     )
 
@@ -46,5 +45,4 @@ standalone = do
 
 --remoteBackend
 --localBackend
-
 

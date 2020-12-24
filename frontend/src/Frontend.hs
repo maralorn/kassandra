@@ -7,7 +7,7 @@ where
 import           Obelisk.Frontend
 import           Obelisk.Route
 
-import           Kassandra.Css                  ( css )
+import           Kassandra.Css                  ( cssAsText )
 import           Kassandra.MainWidget           ( mainWidget )
 import           Kassandra.Types
 import           Kassandra.Api                  ( _ChangeTasks
@@ -73,4 +73,4 @@ webSocketTaskProvider changeTasksEvent = do
 frontendHead :: ObeliskWidget js t route m => m ()
 frontendHead = do
   D.el "title" $ D.text "Kassandra 2 Webversion"
-  D.elAttr "style" mempty $ D.text css
+  D.elAttr "style" mempty $ D.text cssAsText

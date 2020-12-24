@@ -1,6 +1,6 @@
 { obelisk ? import ./.obelisk/impl {
   system = builtins.currentSystem;
-  config.android_sdk.accept_license = true;
+  config.android_sdk.accept_license = false;
 } }:
 with obelisk;
 project ./. ({ pkgs, ... }:
@@ -14,11 +14,10 @@ project ./. ({ pkgs, ... }:
     };
     overrides = self: super: {
       backend = addBuildDepend super.backend pkgs.taskwarrior;
-      dhall = dontCheck (self.callHackageDirect {
-        pkg = "dhall";
-        ver = "1.32.0";
-        sha256 = "1qx7n2jyb9h1082434r90hfrjw5fab2j1yg0qzxh856fpksbh81n";
-      } { });
+      clay = markUnbroken (dontCheck super.clay);
+      haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.1" {});
+      repline = doJailbreak (self.callHackage "repline" "0.4.0.0" {});
+      dhall = dontCheck (self.callHackage "dhall" "1.35.0" {});
       prettyprinter = self.callHackageDirect {
         pkg = "prettyprinter";
         ver = "1.5.1";
@@ -39,7 +38,6 @@ project ./. ({ pkgs, ... }:
         ver = "0.2.0.7";
         sha256 = "1r9ckwljdbw3mi8rmzmsnh89z8nhw2qnds9n271gkjgavb6hxxf3";
       } { };
-      clay = markUnbroken (dontCheck super.clay);
       taskwarrior = self.callHackageDirect {
         pkg = "taskwarrior";
         ver = "0.3.0.0";
@@ -70,26 +68,10 @@ project ./. ({ pkgs, ... }:
         ver = "2.0.0.0";
         sha256 = "0xy5k5b35w1i1zxy0dv5fk1b3zrd3hx3v5kh593k2la7ri880wmq";
       } { };
-      optics-core = self.callHackageDirect {
-        pkg = "optics-core";
-        ver = "0.2";
-        sha256 = "0ipshb2yrqwzj1prf08acwpfq2lhcrawnanwpzbpggdhabrfga2h";
-      } { };
-      optics-th = self.callHackageDirect {
-        pkg = "optics-th";
-        ver = "0.2";
-        sha256 = "1hfvrdysp2hv8la682xpiywbk3407lshb9c99qzcc0grzm011hdg";
-      } { };
-      optics-extra = self.callHackageDirect {
-        pkg = "optics-extra";
-        ver = "0.2";
-        sha256 = "03s20ybaqwfxwybmq20221any8xwv6c7nmzyqw8kaz3qm2zl86rz";
-      } { };
-      optics = self.callHackageDirect {
-        pkg = "optics";
-        ver = "0.2";
-        sha256 = "17i8pzkcsv8dhpvzxgga1gfxwakmlanhac99lnvgf5ybg88a31yq";
-      } { };
+      optics-core = self.callHackage "optics-core" "0.3.0.1" {};
+      optics-th = self.callHackage "optics-th" "0.3.0.2" {};
+      optics-extra = self.callHackage "optics-extra" "0.3" {};
+      optics = self.callHackage "optics" "0.3" {};
     };
     packages = {
       kassandra = ./kassandra;
