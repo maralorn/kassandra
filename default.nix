@@ -1,6 +1,6 @@
 { obelisk ? import ./.obelisk/impl {
   system = builtins.currentSystem;
-  config.android_sdk.accept_license = false;
+  config.android_sdk.accept_license = true;
 } }:
 with obelisk;
 project ./. ({ pkgs, ... }:
@@ -18,6 +18,7 @@ project ./. ({ pkgs, ... }:
       haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.1" {});
       repline = doJailbreak (self.callHackage "repline" "0.4.0.0" {});
       dhall = dontCheck (self.callHackage "dhall" "1.35.0" {});
+      relude = dontCheck super.relude;
       prettyprinter = self.callHackageDirect {
         pkg = "prettyprinter";
         ver = "1.5.1";

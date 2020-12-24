@@ -1,4 +1,5 @@
 module Main (main) where
+
 import Frontend
 import Frontend.Route
 import Obelisk.Frontend
