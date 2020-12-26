@@ -3,14 +3,15 @@ module Kassandra.Standalone.Config
   ( readConfig
   , writeDeclarations
   , StandaloneConfig
-  , StandaloneAccount(RemoteAccount, LocalAccount)
+  , StandaloneAccount(LocalAccount, RemoteAccount)
   , backends
-  )
-where
+  ) where
 
 import           Dhall                          ( FromDhall )
 import           Kassandra.Config               ( LocalBackend
+                                                , NamedBackend
                                                 , NamedListQuery
+                                                , PasswordConfig
                                                 , PortConfig
                                                 , RemoteBackend
                                                 , TaskwarriorOption
@@ -22,15 +23,8 @@ import           Kassandra.Config.Dhall         ( DhallLoadConfig(..)
                                                 , dhallType
                                                 , loadDhallConfig
                                                 )
-data StandaloneConfig = Config
-  { backends :: Seq StandaloneBackend
-  }
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass FromDhall
-
-data StandaloneBackend = StandaloneBackend
-  { name    :: Text
-  , account :: StandaloneAccount
+newtype StandaloneConfig = Config
+  { backends :: NonEmpty (NamedBackend StandaloneAccount)
   }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
@@ -53,7 +47,8 @@ dhallTypes = [i|{
     , ("TreeOption"       , dhallType @TreeOption)
     , ("PortConfig"       , dhallType @PortConfig)
     , ("TaskwarriorOption", dhallType @TaskwarriorOption)
-    , ("StandaloneBackend", dhallType @StandaloneBackend)
+    , ("StandaloneConfig" , dhallType @StandaloneConfig)
+    , ("PasswordConfig"   , dhallType @PasswordConfig)
     ]
   assignments =
     intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types
@@ -72,7 +67,7 @@ readConfig = loadDhallConfig DhallLoadConfig
     {
       backends = [
         {
-          name = "standardbackend",
+          name = "Default local backend",
           backend = types.StandaloneAccount.LocalAccount {
             userConfig = {
               localBackend = types.LocalBackend.TaskwarriorBackend {

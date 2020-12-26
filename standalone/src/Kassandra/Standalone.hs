@@ -18,16 +18,13 @@ import           Kassandra.Standalone.Config    ( readConfig
                                                   )
                                                 , backends
                                                 )
-import           Kassandra.Standalone.State     ( ioStateFeeder
-                                                , ioStateProvider
-                                                )
 import           Kassandra.Config               ( NamedBackend
                                                   ( NamedBackend
                                                   , name
                                                   , backend
                                                   )
                                                 )
-import           Kassandra.Types                ( WidgetIO )
+import           Kassandra.Types                ( WidgetJSM )
 import           Kassandra.Util                 ( defDynDyn )
 import           Kassandra.State                ( AppContext )
 import           Kassandra.Standalone.State     ( localBackendProvider )
@@ -46,11 +43,11 @@ standalone = do
   log Info  "Started kassandra"
   log Debug "Writing Types file"
   writeDeclarations
-  --log Debug "Loading Config"
-  --config <- readConfig Nothing
-  --print config
+  log Debug "Loading Config"
+  config <- readConfig Nothing
+  print config
   log Debug "Loaded Config"
-  requestQueue <- atomically $ newTQueue
+  requestQueue <- atomically newTQueue
   race_ (localBackendProvider requestQueue)
     $   D.mainWidgetWithCss cssAsBS
     $   D.dyn_
@@ -61,14 +58,14 @@ standalone = do
     =<< backendSelector (backends config)
 
 standaloneWidget
-  :: WidgetIO t m
+  :: WidgetJSM t m
   => TQueue LocalBackendRequest
   -> R.Dynamic t (NamedBackend StandaloneAccount)
   -> m (R.Dynamic t (Maybe (AppContext t m)))
 standaloneWidget requestQueue accountDyn =
   defDynDyn (R.constDyn Nothing)
     $   accountDyn
-    <&> \(NamedBackend { name, backend }) -> case backend of
+    <&> \NamedBackend { name, backend } -> case backend of
           RemoteAccount remoteAccount ->
             remoteBackendWidget NamedBackend { name, backend = remoteAccount }
           LocalAccount localAccount -> localBackendWidget

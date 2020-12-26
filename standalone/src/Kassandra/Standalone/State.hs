@@ -1,38 +1,38 @@
+{-# LANGUAGE BlockArguments #-}
 module Kassandra.Standalone.State
-  ( localBackendProvider
-  )
-where
+  ( localBackendProvider, taskMonitor
+  ) where
 
-import           Taskwarrior.IO                 ( getTasks
-                                                , saveTasks
+import           Control.Concurrent.Async       ( cancel )
+import           Control.Concurrent.STM         ( TQueue
+                                                , readTQueue
                                                 )
+import           Control.Monad                  ( foldM )
+import qualified Data.Aeson                    as Aeson
 import qualified Data.HashMap.Strict           as HashMap
-import qualified Reflex                        as R
-import           Kassandra.Types         hiding ( getTasks )
-import           Kassandra.State                ( stateProvider
-                                                , TaskProvider
-                                                , StateProvider
+import           Kassandra.Api                  ( SocketMessage(TaskUpdates)
+                                                , SocketRequest
+                                                  ( AllTasks
+                                                  , ChangeTasks
+                                                  , UIConfigRequest
+                                                  )
                                                 )
 import           Kassandra.Config               ( LocalBackend )
 import           Kassandra.LocalBackend         ( LocalBackendRequest
                                                 , LocalBackendResponse
                                                   ( DataResponse
+                                                  , SetupComplete
                                                   )
                                                 )
-import           Kassandra.Api                  ( SocketRequest
-                                                  ( UIConfigRequest
-                                                  , AllTasks
-                                                  , ChangeTasks
-                                                  )
-                                                , SocketMessage(TaskUpdates)
+import           Kassandra.State                ( StateProvider
+                                                , TaskProvider
                                                 )
-import           Control.Concurrent.STM         ( TQueue
-                                                , readTQueue
-                                                )
-import           Control.Monad                  ( foldM )
-import           Control.Concurrent.Async       ( cancel )
+import           Kassandra.Types         hiding ( getTasks )
 import qualified Network.Simple.TCP            as Net
-import qualified Data.Aeson                    as Aeson
+import qualified Reflex                        as R
+import           Taskwarrior.IO                 ( getTasks
+                                                , saveTasks
+                                                )
 
 localBackendProvider :: TQueue LocalBackendRequest -> IO ()
 localBackendProvider requests = go Nothing
@@ -43,8 +43,10 @@ localBackendProvider requests = go Nothing
     let cb      = callback . DataResponse . TaskUpdates
         monitor = taskMonitor config cb
         handler = requestsHandler config socketRequests cb
-    in  withAsync (concurrently_ monitor handler) $ const makeRequest
-  listenWithBackgroundThreads Nothing = makeRequest
+    in  withAsync (concurrently_ monitor handler) $ const do
+          callback SetupComplete
+          makeRequest
+  listenWithBackgroundThreads _ = makeRequest
 
 requestsHandler
   :: LocalBackend -> TQueue SocketRequest -> (NonEmpty Task -> IO ()) -> IO ()

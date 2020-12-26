@@ -1,37 +1,54 @@
 module Frontend
   ( frontend
-  )
-where
+  ) where
 
 
 import           Obelisk.Frontend
 import           Obelisk.Route
 
-import           Kassandra.Css                  ( cssAsText )
-import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.Types
+import qualified Data.HashMap.Strict           as HashMap
+import           Frontend.Route                 ( FrontendRoute )
 import           Kassandra.Api                  ( _ChangeTasks
                                                 , _TaskUpdates
                                                 )
-import           Kassandra.State                ( StateProvider
-                                                , stateProvider
-                                                , TaskProvider
+import           Kassandra.Config               ( NamedBackend(..)
+                                                , PasswordConfig(..)
+                                                , RemoteBackend(..)
+                                                , TreeOption(..)
+                                                , UIConfig(..)
+                                                , UIFeatures(..)
                                                 )
-import           Frontend.Route                 ( FrontendRoute )
+import           Kassandra.Css                  ( cssAsText )
+import           Kassandra.MainWidget           ( mainWidget )
+import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget )
+import           Kassandra.Types
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
-import qualified Data.HashMap.Strict           as HashMap
-import           Language.Javascript.JSaddle    ( MonadJSM )
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
 -- `prerender` functions.
 frontend :: Frontend (R FrontendRoute)
-frontend = Frontend
-  { _frontend_head = frontendHead
-  , _frontend_body = void $ D.prerender pass $ mainWidget webSocketStateProvider
-  }
+frontend = Frontend { _frontend_head = frontendHead
+                    , _frontend_body = void $ D.prerender pass frontendBody
+                    }
 
+frontendBody :: WidgetJSM t m => m ()
+frontendBody = do
+  protocol <- D.getLocationProtocol
+  host     <- D.getLocationHost
+  D.dyn_
+    . (maybe pass
+             (\(stateProvider, uiConfig) -> mainWidget uiConfig stateProvider) <$>
+      )
+    =<< remoteBackendWidget
+          (NamedBackend
+            "DirectRemote"
+            (RemoteBackend (protocol <> "//" <> host) "testUser" (Password "hunter2"))
+          )
+
+
+   {-
 type WidgetJSM t m
   = (D.HasJSContext m, MonadJSM (R.Performable m), MonadJSM m, WidgetIO t m)
 
@@ -68,7 +85,7 @@ webSocketTaskProvider changeTasksEvent = do
   R.foldDyn (flip . foldr . join $ HashMap.insert . (^. #uuid))
             HashMap.empty
             (changeTasksEvent <> updateTasksEvents)
-
+-}
 
 frontendHead :: ObeliskWidget js t route m => m ()
 frontendHead = do

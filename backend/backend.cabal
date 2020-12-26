@@ -66,6 +66,7 @@ library
     , async
     , base
     , dhall
+    , data-default-class
     , frontend
     , kassandra
     , network-simple

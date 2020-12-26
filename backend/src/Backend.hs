@@ -11,7 +11,7 @@ import           Network.WebSockets             ( rejectRequest
                                                 , sendTextData
                                                 )
 import           Network.WebSockets.Snap        ( runWebSocketsSnap )
-import           Kassandra.Api                     ( _TaskUpdates
+import           Kassandra.Api                     ( SocketMessage(TaskUpdates)
                                                 , SocketRequest
                                                   ( AllTasks
                                                   , ChangeTasks
@@ -40,6 +40,7 @@ import           Control.Concurrent.STM.TChan   ( newBroadcastTChan
                                                 , TChan
                                                 )
 import           Backend.Config                 ( readConfig )
+import Data.Default.Class (def)
 import Kassandra.Standalone.State (taskMonitor)
 
 backend :: Backend BackendRoute FrontendRoute
@@ -48,7 +49,7 @@ backend = Backend
                               --config <- readConfig Nothing
                               broadCastChannel <- atomically newBroadcastTChan
                               concurrently_
-                                (taskMonitor (atomically . writeTChan broadCastChannel))
+                                (taskMonitor def (atomically . writeTChan broadCastChannel))
                                 (serve . backendSnaplet $ broadCastChannel)
   , _backend_routeEncoder = fullRouteEncoder
   }
@@ -77,7 +78,7 @@ acceptSocket broadCastChannel user pendingConnection = do
   forkPingThread connection 30
   channel <- atomically $ dupTChan broadCastChannel
   let sendTasks =
-        sendTextData connection . Aeson.encode . (_TaskUpdates #) . toList
+        sendTextData connection . Aeson.encode . TaskUpdates
       sendAll         = whenNotNullM (getTasks []) sendTasks
       sendUpdates     = forever $ sendTasks =<< atomically (readTChan channel)
       waitForRequests = do

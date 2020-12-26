@@ -1,5 +1,5 @@
 module Kassandra.Api
-  ( SocketMessage(TaskUpdates)
+  ( SocketMessage(TaskUpdates, UIConfigResponse)
   , _TaskUpdates
   , SocketRequest(AllTasks, ChangeTasks, UIConfigRequest)
   , _AllTasks

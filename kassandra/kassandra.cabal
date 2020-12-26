@@ -93,6 +93,7 @@ library
     , clay
     , containers
     , dependent-map
+    , data-default-class
     , dependent-sum-template
     , extra
     , generic-optics

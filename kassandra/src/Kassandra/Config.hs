@@ -1,29 +1,29 @@
 module Kassandra.Config
   ( AccountConfig
-  , RemoteBackend
-  , NamedBackend(NamedBackend, name), backend
-  , UserConfig(UserConfig, localBackend, uiConfig)
-  , LocalBackend
+  , RemoteBackend(..)
+  , NamedBackend(..)
+  , UserConfig(..)
+  , LocalBackend(..)
   , Dict
-  , UIConfig
-  , PortConfig
-  , Widget
-  , TreeOption
-  , ListItem
-  , HabiticaTask
-  , HabiticaList
-  , DefinitionElement
-  , ListQuery
+  , UIConfig(..)
+  , PortConfig(..)
+  , Widget(..)
+  , TreeOption(..)
+  , ListItem(..)
+  , HabiticaTask(..)
+  , HabiticaList(..)
+  , DefinitionElement(..)
+  , ListQuery(..)
   , Query
-  , QueryFilter
-  , TaskProperty
-  , UIFeatures
-  , PasswordConfig
-  , NamedListQuery
-  , TaskwarriorOption
-  )
-where
+  , QueryFilter(..)
+  , TaskProperty(..)
+  , UIFeatures(..)
+  , PasswordConfig(..)
+  , NamedListQuery(..)
+  , TaskwarriorOption(..)
+  ) where
 
+import           Data.Default.Class
 import           Data.Password.Argon2           ( Argon2
                                                 , PasswordHash
                                                 )
@@ -31,35 +31,40 @@ import           Data.Password.Argon2           ( Argon2
 type Dict = Map Text
 
 
-data AccountConfig
-  = AccountConfig
-      { passwordHash :: PasswordHash Argon2,
-        userConfig :: UserConfig,
-        filterTag :: Text
-      }
+data AccountConfig = AccountConfig
+  { passwordHash :: PasswordHash Argon2
+  , userConfig   :: UserConfig
+  , filterTag    :: Text
+  }
   deriving stock (Show, Eq, Ord, Generic)
 
-data UserConfig
-  = UserConfig
-      { localBackend :: LocalBackend,
-        uiConfig :: UIConfig
-      }
+data UserConfig = UserConfig
+  { localBackend :: LocalBackend
+  , uiConfig     :: UIConfig
+  }
   deriving stock (Show, Eq, Ord, Generic)
 
-data UIConfig
-  = UIConfig
-      { viewList :: Seq Widget,
-        configuredLists :: Seq NamedListQuery,
-        uiFeatures :: UIFeatures
-      }
+data UIConfig = UIConfig
+  { viewList        :: Seq Widget
+  , configuredLists :: Seq NamedListQuery
+  , uiFeatures      :: UIFeatures
+  }
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data UIFeatures
-  = UIFeatures
-      { sortInTag :: Bool,
-        treeOption :: TreeOption
-      }
+instance Default UIConfig where
+  def = UIConfig { viewList        = mempty
+                 , configuredLists = mempty
+                 , uiFeatures      = UIFeatures True PartOfTree
+                 }
+
+instance Default UserConfig where
+  def = UserConfig def def
+
+data UIFeatures = UIFeatures
+  { sortInTag  :: Bool
+  , treeOption :: TreeOption
+  }
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -93,14 +98,16 @@ data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | Lis
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data TaskwarriorOption = TaskwarriorOption {name :: Text, value :: Text}
+data TaskwarriorOption = TaskwarriorOption
+  { name  :: Text
+  , value :: Text
+  }
   deriving stock (Show, Eq, Ord, Generic)
 
-data NamedListQuery
-  = NamedListQuery
-      { name :: Text,
-        list :: ListQuery
-      }
+data NamedListQuery = NamedListQuery
+  { name :: Text
+  , list :: ListQuery
+  }
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -173,18 +180,26 @@ data LocalBackend
       }
   deriving stock (Show, Eq, Ord, Generic)
 
-data RemoteBackend
-  = RemoteBackend
-      { url :: Text,
-        user :: Text,
-        password :: PasswordConfig
-      }
+instance Default LocalBackend where
+  def = TaskwarriorBackend { taskRcPath         = Nothing
+                           , taskDataPath       = Nothing
+                           , taskConfig         = mempty
+                           , taskBin            = Nothing
+                           , hookListenPort     = Port 6545
+                           , hookSuffix         = "kassandra"
+                           , createHooksOnStart = True
+                           , removeHooksOnExit  = True
+                           }
+
+data RemoteBackend = RemoteBackend
+  { url      :: Text
+  , user     :: Text
+  , password :: PasswordConfig
+  }
   deriving stock (Show, Eq, Ord, Generic)
 
-data NamedBackend b
-  = NamedBackend
-      { name :: Text,
-        backend :: b
-      }
+data NamedBackend b = NamedBackend
+  { name    :: Text
+  , backend :: b
+  }
   deriving stock (Show, Eq, Ord, Generic)
-

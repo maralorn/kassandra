@@ -1,6 +1,7 @@
 module Kassandra.Types
   ( Widget
   , WidgetIO
+  , WidgetJSM
   , TaskInfos(TaskInfos)
   , TaskState
   , AppStateChange
@@ -35,6 +36,7 @@ import qualified Taskwarrior.Task
 import qualified Taskwarrior.Status
 import qualified Data.Aeson                    as Aeson
 import           Data.HashSet                   ( member )
+import           Language.Javascript.JSaddle    ( MonadJSM )
 
 type Widget t m
   = ( D.DomBuilder t m
@@ -48,6 +50,8 @@ type Widget t m
     , MonadIO (R.Performable m)
     , HasCallStack
     )
+type WidgetJSM t m
+  = (D.HasJSContext m, MonadJSM (R.Performable m), MonadJSM m, WidgetIO t m)
 type WidgetIO t m = Widget t m
 data TaskInfos = TaskInfos { task :: Task, children :: [UUID], parents :: [UUID], revDepends :: [UUID], blocked :: Bool} deriving stock (Eq, Show, Generic)
 makeLabels ''TaskInfos

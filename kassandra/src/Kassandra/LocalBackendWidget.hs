@@ -1,18 +1,24 @@
 module Kassandra.LocalBackendWidget
   ( localBackendWidget
-  )
-where
+  ) where
 
 import           Control.Concurrent.STM         ( TQueue )
-import           Kassandra.LocalBackend         ( LocalBackendRequest, localClientSocket )
 import           Kassandra.Config               ( NamedBackend
                                                   ( NamedBackend
-                                                  , name
                                                   , backend
                                                   )
-                                                , UserConfig(UserConfig, localBackend, uiConfig)
+                                                , UserConfig
+                                                  ( UserConfig
+                                                  , localBackend
+                                                  , uiConfig
+                                                  )
                                                 )
-import           Kassandra.State                ( AppContext, makeStateProvider )
+import           Kassandra.LocalBackend         ( LocalBackendRequest
+                                                , localClientSocket
+                                                )
+import           Kassandra.State                ( AppContext
+                                                , makeStateProvider
+                                                )
 import           Kassandra.Types                ( WidgetIO )
 import qualified Reflex                        as R
 
@@ -21,8 +27,8 @@ localBackendWidget
   => TQueue LocalBackendRequest
   -> NamedBackend UserConfig
   -> m (R.Dynamic t (Maybe (AppContext t m)))
-localBackendWidget requestsQueue (NamedBackend { name, backend = UserConfig { localBackend, uiConfig } })
+localBackendWidget requestsQueue NamedBackend { backend = UserConfig { localBackend, uiConfig } }
   = do
-    clientSocket <- localClientSocket requestsQueue localBackend :: _
+    clientSocket <- localClientSocket requestsQueue localBackend
     let stateProvider = makeStateProvider clientSocket
-    undefined :: _
+    pure $ pure $ Just (stateProvider, uiConfig)

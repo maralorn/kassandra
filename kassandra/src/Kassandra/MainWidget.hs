@@ -35,7 +35,8 @@ import           Kassandra.Debug                ( logR
 import           Kassandra.Config (UIConfig)
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
-mainWidget uiConfig stateProvider = do
+mainWidget _uiConfig stateProvider = do
+  -- TODO: Use ui Config
   liftIO $ setLogLevel $ Just Debug
   D.divClass "header" $ D.text "Kassandra ToDo Management"
   log Info "Loaded Mainwidget"
@@ -84,7 +85,7 @@ widgets =
 
 widgetSwitcher :: forall t m r e . StandardWidget t m r e => m ()
 widgetSwitcher = D.el "div" $ do
-  tellNewTask =<< fmap (, id) <$> createTextWidget
+  tellNewTask . fmap (, id) =<< createTextWidget
     (button "selector" $ D.text "New Task")
   buttons <- forM (widgets @t @m) $ \l ->
     (l <$) . D.domEvent D.Click . fst <$> D.elClass' "a"
