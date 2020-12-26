@@ -4,22 +4,15 @@ module Kassandra.RemoteBackendWidget
   ) where
 
 import           Data.Text                      ( stripPrefix )
-import           Kassandra.Api                  ( SocketMessage )
 import           Kassandra.Config               ( NamedBackend(..)
                                                 , PasswordConfig(..)
                                                 , RemoteBackend(..)
-                                                , TreeOption(..)
-                                                , UIConfig(..)
-                                                , UIFeatures(..)
                                                 )
 import           Kassandra.State                ( AppContext
                                                 , ClientSocket
                                                 , makeStateProvider
                                                 )
-import           Kassandra.Types                ( Widget
-                                                , WidgetIO
-                                                , WidgetJSM
-                                                )
+import           Kassandra.Types                ( WidgetJSM )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
 import           Relude.Unsafe                  ( fromJust )
@@ -43,10 +36,10 @@ webClientSocket backend@RemoteBackend { url, user, password } = do
     wsUrl         = "ws" <> fromJust (stripPrefix "http" url)
     plainPassword = case password of
       Password plain -> plain
+      _ -> "PasswordMissing"
+    -- TODO: Implement alternative passwordMethods
     socketString =
       [i|#{wsUrl}/socket?username=#{user}&password=#{plainPassword}|]
-  {-protocol <- D.getLocationProtocol
-    host     <- D.getLocationHost-}
   pure $ \socketRequestEvent -> do
     socket <- D.jsonWebSocket
       socketString
@@ -63,12 +56,10 @@ webClientSocket backend@RemoteBackend { url, user, password } = do
       socketMessage = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
       messageParseFail =
         R.fmapMaybe
-            ( maybe
-                (Just
-                  (Left (WebSocketError "Failed to parse SocketMessage JSON"))
-                )
-                (const Nothing)
-            . traceShowId
+            (maybe
+              (Just (Left (WebSocketError "Failed to parse SocketMessage JSON"))
+              )
+              (const Nothing)
             )
           $  socket
           ^. lensVL D.webSocket_recv

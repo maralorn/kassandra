@@ -24,7 +24,7 @@ cssAsText = $$([||cssToText css||])
 
 css :: Css
 css = do
-  let darkBlue      = rgb 0 0 33
+  let --darkBlue      = rgb 0 0 33
       veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
       lighterBlue   = rgb 144 144 255
@@ -36,12 +36,12 @@ css = do
     noMargin
     noPadding
   body ? do
-    background darkBlue
-    color white
+    background white
+    color black
     minHeight (pct 100)
   ".header" ? do
     padding (em 0.2) (em 0.2) (em 0.2) (em 0.2)
-    background black
+    background lightBlue
     fontWeight bold
     fontSize (em 1.5)
   ".footer" ? do
@@ -109,6 +109,7 @@ css = do
     padding (px 1) (px 1) (px 1) (px 1)
   ".task" ? do
     color (rgb 0 0 33)
+    border solid (px 1) black
     background white
     ".task" ? do
       noMargin

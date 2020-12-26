@@ -1,15 +1,13 @@
 {-# LANGUAGE BlockArguments #-}
 module Kassandra.Standalone.State
-  ( localBackendProvider, taskMonitor
+  ( localBackendProvider
+  , taskMonitor
   ) where
 
-import           Control.Concurrent.Async       ( cancel )
 import           Control.Concurrent.STM         ( TQueue
                                                 , readTQueue
                                                 )
-import           Control.Monad                  ( foldM )
 import qualified Data.Aeson                    as Aeson
-import qualified Data.HashMap.Strict           as HashMap
 import           Kassandra.Api                  ( SocketMessage(TaskUpdates)
                                                 , SocketRequest
                                                   ( AllTasks
@@ -24,12 +22,7 @@ import           Kassandra.LocalBackend         ( LocalBackendRequest
                                                   , SetupComplete
                                                   )
                                                 )
-import           Kassandra.State                ( StateProvider
-                                                , TaskProvider
-                                                )
-import           Kassandra.Types         hiding ( getTasks )
 import qualified Network.Simple.TCP            as Net
-import qualified Reflex                        as R
 import           Taskwarrior.IO                 ( getTasks
                                                 , saveTasks
                                                 )
@@ -48,9 +41,11 @@ localBackendProvider requests = go Nothing
           makeRequest
   listenWithBackgroundThreads _ = makeRequest
 
+-- TODO: Use backend config
+
 requestsHandler
   :: LocalBackend -> TQueue SocketRequest -> (NonEmpty Task -> IO ()) -> IO ()
-requestsHandler backend requests callback = forever $ do
+requestsHandler _ requests callback = forever $ do
   socketRequest <- atomically $ readTQueue requests
   case socketRequest of
     UIConfigRequest   -> error "LocalBackend is not supposed to ask for Config"
@@ -58,7 +53,7 @@ requestsHandler backend requests callback = forever $ do
     ChangeTasks tasks -> saveTasks $ toList tasks
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
-taskMonitor backend newTasksCallBack = do
+taskMonitor _ newTasksCallBack = do
   putStrLn "Listening for changed or new tasks on 127.0.0.1:6545."
   Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
     Net.recv socket 4096 >>= maybe
@@ -69,24 +64,3 @@ taskMonitor backend newTasksCallBack = do
             (newTasksCallBack . one)
           $ Aeson.eitherDecodeStrict @Task changes
       )
-
-   {-
-ioTaskProvider
-  :: (WidgetIO t m) => MVar (NonEmpty Task -> IO ()) -> TaskProvider t m
-ioTaskProvider callbackSlot changeTaskEvent = do
-  void . R.performEvent $ liftIO .  <$> changeTaskEvent
-  (tasksEvent, newTasksCallBack) <- R.newTriggerEvent
-  tasks <- R.foldDyn (flip . foldr . join $ HashMap.insert . (^. #uuid))
-                     HashMap.empty
-                     (changeTaskEvent <> tasksEvent)
-  putMVar callbackSlot newTasksCallBack
-  R.holdUniqDyn tasks
-
-ioStateFeeder :: MVar (NonEmpty Task -> IO ()) -> IO ()
-ioStateFeeder callbackSlot = do
-  callback <- takeMVar callbackSlot
-  concurrently_ () (taskMonitor callback)
-
-ioStateProvider
-  :: WidgetIO t m => MVar (NonEmpty Task -> IO ()) -> StateProvider t m
-ioStateProvider callbackSlot = stateProvider (ioTaskProvider callbackSlot) -}
