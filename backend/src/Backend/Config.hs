@@ -1,25 +1,24 @@
 module Backend.Config
   ( readConfig
-  )
-where
+  , BackendConfig(..)
+  ) where
 
 import           Dhall                          ( FromDhall )
-import           Kassandra.Config               ( Dict
-                                                , AccountConfig
+import           Kassandra.Config               ( AccountConfig
+                                                , Dict
                                                 )
 import           Kassandra.Config.Dhall         ( DhallLoadConfig
                                                   ( DhallLoadConfig
                                                   )
-                                                , envName
-                                                , defaultFile
                                                 , defaultConfig
+                                                , defaultFile
+                                                , envName
                                                 , loadDhallConfig
                                                 )
 
-data BackendConfig
-  = BackendConfig
-      { users :: Dict AccountConfig
-      }
+data BackendConfig = BackendConfig
+  { users :: Dict AccountConfig
+  }
   deriving (Show, Eq, Generic, FromDhall)
 
 readConfig :: Maybe Text -> IO BackendConfig

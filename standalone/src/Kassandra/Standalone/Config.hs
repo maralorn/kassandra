@@ -11,6 +11,7 @@ import           Dhall                          ( FromDhall )
 import           Kassandra.Config               ( LocalBackend
                                                 , NamedBackend
                                                 , NamedListQuery
+                                                , AccountConfig
                                                 , PasswordConfig
                                                 , PortConfig
                                                 , RemoteBackend
@@ -49,6 +50,7 @@ dhallTypes = [i|{
     , ("TaskwarriorOption", dhallType @TaskwarriorOption)
     , ("StandaloneConfig" , dhallType @StandaloneConfig)
     , ("PasswordConfig"   , dhallType @PasswordConfig)
+    , ("AccountConfig"    , dhallType @AccountConfig)
     ]
   assignments =
     intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types

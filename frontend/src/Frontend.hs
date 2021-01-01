@@ -27,17 +27,11 @@ frontend = Frontend { _frontend_head = frontendHead
 
 frontendBody :: WidgetJSM t m => m ()
 frontendBody = do
-  protocol <- D.getLocationProtocol
-  host     <- D.getLocationHost
   D.dyn_
     . (maybe pass
              (\(stateProvider, uiConfig) -> mainWidget uiConfig stateProvider) <$>
       )
-    =<< remoteBackendWidget
-          (NamedBackend
-            "DirectRemote"
-            (RemoteBackend (protocol <> "//" <> host) "testUser" (Password "hunter2"))
-          )
+    =<< remoteBackendWidget Nothing
 
 frontendHead :: ObeliskWidget js t route m => m ()
 frontendHead = do

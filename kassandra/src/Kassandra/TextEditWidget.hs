@@ -1,6 +1,7 @@
 module Kassandra.TextEditWidget
   ( lineWidget
   , createTextWidget
+  , enterTextWidget
   , editText
   )
 where

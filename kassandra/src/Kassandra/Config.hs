@@ -1,5 +1,5 @@
 module Kassandra.Config
-  ( AccountConfig
+  ( AccountConfig(..)
   , RemoteBackend(..)
   , NamedBackend(..)
   , UserConfig(..)

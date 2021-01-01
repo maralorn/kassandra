@@ -4,28 +4,58 @@ module Kassandra.RemoteBackendWidget
   ) where
 
 import           Data.Text                      ( stripPrefix )
-import           Kassandra.Config               ( NamedBackend(..)
-                                                , PasswordConfig(..)
+import           Kassandra.BaseWidgets
+import           Kassandra.Config               ( PasswordConfig(..)
                                                 , RemoteBackend(..)
                                                 )
 import           Kassandra.State                ( AppContext
                                                 , ClientSocket
                                                 , makeStateProvider
                                                 )
+import           Kassandra.TextEditWidget
 import           Kassandra.Types                ( WidgetJSM )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
 import           Relude.Unsafe                  ( fromJust )
 
 remoteBackendWidget
-  :: WidgetJSM t m
-  => NamedBackend RemoteBackend
+  :: forall t m
+   . WidgetJSM t m
+  => Maybe RemoteBackend
   -> m (R.Dynamic t (Maybe (AppContext t m)))
-remoteBackendWidget NamedBackend { backend } = do
-  clientSocket <- webClientSocket backend
-  let stateProvider = makeStateProvider clientSocket
-  pure $ pure $ Just (stateProvider, D.def)
-  -- TODO: Get UI Config from Server
+remoteBackendWidget mayBackend = do
+  backendDyn <-
+    maybe inputBackend (pure . pure) mayBackend :: m (R.Dynamic t RemoteBackend)
+  responseEvent <- D.dyn
+    (withBackend <$> backendDyn :: R.Dynamic t (m (Maybe (AppContext t m))))
+  D.holdDyn Nothing responseEvent
+ where
+  inputBackend :: m (R.Dynamic t RemoteBackend)
+  inputBackend = do
+    protocol <- D.getLocationProtocol
+    host     <- D.getLocationHost
+    let defaultUrl      = protocol <> "//" <> host
+        defaultUser     = "maralorn"
+        defaultPassword = ""
+    D.text "Host:"
+    rec url <- R.holdDyn defaultUrl
+          =<< enterTextWidget defaultUrl (button "selector" $ D.dynText url)
+    D.text "User:"
+    rec userName <- R.holdDyn defaultUser =<< enterTextWidget
+          defaultUser
+          (button "selector" $ D.dynText userName)
+    D.text "Password:"
+    rec password <- R.holdDyn defaultPassword =<< enterTextWidget
+          defaultPassword
+          (button "selector" $ D.dynText password)
+    pure $ RemoteBackend <$> url <*> userName <*> (Password <$> password)
+  withBackend :: RemoteBackend -> m (Maybe (AppContext t m))
+  withBackend backend = do
+    clientSocket <- webClientSocket backend
+    let stateProvider = makeStateProvider clientSocket
+    pure $ Just (stateProvider, D.def)
+        -- TODO: Get UI Config from Server
+
 
 data WebSocketState = WebSocketError Text | Connecting deriving stock Show
 
@@ -36,14 +66,17 @@ webClientSocket backend@RemoteBackend { url, user, password } = do
     wsUrl         = "ws" <> fromJust (stripPrefix "http" url)
     plainPassword = case password of
       Password plain -> plain
-      _ -> "PasswordMissing"
+      _              -> "PasswordMissing"
     -- TODO: Implement alternative passwordMethods
     socketString =
       [i|#{wsUrl}/socket?username=#{user}&password=#{plainPassword}|]
   pure $ \socketRequestEvent -> do
     socket <- D.jsonWebSocket
       socketString
-      (lensVL D.webSocketConfig_send .~ (one <$> socketRequestEvent) $ D.def)
+      ( (lensVL D.webSocketConfig_send .~ (one <$> socketRequestEvent))
+      . (lensVL D.webSocketConfig_reconnect .~ False)
+      $ D.def
+      )
     let
       close =
         Left
