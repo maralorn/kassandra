@@ -7,4 +7,5 @@ in {
   inherit standalone;
   server = reflex-platform.exe;
   androidApk = reflex-platform.android.frontend;
+  client = reflex-platform.ghc.frontend;
 }
