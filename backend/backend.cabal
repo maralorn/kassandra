@@ -65,6 +65,7 @@ library
     , aeson
     , async
     , base
+    , containers
     , dhall
     , data-default-class
     , frontend
