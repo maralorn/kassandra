@@ -16,7 +16,6 @@ import           Kassandra.TextEditWidget
 import           Kassandra.Types                ( WidgetJSM )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
-import           Relude.Unsafe                  ( fromJust )
 
 remoteBackendWidget
   :: forall t m
@@ -63,7 +62,7 @@ webClientSocket
   :: WidgetJSM t m => RemoteBackend -> m (ClientSocket t m WebSocketState)
 webClientSocket backend@RemoteBackend { url, user, password } = do
   let
-    wsUrl         = "ws" <> fromJust (stripPrefix "http" url)
+    wsUrl         = maybe "ws://localhost:8000" ("ws" <>) $ stripPrefix "http" url -- TODO: Warn user about missing http
     plainPassword = case password of
       Password plain -> plain
       _              -> "PasswordMissing"
