@@ -9,5 +9,5 @@ in {
   lib = kassandra;
   app = standalone;
   server = reflex-platform.exe;
-  androidApk = reflex-platform.android.frontend;
+  android = reflex-platform.android.frontend;
 }
