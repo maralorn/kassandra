@@ -6,8 +6,8 @@ let
   };
   reflex-platform = import ./. { };
 in {
-  inherit standalone;
+  lib = kassandra;
+  app = standalone;
   server = reflex-platform.exe;
   androidApk = reflex-platform.android.frontend;
-  client = reflex-platform.ghc.frontend;
 }
