@@ -28,7 +28,7 @@ css = do
       veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
       lighterBlue   = rgb 144 144 255
-      sunYellow     = rgb 255 200 20
+      sunYellow     = rgb 255 200 40
       noMargin      = margin (px 0) (px 0) (px 0) (px 0)
       noPadding     = padding (px 0) (px 0) (px 0) (px 0)
   star ? do
