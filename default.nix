@@ -11,7 +11,8 @@ project ./. ({ pkgs, ... }:
     android = {
       applicationId = "de.maralorn.kassandra";
       displayName = "Kassandra";
-      release = null;
+      releaseKey = null;
+      isRelease = true;
     };
     overrides = self: super: {
       backend = addBuildDepend super.backend pkgs.taskwarrior;
