@@ -11,13 +11,14 @@ project ./. ({ pkgs, ... }:
     android = {
       applicationId = "de.maralorn.kassandra";
       displayName = "Kassandra";
+      release = null;
     };
     overrides = self: super: {
       backend = addBuildDepend super.backend pkgs.taskwarrior;
       clay = markUnbroken (dontCheck super.clay);
-      haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.1" {});
-      repline = doJailbreak (self.callHackage "repline" "0.4.0.0" {});
-      dhall = dontCheck (self.callHackage "dhall" "1.35.0" {});
+      haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.1" { });
+      repline = doJailbreak (self.callHackage "repline" "0.4.0.0" { });
+      dhall = dontCheck (self.callHackage "dhall" "1.35.0" { });
       relude = dontCheck super.relude;
       prettyprinter = self.callHackageDirect {
         pkg = "prettyprinter";
@@ -69,10 +70,10 @@ project ./. ({ pkgs, ... }:
         ver = "2.0.0.0";
         sha256 = "0xy5k5b35w1i1zxy0dv5fk1b3zrd3hx3v5kh593k2la7ri880wmq";
       } { };
-      optics-core = self.callHackage "optics-core" "0.3.0.1" {};
-      optics-th = self.callHackage "optics-th" "0.3.0.2" {};
-      optics-extra = self.callHackage "optics-extra" "0.3" {};
-      optics = self.callHackage "optics" "0.3" {};
+      optics-core = self.callHackage "optics-core" "0.3.0.1" { };
+      optics-th = self.callHackage "optics-th" "0.3.0.2" { };
+      optics-extra = self.callHackage "optics-extra" "0.3" { };
+      optics = self.callHackage "optics" "0.3" { };
     };
     packages = {
       kassandra = ./kassandra;
