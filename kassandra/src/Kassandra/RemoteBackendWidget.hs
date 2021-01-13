@@ -3,11 +3,11 @@ module Kassandra.RemoteBackendWidget
   , webClientSocket
   ) where
 
-import           Control.Monad.IO.Class
-import           Data.Aeson
-import           Data.JSString                  ( unpack )
+import           Data.Aeson                     ( decode
+                                                , encode
+                                                )
 import           Data.Text                      ( stripPrefix )
-import           JSDOM
+import           JSDOM                          ( currentWindowUnchecked )
 import           JSDOM.Custom.Window            ( getLocalStorage )
 import           JSDOM.Generated.Storage        ( getItem
                                                 , setItem

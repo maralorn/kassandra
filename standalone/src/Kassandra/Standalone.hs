@@ -2,39 +2,39 @@ module Kassandra.Standalone
   ( standalone
   ) where
 
+import           Control.Concurrent.STM         ( TQueue
+                                                , newTQueue
+                                                )
+import           Kassandra.Config               ( NamedBackend
+                                                  ( NamedBackend
+                                                  , backend
+                                                  , name
+                                                  )
+                                                )
 import           Kassandra.Css                  ( cssAsBS )
 import           Kassandra.Debug                ( Severity(..)
                                                 , log
                                                 , setLogLevel
                                                 )
-import qualified Reflex                        as R
-import qualified Reflex.Dom                    as D
+import           Kassandra.LocalBackend         ( LocalBackendRequest )
+import           Kassandra.LocalBackendWidget   ( localBackendWidget )
 import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.Standalone.Config    ( readConfig
-                                                , writeDeclarations
-                                                , StandaloneAccount
-                                                  ( RemoteAccount
-                                                  , LocalAccount
+import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget )
+import           Kassandra.SelectorWidget       ( backendSelector )
+import           Kassandra.Standalone.Config    ( StandaloneAccount
+                                                  ( LocalAccount
+                                                  , RemoteAccount
                                                   )
                                                 , backends
+                                                , readConfig
+                                                , writeDeclarations
                                                 )
-import           Kassandra.Config               ( NamedBackend
-                                                  ( NamedBackend
-                                                  , name
-                                                  , backend
-                                                  )
-                                                )
+import           Kassandra.Standalone.State     ( localBackendProvider )
+import           Kassandra.State                ( AppContext )
 import           Kassandra.Types                ( WidgetJSM )
 import           Kassandra.Util                 ( defDynDyn )
-import           Kassandra.State                ( AppContext )
-import           Kassandra.Standalone.State     ( localBackendProvider )
-import           Kassandra.LocalBackendWidget   ( localBackendWidget )
-import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget )
-import           Kassandra.LocalBackend         ( LocalBackendRequest )
-import           Kassandra.SelectorWidget       ( backendSelector )
-import           Control.Concurrent.STM         ( newTQueue
-                                                , TQueue
-                                                )
+import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 
 
 standalone :: IO ()
@@ -66,8 +66,7 @@ standaloneWidget requestQueue accountDyn =
   defDynDyn (R.constDyn Nothing)
     $   accountDyn
     <&> \NamedBackend { name, backend } -> case backend of
-          RemoteAccount remoteAccount ->
-            remoteBackendWidget remoteAccount
-          LocalAccount localAccount -> localBackendWidget
+          RemoteAccount remoteAccount -> remoteBackendWidget remoteAccount
+          LocalAccount  localAccount  -> localBackendWidget
             requestQueue
             NamedBackend { name, backend = localAccount }
