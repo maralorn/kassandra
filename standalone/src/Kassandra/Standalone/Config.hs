@@ -8,10 +8,10 @@ module Kassandra.Standalone.Config
   ) where
 
 import           Dhall                          ( FromDhall )
-import           Kassandra.Config               ( LocalBackend
+import           Kassandra.Config               ( AccountConfig
+                                                , LocalBackend
                                                 , NamedBackend
                                                 , NamedListQuery
-                                                , AccountConfig
                                                 , PasswordConfig
                                                 , PortConfig
                                                 , RemoteBackend
@@ -30,7 +30,7 @@ newtype StandaloneConfig = Config
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
 
-data StandaloneAccount = RemoteAccount {backend :: RemoteBackend} | LocalAccount {userConfig :: UserConfig}
+data StandaloneAccount = RemoteAccount {backend :: Maybe (RemoteBackend PasswordConfig)} | LocalAccount {userConfig :: UserConfig}
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass FromDhall
 
@@ -51,6 +51,7 @@ dhallTypes = [i|{
     , ("StandaloneConfig" , dhallType @StandaloneConfig)
     , ("PasswordConfig"   , dhallType @PasswordConfig)
     , ("AccountConfig"    , dhallType @AccountConfig)
+    , ("RemoteBackend"    , dhallType @(RemoteBackend PasswordConfig))
     ]
   assignments =
     intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types

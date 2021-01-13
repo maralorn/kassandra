@@ -191,10 +191,10 @@ instance Default LocalBackend where
                            , removeHooksOnExit  = True
                            }
 
-data RemoteBackend = RemoteBackend
+data RemoteBackend a = RemoteBackend
   { url      :: Text
   , user     :: Text
-  , password :: PasswordConfig
+  , password :: a
   }
   deriving stock (Show, Eq, Ord, Generic)
 

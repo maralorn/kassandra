@@ -43,18 +43,15 @@ common common-config
     TypeFamilies
     UndecidableInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Wno-orphans
-    -Wincomplete-uni-patterns
-    -Wincomplete-record-updates
-    -Wmissing-export-lists
-    -Widentities
-    -Wredundant-constraints
-    -Wmissing-home-modules
+    -Wall -Wcompat -Wno-orphans -Wincomplete-uni-patterns
+    -Wincomplete-record-updates -Wmissing-export-lists -Widentities
+    -Wredundant-constraints -Wmissing-home-modules
+
   mixins:             base hiding (Prelude)
   default-language:   Haskell2010
+
 -- END dhall generated common configuration
 
 
@@ -65,13 +62,13 @@ library
     Kassandra.Config
     Kassandra.Css
     Kassandra.Debug
+    Kassandra.LocalBackend
+    Kassandra.LocalBackendWidget
     Kassandra.MainWidget
+    Kassandra.RemoteBackendWidget
+    Kassandra.SelectorWidget
     Kassandra.State
     Kassandra.Types
-    Kassandra.SelectorWidget
-    Kassandra.RemoteBackendWidget
-    Kassandra.LocalBackendWidget
-    Kassandra.LocalBackend
     Kassandra.Util
     Prelude
 
@@ -92,17 +89,19 @@ library
     , base
     , clay
     , containers
-    , dependent-map
     , data-default-class
+    , dependent-map
     , dependent-sum-template
     , extra
     , generic-optics
     , jsaddle
+    , jsaddle-dom
     , mtl
     , optics
     , optics-th
     , password
     , patch
+    , process
     , reflex
     , reflex-dom
     , relude
@@ -116,6 +115,5 @@ library
     , time
     , unordered-containers
     , uuid
-    , process
 
   hs-source-dirs:  src

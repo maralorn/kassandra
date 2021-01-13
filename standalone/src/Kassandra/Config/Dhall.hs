@@ -52,7 +52,7 @@ import           System.Path.IO                 ( FsPath(FsPath)
 import Data.Either.Validation (validationToEither)
 
 instance FromDhall PasswordConfig
-instance FromDhall RemoteBackend
+instance FromDhall (RemoteBackend PasswordConfig)
 instance FromDhall TreeOption
 instance FromDhall HabiticaTask
 instance FromDhall ListItem

@@ -67,7 +67,7 @@ standaloneWidget requestQueue accountDyn =
     $   accountDyn
     <&> \NamedBackend { name, backend } -> case backend of
           RemoteAccount remoteAccount ->
-            remoteBackendWidget (Just remoteAccount)
+            remoteBackendWidget remoteAccount
           LocalAccount localAccount -> localBackendWidget
             requestQueue
             NamedBackend { name, backend = localAccount }
