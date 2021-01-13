@@ -116,5 +116,6 @@ library
     , time
     , unordered-containers
     , uuid
+    , process
 
   hs-source-dirs:  src

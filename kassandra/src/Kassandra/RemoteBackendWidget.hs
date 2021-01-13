@@ -16,6 +16,7 @@ import           Kassandra.TextEditWidget
 import           Kassandra.Types                ( WidgetJSM )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
+import           System.Process
 
 remoteBackendWidget
   :: forall t m
@@ -61,14 +62,14 @@ data WebSocketState = WebSocketError Text | Connecting deriving stock Show
 webClientSocket
   :: WidgetJSM t m => RemoteBackend -> m (ClientSocket t m WebSocketState)
 webClientSocket backend@RemoteBackend { url, user, password } = do
-  let
-    wsUrl         = maybe "ws://localhost:8000" ("ws" <>) $ stripPrefix "http" url -- TODO: Warn user about missing http
-    plainPassword = case password of
-      Password plain -> plain
-      _              -> "PasswordMissing"
-    -- TODO: Implement alternative passwordMethods
-    socketString =
-      [i|#{wsUrl}/socket?username=#{user}&password=#{plainPassword}|]
+  plainPassword <- case password of
+    Password        plain   -> pure plain
+    PasswordCommand command -> toText <$> liftIO (readCreateProcess (shell $ toString command) "")
+    Prompt                  -> error "Password prompting is not implemented"
+  let wsUrl = maybe "ws://localhost:8000" ("ws" <>) $ stripPrefix "http" url -- TODO: Warn user about missing http
+      -- TODO: Implement alternative passwordMethods
+      socketString =
+        [i|#{wsUrl}/socket?username=#{user}&password=#{plainPassword}|]
   pure $ \socketRequestEvent -> do
     socket <- D.jsonWebSocket
       socketString
