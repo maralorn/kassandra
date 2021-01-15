@@ -19,7 +19,9 @@ import           Kassandra.Debug                ( Severity(..)
 import           Kassandra.LocalBackend         ( LocalBackendRequest )
 import           Kassandra.LocalBackendWidget   ( localBackendWidget )
 import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget )
+import           Kassandra.RemoteBackendWidget  ( CloseEvent
+                                                , remoteBackendWidget
+                                                )
 import           Kassandra.SelectorWidget       ( backendSelector )
 import           Kassandra.Standalone.Config    ( StandaloneAccount
                                                   ( LocalAccount
@@ -35,6 +37,7 @@ import           Kassandra.Types                ( WidgetJSM )
 import           Kassandra.Util                 ( defDynDyn )
 import qualified Reflex                        as R
 import qualified Reflex.Dom                    as D
+import           Relude.Extra.Newtype
 
 
 standalone :: IO ()
@@ -66,7 +69,9 @@ standaloneWidget requestQueue accountDyn =
   defDynDyn (R.constDyn Nothing)
     $   accountDyn
     <&> \NamedBackend { name, backend } -> case backend of
-          RemoteAccount remoteAccount -> remoteBackendWidget (CloseEvent $ () <$ R.updated accountDyn) remoteAccount
-          LocalAccount  localAccount  -> localBackendWidget
+          RemoteAccount remoteAccount -> remoteBackendWidget
+            (wrap $ () <$ R.updated accountDyn)
+            remoteAccount
+          LocalAccount localAccount -> localBackendWidget
             requestQueue
             NamedBackend { name, backend = localAccount }

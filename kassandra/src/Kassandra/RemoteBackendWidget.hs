@@ -10,7 +10,7 @@ import           JSDOM.Custom.Window            ( getLocalStorage )
 import           JSDOM.Generated.Storage        ( getItem
                                                 , setItem
                                                 )
-import           Kassandra.Api                  ( SocketRequest(AllTasks) )
+import           Kassandra.Api
 import           Kassandra.BaseWidgets
 import           Kassandra.Config               ( PasswordConfig(..)
                                                 , RemoteBackend(..)
@@ -44,11 +44,13 @@ remoteBackendWidget
   -> m (R.Dynamic t (Maybe (AppContext t m)))
 remoteBackendWidget closeEvent mayBackend = do
   backendDyn    <- maybe inputBackend getPassword mayBackend
-  D.dynText (show . isNothing <$> backendDyn)
   responseEvent <- D.dyn
     (   withBackend (closeEvent <> wrap (() <$ R.updated backendDyn))
     <$> backendDyn
     )
+  R.performEvent_
+    $  un (closeEvent <> wrap (() <$ R.updated backendDyn))
+    $> putStrLn "CloseEvent fired"
   D.holdDyn Nothing responseEvent
  where
   getPassword
@@ -61,66 +63,75 @@ remoteBackendWidget closeEvent mayBackend = do
         (readCreateProcess (shell $ toString command) "")
       Prompt -> do
         D.text [i|Enter password for #{user} on #{url}:|]
-        undefined
+        storage         <- getStorage
+        initialPassword <- fromMaybe "" <$> getItem storage passwordKey
+        passwordInput   <- textInput True initialPassword
+        let
+          sendEvent =
+            R.tag (inputValue passwordInput) (D.keypress D.Enter passwordInput)
+        R.performEvent_
+          $   sendEvent
+          <&> setItem storage ([i|PasswordFor#{user}On#{url}|] :: String)
+          .   toString
+        R.holdDyn "" sendEvent
   inputBackend :: m (R.Dynamic t (Maybe (RemoteBackend Text)))
   inputBackend = do
     protocol <- D.getLocationProtocol
     host     <- D.getLocationHost
     let defaultUrl      = protocol <> "//" <> host
-        defaultUser     = "maralorn"
+        defaultUser     = ""
         defaultPassword = ""
-    storage      <- getStorage
-    initialState <-
+    storage         <- getStorage
+    initialUrl      <- fromMaybe defaultUrl <$> getItem storage urlKey
+    initialUser     <- fromMaybe defaultUser <$> getItem storage userKey
+    initialPassword <- fromMaybe defaultPassword <$> getItem storage passwordKey
+    initialState    <-
       fromMaybe LoggedOut . (readMaybe =<<) <$> getItem storage loginStateKey
-    backendEvent <- stateWidget initialState $ \loginState -> do
-      setItem storage ("LoginState" :: String) (show loginState :: String)
-      now           <- R.getPostBuild
-      maybeUrl      <- getItem storage urlKey
-      maybeUser     <- getItem storage userKey
-      maybePassword <- getItem storage passwordKey
-      case loginState of
-        LoggedOut -> do
-          D.text "Host:"
-          urlInput <- textInput False (fromMaybe defaultUrl maybeUrl)
-          D.el "br" pass
-          D.text "User:"
-          userNameInput <- textInput False (fromMaybe defaultUser maybeUser)
-          D.el "br" pass
-          D.text "Password:"
-          passwordInput <- textInput True
-                                     (fromMaybe defaultPassword maybePassword)
-          D.el "br" pass
-          saveButton <- button "selector" $ D.text "Login"
-          let
-            saveEvent = fold
-              ( saveButton
-              : (   D.keypress D.Enter
-                <$> [urlInput, userNameInput, passwordInput]
-                )
-              )
-          R.performEvent_
-            $   (    liftA3 (,,)
-                            (inputValue urlInput)
-                            (inputValue userNameInput)
-                            (inputValue passwordInput)
-                R.<@ saveEvent
-                )
-            <&> \(url, userName, password) -> do
-                  setItem storage urlKey      url
-                  setItem storage userKey     userName
-                  setItem storage passwordKey password
-          pure (Nothing <$ now, LoggedIn <$ saveEvent)
-        LoggedIn -> do
-          (backendEvent, errorEvent) <-
-            case (maybeUrl, maybeUser, maybePassword) of
-              (Just url, Just user, Just password) ->
-                D.text [i|#{user} @ #{url}|]
-                  $> (Just (RemoteBackend url user password) <$ now, R.never)
-              _ -> pure (R.never, now)
-          manualLogoutEvent <- button "selector" $ D.text "Logout"
-          let logoutEvent = manualLogoutEvent <> errorEvent
-          pure (backendEvent, LoggedOut <$ logoutEvent)
-    R.holdDyn Nothing backendEvent
+    stateEvent <- stateWidget
+      (initialState, initialUrl, initialUser, initialPassword)
+      stateTransition
+    R.performEvent_ $ stateEvent <&> \(loginState, url, user, password) -> do
+      setItem storage loginStateKey (show loginState :: String)
+      setItem storage urlKey        url
+      setItem storage userKey       user
+      setItem storage passwordKey   password
+    fmap backendFromState
+      <$> R.holdDyn (initialState, initialUrl, initialUser, initialPassword)
+                    stateEvent
+  stateTransition (loginState, url, user, password) = do
+    case loginState of
+      LoggedOut -> do
+        D.text "Host:"
+        urlInput <- textInput False url
+        D.el "br" pass
+        D.text "User:"
+        userNameInput <- textInput False user
+        D.el "br" pass
+        D.text "Password:"
+        passwordInput <- textInput True password
+        D.el "br" pass
+        saveButton <- button "selector" $ D.text "Login"
+        let
+          saveEvent =
+            liftA3 (LoggedIn, , , )
+                   (inputValue urlInput)
+                   (inputValue userNameInput)
+                   (inputValue passwordInput)
+              R.<@ fold
+                     ( saveButton
+                     : (   D.keypress D.Enter
+                       <$> [urlInput, userNameInput, passwordInput]
+                       )
+                     )
+        pure (saveEvent, saveEvent)
+      LoggedIn -> do
+        D.text [i|#{user} @ #{url}|]
+        logoutEvent <- ((LoggedOut, url, user, password) <$)
+          <$> button "selector" (D.text "Logout")
+        pure (logoutEvent, logoutEvent)
+  backendFromState (LoggedIn, url, user, password) =
+    Just $ RemoteBackend url user password
+  backendFromState (LoggedOut, _, _, _) = Nothing
   withBackend
     :: CloseEvent t -> Maybe (RemoteBackend Text) -> m (Maybe (AppContext t m))
   withBackend innerCloseEvent (Just backend) = do
@@ -149,8 +160,9 @@ webClientSocket
 webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
   let wsUrl = maybe "ws://localhost:8000" ("ws" <>) $ stripPrefix "http" url -- TODO: Warn user about missing http
       socketString = [i|#{wsUrl}/socket?username=#{user}&password=#{password}|]
-  refreshEvent <- button "Refresh Tasks" $ D.text "Refresh Tasks"
+  refreshEvent <- button "selector" $ D.text "Refresh Tasks"
   pure $ \socketRequestEvent -> do
+    R.performEvent_ $ un closeEvent $> putStrLn "CloseEvent received"
     socket <- D.jsonWebSocket
       socketString
       ( (  lensVL D.webSocketConfig_send
@@ -158,11 +170,12 @@ webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
         )
       . (lensVL D.webSocketConfig_reconnect .~ True)
       . (  lensVL D.webSocketConfig_close
-        .~ ((0, "Client unloaded websocket.") <$ un closeEvent)
+        .~ ((3000, "Client unloaded websocket.") <$ un closeEvent)
         )
       $ D.def
       )
     let
+      messages = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
       close =
         Just
             [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
@@ -177,4 +190,6 @@ webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
     D.dynText
       .   fmap (fromMaybe "")
       =<< R.holdDyn (Just "Websocket Connecting") nextStateEvent
-    pure . pure . R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
+    pure . pure $ messages <&> \case
+      TaskUpdates newTasks -> newTasks
+      e                    -> error [i|Couldn‘t handele SocketMessage #{e}|]
