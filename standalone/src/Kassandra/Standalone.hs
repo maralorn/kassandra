@@ -19,7 +19,7 @@ import           Kassandra.Debug                ( Severity(..)
 import           Kassandra.LocalBackend         ( LocalBackendRequest )
 import           Kassandra.LocalBackendWidget   ( localBackendWidget )
 import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.RemoteBackendWidget  ( CloseEvent
+import           Kassandra.RemoteBackendWidget  ( CloseEvent(..)
                                                 , remoteBackendWidget
                                                 )
 import           Kassandra.SelectorWidget       ( backendSelector )
