@@ -13,6 +13,10 @@ project ./. ({ pkgs, ... }:
       displayName = "Kassandra";
       releaseKey = null;
       isRelease = true;
+      version = {
+        code = import ./code.nix;
+        name = "0.1.0";
+      };
     };
     overrides = self: super: {
       backend = addBuildDepend super.backend pkgs.taskwarrior;
