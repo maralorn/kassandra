@@ -4,10 +4,15 @@ module Kassandra.RemoteBackendWidget
   , CloseEvent(..)
   ) where
 
+import           Data.Aeson
+import           Data.Map                       ( elems
+                                                , insert
+                                                )
 import           Data.Text                      ( stripPrefix )
 import           JSDOM                          ( currentWindowUnchecked )
 import           JSDOM.Custom.Window            ( getLocalStorage )
-import           JSDOM.Generated.Storage        ( getItem
+import           JSDOM.Generated.Storage        ( Storage
+                                                , getItem
                                                 , setItem
                                                 )
 import           Kassandra.Api
@@ -48,9 +53,6 @@ remoteBackendWidget closeEvent mayBackend = do
     (   withBackend (closeEvent <> wrap (() <$ R.updated backendDyn))
     <$> backendDyn
     )
-  R.performEvent_
-    $  un (closeEvent <> wrap (() <$ R.updated backendDyn))
-    $> putStrLn "CloseEvent fired"
   D.holdDyn Nothing responseEvent
  where
   getPassword
@@ -139,7 +141,6 @@ remoteBackendWidget closeEvent mayBackend = do
     let stateProvider = makeStateProvider clientSocket
     pure $ Just (stateProvider, D.def)
   withBackend _ Nothing = pure Nothing
-  getStorage = getLocalStorage =<< currentWindowUnchecked
         -- TODO: Get UI Config from Server
   textInput hidden defaultValue =
     D.inputElement
@@ -155,6 +156,9 @@ remoteBackendWidget closeEvent mayBackend = do
 
 data WebSocketState = WebSocketError Text | Connecting deriving stock Show
 
+getStorage :: WidgetJSM t m => m Storage
+getStorage = getLocalStorage =<< currentWindowUnchecked
+
 webClientSocket
   :: WidgetJSM t m => CloseEvent t -> RemoteBackend Text -> m (ClientSocket t m)
 webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
@@ -162,8 +166,8 @@ webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
       socketString = [i|#{wsUrl}/socket?username=#{user}&password=#{password}|]
   refreshEvent <- button "selector" $ D.text "Refresh Tasks"
   pure $ \socketRequestEvent -> do
-    R.performEvent_ $ un closeEvent $> putStrLn "CloseEvent received"
-    socket <- D.jsonWebSocket
+    storage <- getStorage
+    socket  <- D.jsonWebSocket
       socketString
       ( (  lensVL D.webSocketConfig_send
         .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent]
@@ -189,7 +193,20 @@ webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
       nextStateEvent = R.leftmost [messageParseFail, close, open]
     D.dynText
       .   fmap (fromMaybe "")
-      =<< R.holdDyn (Just "Websocket Connecting") nextStateEvent
-    pure . pure $ messages <&> \case
-      TaskUpdates newTasks -> newTasks
-      e                    -> error [i|Couldn‘t handele SocketMessage #{e}|]
+      =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
+    let taskUpdates = flip R.fmapMaybe messages $ \case
+          TaskUpdates newTasks -> Just newTasks
+          _                    -> Nothing
+        mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
+    (taskMap :: Map UUID Task) <-
+      maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
+    let f tasks currentMap = foldr
+          (\task theMap -> insert (task ^. #uuid) task theMap)
+          currentMap
+          tasks
+    tasksToSave <- R.foldDyn f taskMap taskUpdates
+    R.performEvent_ $ R.updated tasksToSave <&> \tasks ->
+      setItem storage mapKey (decodeUtf8 @Text . encode $ tasks)
+    ev <- R.getPostBuild
+    let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
+    pure . pure $ taskUpdates <> cachedTasks
