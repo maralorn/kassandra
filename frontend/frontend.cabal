@@ -81,6 +81,7 @@ library
     , time
     , unordered-containers
     , uuid
+    , relude
 
   exposed-modules:
     Frontend
