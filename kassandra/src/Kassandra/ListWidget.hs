@@ -36,8 +36,7 @@ listsWidget = do
   getLists =
     fmap TagList
       . toList
-      . fold
-      . fmap (^. #tags)
+      . foldMap (^. #tags)
       . filter (has $ #status % #_Pending)
       . (^. al #task)
       . HashMap.elems

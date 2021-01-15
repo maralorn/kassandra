@@ -18,6 +18,7 @@ common common-config
     DeriveAnyClass
     DeriveGeneric
     DerivingStrategies
+    GeneralizedNewtypeDeriving
     DuplicateRecordFields
     EmptyCase
     FlexibleContexts

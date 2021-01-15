@@ -8,8 +8,7 @@ import           Control.Concurrent.STM         ( TQueue
                                                 , readTQueue
                                                 )
 import qualified Data.Aeson                    as Aeson
-import           Kassandra.Api                  ( SocketMessage(TaskUpdates)
-                                                , SocketRequest
+import           Kassandra.Api                  ( SocketRequest
                                                   ( AllTasks
                                                   , ChangeTasks
                                                   , UIConfigRequest
@@ -33,7 +32,7 @@ localBackendProvider requests = go Nothing
   go request = go =<< listenWithBackgroundThreads request
   makeRequest = atomically $ readTQueue requests
   listenWithBackgroundThreads (Just (config, callback, socketRequests)) =
-    let cb      = callback . DataResponse . TaskUpdates
+    let cb      = callback . DataResponse
         monitor = taskMonitor config cb
         handler = requestsHandler config socketRequests cb
     in  withAsync (concurrently_ monitor handler) $ const do

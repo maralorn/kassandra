@@ -1,6 +1,5 @@
 module Kassandra.State
-  ( TaskProvider
-  , makeStateProvider
+  ( makeStateProvider
   , StateProvider
   , AppContext
   , ClientSocket
@@ -10,12 +9,7 @@ import qualified Data.Dependent.Map            as DMap
 import qualified Data.GADT.Compare.TH          as TH
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Data.List.NonEmpty            as NonEmpty
-import           Kassandra.Api                  ( SocketMessage
-                                                  ( TaskUpdates
-                                                  , UIConfigResponse
-                                                  )
-                                                , SocketRequest(ChangeTasks)
-                                                )
+import           Kassandra.Api                  ( SocketRequest(ChangeTasks) )
 import           Kassandra.Config               ( UIConfig )
 import           Kassandra.Types                ( DataChange
                                                   ( ChangeTask
@@ -38,9 +32,6 @@ data FanTag a where
 TH.deriveGEq ''FanTag
 TH.deriveGCompare ''FanTag
 
-type TaskProvider t m
-  = R.Event t (NonEmpty Task) -> m (R.Dynamic t (HashMap UUID Task))
-
 getParents :: HashMap UUID Task -> UUID -> [UUID]
 getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
  where
@@ -54,15 +45,11 @@ type StateProvider t m
 
 type AppContext t m = (StateProvider t m, UIConfig)
 
-type ClientSocket t m e
-  =  R.Event t SocketRequest
-  -> m (R.Dynamic t (Either e (R.Event t SocketMessage)))
+type ClientSocket t m
+  = R.Event t SocketRequest -> m (R.Dynamic t (R.Event t (NonEmpty Task)))
 
 makeStateProvider
-  :: forall e t m
-   . (Show e, WidgetIO t m)
-  => ClientSocket t m e
-  -> StateProvider t m
+  :: forall t m . (WidgetIO t m) => ClientSocket t m -> StateProvider t m
 makeStateProvider clientSocket dataChangeEvents = do
   let fannedEvent :: FanTag a -> R.Event t a
       fannedEvent =
@@ -76,14 +63,7 @@ makeStateProvider clientSocket dataChangeEvents = do
       changeTaskEvent = fannedEvent ChangeTaskTag
   changesFromCreateEvents <- createToChangeEvent createTaskEvent
   let localChanges = changeTaskEvent <> changesFromCreateEvents
-  socketMessages <- clientSocket (ChangeTasks <$> localChanges)
-  D.dynText (either show (const mempty) <$> socketMessages)
-  let msgs          = R.switchDyn $ fromRight R.never <$> socketMessages
-      remoteChanges = R.fmapMaybe messageToChange msgs
-      messageToChange :: SocketMessage -> Maybe (NonEmpty Task)
-      messageToChange (TaskUpdates      a) = Just a
-      messageToChange (UIConfigResponse _) = Nothing
-      -- TODO: What happens with UIConfigResponses?
+  remoteChanges <- R.switchDyn <$> clientSocket (ChangeTasks <$> localChanges)
   fmap buildTaskInfosMap <$> holdTasks (localChanges <> remoteChanges)
 
 createToChangeEvent

@@ -66,7 +66,7 @@ standaloneWidget requestQueue accountDyn =
   defDynDyn (R.constDyn Nothing)
     $   accountDyn
     <&> \NamedBackend { name, backend } -> case backend of
-          RemoteAccount remoteAccount -> remoteBackendWidget remoteAccount
+          RemoteAccount remoteAccount -> remoteBackendWidget (CloseEvent $ () <$ R.updated accountDyn) remoteAccount
           LocalAccount  localAccount  -> localBackendWidget
             requestQueue
             NamedBackend { name, backend = localAccount }

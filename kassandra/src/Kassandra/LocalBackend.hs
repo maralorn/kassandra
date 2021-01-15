@@ -8,14 +8,12 @@ import           Control.Concurrent.STM         ( TQueue
                                                 , newTQueueIO
                                                 , writeTQueue
                                                 )
-
-import           Kassandra.Api                  ( SocketMessage
-                                                , SocketRequest(AllTasks)
-                                                )
+import           Kassandra.Api                  ( SocketRequest(AllTasks) )
 import           Kassandra.Config               ( LocalBackend )
 import           Kassandra.State                ( ClientSocket )
 import           Kassandra.Types                ( WidgetIO )
 import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 
 data LocalSocketState = LocalError Text | SettingUp deriving Show
 
@@ -23,7 +21,7 @@ localClientSocket
   :: WidgetIO t m
   => TQueue LocalBackendRequest
   -> LocalBackend
-  -> m (ClientSocket t m LocalSocketState)
+  -> m (ClientSocket t m)
 localClientSocket requestsQueue backendConfig = do
   socketQueue <- liftIO newTQueueIO
   (backendResponseEvent, backendResponseCallback) <- R.newTriggerEvent
@@ -42,23 +40,17 @@ localClientSocket requestsQueue backendConfig = do
                 _             -> Nothing
               )
               backendResponseEvent
-            nextStateEvent = R.fmapMaybe
-              (\case
-                ErrorState (BackendError err) -> Just (Left (LocalError err))
-                SetupComplete                 -> Just (Right socketMessageEvent)
-                _                             -> Nothing
-              )
-              backendResponseEvent
+            errorEvent = backendResponseEvent <&> \case
+              ErrorState (BackendError err) -> Just err
+              _                             -> Nothing
+        D.dynText . fmap (fromMaybe "") =<< R.holdDyn Nothing errorEvent
         R.performEvent_ $ atomically . writeTQueue socketQueue <$> R.leftmost
           [socketRequestEvent, AllTasks <$ setupCompleteEvent]
-        R.holdDyn (Left SettingUp) nextStateEvent
+        pure (pure socketMessageEvent)
   atomically $ writeTQueue requestsQueue backendRequest
   pure clientSocket
-
---newEventWithLazyTriggerWithOnComplete
--- :: ((a -> IO () -> IO ()) -> IO (IO ())) -> m (Event t a)
 
 newtype BackendError = BackendError Text
 type LocalBackendRequest
   = Maybe (LocalBackend, LocalBackendResponse -> IO (), TQueue SocketRequest)
-data LocalBackendResponse = ErrorState BackendError | SetupComplete | DataResponse SocketMessage
+data LocalBackendResponse = ErrorState BackendError | SetupComplete | DataResponse (NonEmpty Task)
