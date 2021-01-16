@@ -1,38 +1,35 @@
 {-# LANGUAGE PatternSynonyms #-}
 module Kassandra.MainWidget
   ( mainWidget
-  )
-where
+  ) where
 
-import qualified Reflex.Dom                    as D
-import qualified Reflex                        as R
 import qualified Data.HashMap.Strict           as HashMap
 import qualified Data.Set                      as Set
-import           Kassandra.Types                ( DragState(NoDrag)
-                                                , AppState(AppState)
-                                                , FilterState(FilterState)
-                                                , getTasks
-                                                , TaskInfos
-                                                , AppStateChange
-                                                , WidgetIO
-                                                , StandardWidget
-                                                , TaskState
+import           Kassandra.BaseWidgets          ( button )
+import           Kassandra.Config               ( UIConfig )
+import           Kassandra.Debug                ( Severity(..)
+                                                , log
+                                                , logR
+                                                , setLogLevel
                                                 )
-import           Kassandra.ListWidget           ( listsWidget
-                                                , listWidget
-                                                , TaskList(TagList)
-                                                )
+import           Kassandra.ListWidget           ( listsWidget )
 import           Kassandra.State                ( StateProvider )
 import           Kassandra.TaskWidget           ( taskTreeWidget )
 import           Kassandra.TextEditWidget       ( createTextWidget )
-import           Kassandra.BaseWidgets          ( button )
-import           Kassandra.Util                 ( tellNewTask )
-import           Kassandra.Debug                ( logR
-                                                , log
-                                                , Severity(..)
-                                                , setLogLevel
+import           Kassandra.Types                ( AppState(AppState)
+                                                , AppStateChange
+                                                , DragState(NoDrag)
+                                                , FilterState(FilterState)
+                                                , StandardWidget
+                                                , TaskInfos
+                                                , TaskState
+                                                , WidgetIO
+                                                , getDragState
+                                                , getTasks
                                                 )
-import           Kassandra.Config (UIConfig)
+import           Kassandra.Util                 ( tellNewTask )
+import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
@@ -53,13 +50,36 @@ mainWidget _uiConfig stateProvider = do
         R.runEventWriterT $ runReaderT
           (do
             taskDiagnosticsWidget
-            D.divClass "container" $ do
-              D.divClass "pane" widgetSwitcher
-              D.divClass "pane" (listWidget $ R.constDyn (TagList "root"))
+            D.divClass "content" widgetSwitcher
+            infoFooter
           )
           (AppState taskState timeDyn dragDyn filterState)
       stateChanges <- logR Info (const "StateChange") stateChanges'
   pass
+
+infoFooter :: (StandardWidget t m r e) => m ()
+infoFooter = D.divClass "footer" $ do
+  dragState <- getDragState
+  D.dyn_ $ dragState <&> \a -> do
+    whenJust (preview #_DraggedTask a) $ \draggedTaskUuid -> do
+      taskMap <- HashMap.lookup draggedTaskUuid <<$>> getTasks
+      D.dyn_ $ taskMap <&> \maybeTask ->
+        whenJust maybeTask $ \t -> do
+           D.text "Selected Task:"
+           D.divClass "selectedTask" $ taskTreeWidget ( pure t)
+  tellNewTask . fmap (, id) =<< createTextWidget
+    (button "selector" $ D.text "New Task")
+  
+  tasks <- getTasks
+  D.el "p" $ D.dynText $ tasks <&> \taskMap ->
+    let
+      taskList = HashMap.elems taskMap
+      pending  = length $ filter (has (#task % #status % #_Pending)) taskList
+      waiting  = length $ filter (has (#task % #status % #_Waiting)) taskList
+      completed =
+        length $ filter (has (#task % #status % #_Completed)) taskList
+    in
+      [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks.|]
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do
@@ -85,8 +105,6 @@ widgets =
 
 widgetSwitcher :: forall t m r e . StandardWidget t m r e => m ()
 widgetSwitcher = D.el "div" $ do
-  tellNewTask . fmap (, id) =<< createTextWidget
-    (button "selector" $ D.text "New Task")
   buttons <- forM (widgets @t @m) $ \l ->
     (l <$) . D.domEvent D.Click . fst <$> D.elClass' "a"
                                                      "selector"

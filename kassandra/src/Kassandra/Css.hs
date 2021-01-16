@@ -51,14 +51,15 @@ css fontPath = do
     background lightBlue
     fontWeight bold
     fontSize (em 1.5)
+  ".content" ? do
+    paddingBottom (em 4)
   ".footer" ? do
-    position absolute
+    position fixed
     bottom (px 0)
     width (pct 100)
-    padding (em 2) (em 2) (em 2) (em 2)
-    fontSize (em 0.8)
-    background black
-    color (grayish 180)
+    padding (em 0.22) (em 0.2) (em 0.2) (em 0.2)
+    background (grayish 200)
+    color black
   ".container" ? do
     display flex
     minHeight (pct 100)
