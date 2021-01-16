@@ -20,7 +20,7 @@ cssAsBS :: ByteString
 cssAsBS = $$([||cssToBS (css (Just ""))||])
 
 cssAsText :: Text -> Text
-cssAsText fontPath = $$([||cssToText (css (Just fontPath))||])
+cssAsText fontPath = cssToText (css (Just fontPath))
 
 fontName :: Text
 fontName = "Material Icons"
