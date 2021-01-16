@@ -48,6 +48,9 @@ css fontPath = do
     minHeight (pct 100)
   ".remoteBackend" ? do
     textAlign (alignSide sideRight)
+  ".loginDialog" ? do
+    textAlign (alignSide sideCenter)
+    padding (em 5) (em 5) (em 5) (em 5)
   ".header" ? do
     padding (em 0.2) (em 0.2) (em 0.2) (em 0.2)
     background lightBlue

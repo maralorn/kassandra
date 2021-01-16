@@ -102,7 +102,7 @@ remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
                     stateEvent
   stateTransition (loginState, url, user, password) = do
     case loginState of
-      LoggedOut -> do
+      LoggedOut -> D.divClass "loginDialog" $ do
         D.text "Host:"
         urlInput <- textInput False url
         D.el "br" pass
