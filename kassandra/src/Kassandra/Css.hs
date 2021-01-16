@@ -23,7 +23,7 @@ cssAsText :: Text -> Text
 cssAsText fontPath = $$([||cssToText (css (Just fontPath))||])
 
 fontName :: Text
-fontName = "Material PIcons"
+fontName = "Material Icons"
 
 css :: Maybe Text -> Css
 css fontPath = do
