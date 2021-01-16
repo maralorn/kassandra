@@ -47,7 +47,7 @@ remoteBackendWidget
   => CloseEvent t
   -> Maybe (RemoteBackend PasswordConfig)
   -> m (R.Dynamic t (Maybe (AppContext t m)))
-remoteBackendWidget closeEvent mayBackend = do
+remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
   backendDyn    <- maybe inputBackend getPassword mayBackend
   responseEvent <- D.dyn
     (   withBackend (closeEvent <> wrap (() <$ R.updated backendDyn))

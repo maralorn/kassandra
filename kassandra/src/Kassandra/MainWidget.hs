@@ -35,7 +35,6 @@ mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
   -- TODO: Use ui Config
   liftIO $ setLogLevel $ Just Debug
-  D.divClass "header" $ D.text "Kassandra ToDo Management"
   log Info "Loaded Mainwidget"
   time    <- liftIO getZonedTime
   timeDyn <-
@@ -69,7 +68,6 @@ infoFooter = D.divClass "footer" $ do
            D.divClass "selectedTask" $ taskTreeWidget ( pure t)
   tellNewTask . fmap (, id) =<< createTextWidget
     (button "selector" $ D.text "New Task")
-  
   tasks <- getTasks
   D.el "p" $ D.dynText $ tasks <&> \taskMap ->
     let
@@ -79,7 +77,7 @@ infoFooter = D.divClass "footer" $ do
       completed =
         length $ filter (has (#task % #status % #_Completed)) taskList
     in
-      [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks.|]
+      [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks. Kassandra-ToDo-Management|]
 
 taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
 taskDiagnosticsWidget = do

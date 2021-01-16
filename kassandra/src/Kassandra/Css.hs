@@ -46,6 +46,8 @@ css fontPath = do
     background white
     color black
     minHeight (pct 100)
+  ".remoteBackend" ? do
+    textAlign (alignSide sideRight)
   ".header" ? do
     padding (em 0.2) (em 0.2) (em 0.2) (em 0.2)
     background lightBlue
