@@ -17,13 +17,20 @@ cssToText :: Css -> Text
 cssToText = toStrict . render
 
 cssAsBS :: ByteString
-cssAsBS = $$([||cssToBS css||])
+cssAsBS = $$([||cssToBS (css (Just ""))||])
 
-cssAsText :: Text
-cssAsText = $$([||cssToText css||])
+cssAsText :: Text -> Text
+cssAsText fontPath = $$([||cssToText (css (Just fontPath))||])
 
-css :: Css
-css = do
+fontName :: Text
+fontName = "Material PIcons"
+
+css :: Maybe Text -> Css
+css fontPath = do
+  whenJust fontPath $ \fontSrc -> do
+     fontFace $ do
+       fontFamily [fontName] []
+       fontFaceSrc [FontFaceSrcUrl fontSrc (Just TrueType)]
   let --darkBlue      = rgb 0 0 33
       veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
@@ -85,7 +92,7 @@ css = do
     margin (em 0.1) (em 0.1) (em 0.1) (em 0.1)
     fontSize (em 0.8)
   ".material-icons" ? do
-    fontFamily ["Material Icons"] []
+    fontFamily [fontName] []
     fontWeight normal
     fontStyle normal
     fontSize (em 1)

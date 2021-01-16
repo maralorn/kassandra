@@ -4,6 +4,7 @@ module Frontend
 
 
 import           Obelisk.Frontend
+import           Obelisk.Generated.Static
 import           Obelisk.Route
 
 import           Frontend.Route                 ( FrontendRoute )
@@ -13,7 +14,9 @@ import           Kassandra.Config               ( NamedBackend(..)
                                                 )
 import           Kassandra.Css                  ( cssAsText )
 import           Kassandra.MainWidget           ( mainWidget )
-import           Kassandra.RemoteBackendWidget  ( remoteBackendWidget, CloseEvent(..) )
+import           Kassandra.RemoteBackendWidget  ( CloseEvent(..)
+                                                , remoteBackendWidget
+                                                )
 import           Kassandra.Types
 import qualified Reflex.Dom                    as D
 import           Relude.Extra.Newtype
@@ -37,4 +40,7 @@ frontendBody = do
 frontendHead :: ObeliskWidget js t route m => m ()
 frontendHead = do
   D.el "title" $ D.text "Kassandra 2 Webversion"
-  D.elAttr "style" mempty $ D.text cssAsText
+  D.elAttr "style" mempty
+    . D.text
+    . cssAsText
+    $ static @"MaterialIcons-Regular.ttf"
