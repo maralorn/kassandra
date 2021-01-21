@@ -123,15 +123,10 @@ css fontPath = do
     ".task" ? do
       noMargin
       ".parentPath" ? display none
-    do
-      ".children" <? background lighterBlue
-      ".uppertask" <? ".statusWrapper" ? background lighterBlue
-  ".edit" ? visibility hidden
   ".righttask" ? do
     width (pct 100)
-    background veryLightBlue
   ".statusWrapper" ? do
-    background lightBlue
+    background black
     width leftBarWidth
     minWidth leftBarWidth
   ".uppertask" ? do
@@ -140,8 +135,8 @@ css fontPath = do
   i ? cursor cursorDefault
   ".icon" ? padding radius radius radius radius
   ".children" ? do
-    background lightBlue
     padding (px 0) (px 0) (px 0) leftBarWidth
+    background black
   --".slimButton" ? do
     --marginRight (px (-5))
     --marginLeft (px (-5))
@@ -163,6 +158,5 @@ css fontPath = do
       ".grey" & color (grayish 160)
       ".show" & color black
       ".showable" & display none
-    hover & i ? do
-      ".hideable" & display none
-      ".showable" & display inlineBlock
+    active & i ? do
+       background black
