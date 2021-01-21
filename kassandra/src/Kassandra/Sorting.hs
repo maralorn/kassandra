@@ -2,17 +2,16 @@ module Kassandra.Sorting
   ( sortTasks
   , saveSorting
   , SortPosition(SortPosition)
-  , SortMode(SortModeTag, SortModePartof)
-  )
-where
+  , SortMode(SortModePartof, SortModeTag)
+  ) where
 
-import qualified Taskwarrior.Task              as Task
 import qualified Data.Aeson                    as Aeson
-import qualified Reflex                        as R
-import           Data.Set                       ( member )
 import           Data.Scientific                ( toRealFloat )
-import           Relude.Extra.Foldable1         ( maximum1 )
+import           Data.Set                       ( member )
 import           Kassandra.Types                ( TaskInfos )
+import qualified Reflex                        as R
+import           Relude.Extra.Foldable1         ( maximum1 )
+import qualified Taskwarrior.Task              as Task
 
 data SortMode = SortModePartof UUID | SortModeTag Task.Tag
    deriving stock (Show, Eq, Ord, Generic)
@@ -32,8 +31,7 @@ sortTasks :: SortMode -> [TaskInfos] -> [TaskInfos]
 sortTasks mode = sortOn (getSortOrder mode . (^. #task))
 
 getSortOrder :: SortMode -> Task -> Maybe Double
-getSortOrder mode =
-  (valToNumber =<<) . (^. at (sortFieldName mode)) . (^. #uda)
+getSortOrder mode = valToNumber <=< (^. #uda % at (sortFieldName mode))
 
 valToNumber :: Aeson.Value -> Maybe Double
 valToNumber = \case
@@ -150,23 +148,24 @@ addSortState f = go (minOrder, 0)
     | (x : _) <- list
     = one (x, WillWrite iprev (dprev + 1) maxOrder 1)
 
-insertBefore :: [Task] -> Task -> Maybe UUID -> [Task]
-insertBefore list task = \case
+insertBefore :: [Task] -> [Task] -> Maybe UUID -> [Task]
+insertBefore list toInsert = \case
   Just uuid ->
     let (front, back) = break ((== uuid) . (^. #uuid)) cleanList
-    in  front <> (task : back)
-  Nothing -> cleanList <> one task
-  where cleanList = filter ((task ^. #uuid /=) . (^. #uuid)) list
+    in  front <> (toInsert ++ back)
+  Nothing -> cleanList <> toInsert
+  where cleanList = filter ((`notElem` (toInsert ^. #uuid)) . (^. #uuid)) list
 
-type InsertEvent t = R.Event t (Task, Maybe UUID)
+type InsertEvent t = R.Event t (NonEmpty Task, Maybe UUID)
 
 saveSorting
   :: R.Reflex t
   => R.Behavior t SortMode
   -> R.Behavior t [Task]
   -> InsertEvent t
-  -> R.Event t [Task]
-saveSorting modeB listB = R.attachWith attach $ (,) <$> modeB <*> listB
+  -> R.Event t (NonEmpty Task)
+saveSorting modeB listB = R.fmapMaybe nonEmpty
+  . R.attachWith attach ((,) <$> modeB <*> listB)
  where
-  attach (mode, list) (task, before) =
-    sortingChanges mode $ insertBefore list task before
+  attach (mode, list) (toList -> tasks, before) =
+    sortingChanges mode $ insertBefore list tasks before

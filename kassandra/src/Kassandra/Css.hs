@@ -35,7 +35,6 @@ css fontPath = do
       veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
       lighterBlue   = rgb 144 144 255
-      sunYellow     = rgb 255 180 20
       noMargin      = margin (px 0) (px 0) (px 0) (px 0)
       noPadding     = padding (px 0) (px 0) (px 0) (px 0)
   star ? do
@@ -70,33 +69,33 @@ css fontPath = do
     minHeight (pct 100)
   ".dropHere" ? do
     position absolute
+    background white
     color black
-    background sunYellow
-  let offset = 1.5
+    border solid (em 0.1) black
+  let offset = 2
   ".plusOne" ? marginLeft (em offset)
   ".plusTwo" ? marginLeft (em (offset * 2))
   ".above" ? marginTop (em (-0.8))
   ".pane" ? width (pct 100)
-  ".selector" ? do
-    display inlineBlock
-    margin (px 1) (px 1) (px 1) (px 1)
-    color (rgb 0 0 200)
-    padding (em 0.1) (em 0.3) (em 0.1) (em 0.3)
-    background lightBlue
-  let tagRadius = em 0.4
-  ".tag" ? ".icon" ? do
-    position absolute
-    borderRadius tagRadius tagRadius tagRadius tagRadius
-    background lightBlue
-    marginLeft (em (-1.1))
-    marginTop (em 0.70)
-    fontSize (em 0.85)
-  ".tag" ? do
-    background (rgb 200 200 255)
-    borderRadius tagRadius tagRadius tagRadius tagRadius
-    padding (em 0.1) (em 0.3) (em 0.1) (em 0.3)
-    margin (em 0.1) (em 0.1) (em 0.1) (em 0.1)
-    fontSize (em 0.8)
+  let buttonPadding =
+          padding (em 0.3) (em 0.5) (em 0.3) (em 0.5)
+      buttonCss = do
+          display inlineBlock
+          margin (px 1) (px 1) (px 1) (px 1)
+          buttonPadding
+          border solid (em 0.1) black
+          active & do
+             background black
+             color white
+  ".button" ? buttonCss
+  ".selector" ? buttonCss
+  --".tag" ? ".icon" ? do
+    --position absolute
+    --borderRadius tagRadius tagRadius tagRadius tagRadius
+    --background lightBlue
+    --marginLeft (em (-1.1))
+    --marginTop (em 0.70)
+    --fontSize (em 0.85)
   ".material-icons" ? do
     fontFamily [fontName] []
     fontWeight normal
@@ -116,10 +115,7 @@ css fontPath = do
     fontSize (em 0.8)
   let radius       = em 0.3
       leftBarWidth = em 1.8
-  ".activeEdit" ? do
-    border solid (px 1) sunYellow
-    background sunYellow
-    padding (px 1) (px 1) (px 1) (px 1)
+  ".activeEdit" ? buttonPadding
   ".task" ? do
     color (rgb 0 0 33)
     border solid (px 1) black
@@ -127,32 +123,28 @@ css fontPath = do
     ".task" ? do
       noMargin
       ".parentPath" ? display none
-    hover & do
+    do
       ".children" <? background lighterBlue
       ".uppertask" <? ".statusWrapper" ? background lighterBlue
   ".edit" ? visibility hidden
   ".righttask" ? do
     width (pct 100)
-    hover & background veryLightBlue
+    background veryLightBlue
   ".statusWrapper" ? do
     background lightBlue
     width leftBarWidth
     minWidth leftBarWidth
   ".uppertask" ? do
     display flex
-    hover & ".edit" ? visibility visible
-    hover & ".tag" ? ".edit" ? visibility hidden
-    ".tag" ? hover & ".edit" ? visibility visible
-  ".button" ? do
-    hover & color blue
+    ".edit" ? visibility visible
   i ? cursor cursorDefault
   ".icon" ? padding radius radius radius radius
   ".children" ? do
     background lightBlue
     padding (px 0) (px 0) (px 0) leftBarWidth
-  ".slimButton" ? do
-    marginRight (px (-5))
-    marginLeft (px (-5))
+  --".slimButton" ? do
+    --marginRight (px (-5))
+    --marginLeft (px (-5))
   let blockSize = do
         width (em 1)
         height (em 1)

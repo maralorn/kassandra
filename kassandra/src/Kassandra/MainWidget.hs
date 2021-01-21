@@ -60,12 +60,12 @@ infoFooter :: (StandardWidget t m r e) => m ()
 infoFooter = D.divClass "footer" $ do
   dragState <- getDragState
   D.dyn_ $ dragState <&> \a -> do
-    whenJust (preview #_DraggedTask a) $ \draggedTaskUuid -> do
-      taskMap <- HashMap.lookup draggedTaskUuid <<$>> getTasks
-      D.dyn_ $ taskMap <&> \maybeTask ->
-        whenJust maybeTask $ \t -> do
-           D.text "Selected Task:"
-           D.divClass "selectedTask" $ taskTreeWidget ( pure t)
+    whenJust (preview #_DraggedTasks a) $ \(draggedTasksUuids :: NonEmpty UUID) -> do
+      draggedTasksDyn <- (\taskMap -> catMaybes . toList $ (`HashMap.lookup` taskMap) <$> draggedTasksUuids) <<$>> getTasks
+      D.dyn_ $ draggedTasksDyn <&> \draggedTasks ->
+        whenJust (nonEmpty draggedTasks) $ \tasks -> do
+           D.text "Selected Tasks:"
+           forM_ tasks $ \t -> D.divClass "selectedTask" $ taskTreeWidget (pure t)
   tellNewTask . fmap (, id) =<< createTextWidget
     (button "selector" $ D.text "New Task")
   tasks <- getTasks

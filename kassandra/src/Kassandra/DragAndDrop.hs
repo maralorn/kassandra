@@ -3,36 +3,39 @@ module Kassandra.DragAndDrop
   , childDropArea
   , taskDropArea
   , tellDragTask
-  )
-where
+  ) where
 
-import qualified Reflex                        as R
-import qualified Reflex.Dom                    as D
+import           Kassandra.Debug                ( Severity(..)
+                                                , logRShow
+                                                )
 import           Kassandra.Sorting              ( SortPosition
                                                 , saveSorting
                                                 )
 import           Kassandra.Types                ( AppStateChange
+                                                , DataChange
+                                                , DragState
+                                                  ( DraggedTasks
+                                                  , NoDrag
+                                                  )
                                                 , StandardWidget
                                                 , TaskInfos
-                                                , DragState(DraggedTask, NoDrag)
-                                                , getTasks
-                                                , getDragState
-                                                , DataChange
                                                 , WriteApp
+                                                , getDragState
+                                                , getTasks
                                                 )
-import           Kassandra.Util                 ( tellSingleton
-                                                , lookupTask
+import           Kassandra.Util                 ( lookupTask
+                                                , tellSingleton
                                                 )
-import           Kassandra.Debug                ( logRShow
-                                                , Severity(..)
-                                                )
+import qualified Reflex                        as R
+import qualified Reflex.Dom                    as D
 
-tellDragTask :: (MonadIO m, WriteApp t m e) => R.Event t (Maybe UUID) -> m ()
+tellDragTask :: (MonadIO m, WriteApp t m e) => R.Event t [UUID] -> m ()
 tellDragTask =
   tellSingleton
     .   fmap
           ( (_Typed @AppStateChange % _Typed @DragState #)
-          . maybe NoDrag DraggedTask
+          . maybe NoDrag DraggedTasks
+          . nonEmpty
           )
     <=< logRShow Info
 
@@ -40,7 +43,7 @@ taskDropArea
   :: StandardWidget t m r e
   => R.Dynamic t [UUID]
   -> m ()
-  -> (R.Event t TaskInfos -> R.Event t [Task])
+  -> (R.Event t (NonEmpty TaskInfos) -> R.Event t (NonEmpty Task))
   -> m ()
 taskDropArea blacklistD areaW handler = do
   tasksD     <- getTasks
@@ -49,8 +52,8 @@ taskDropArea blacklistD areaW handler = do
         dragState <- dragStateD
         blacklist <- blacklistD
         let retval
-              | DraggedTask draggedUuid <- dragState
-              , draggedUuid `notElem` blacklist
+              | DraggedTasks draggedUuid <- dragState
+              , all (`notElem` blacklist) draggedUuid
               = Just draggedUuid
               | otherwise
               = Nothing
@@ -61,12 +64,12 @@ taskDropArea blacklistD areaW handler = do
       let event = D.domEvent D.Click dropEl
       tellSingleton $ (_Typed @AppStateChange % _Typed # NoDrag) <$ event
       let droppedTaskEvent = R.attachWithMaybe
-            (const . flip lookupTask draggedUuid)
+            (\tasks -> const . sequence $ lookupTask tasks <$> draggedUuid)
             (R.current tasksD)
             event
       R.tellEvent
         $   fmap (_Typed @AppStateChange % _Typed @DataChange % #_ChangeTask #)
-        <$> R.fmapMaybe nonEmpty (handler droppedTaskEvent)
+        <$> handler droppedTaskEvent
     Nothing -> pass
 
 childDropArea
@@ -76,10 +79,8 @@ childDropArea
   -> m ()
   -> m ()
 childDropArea pos blacklistD areaW =
-  taskDropArea blacklistD areaW
-    $ saveSorting (pos ^. #mode) (pos ^. #list)
-    . R.attachWith (\u t -> (t ^. #task, u)) (pos ^. #before)
-
+  taskDropArea blacklistD areaW $ saveSorting (pos ^. #mode) (pos ^. #list)
+    . R.attachWith (\u t -> ((^. #task) <$> t, u)) (pos ^. #before)
 
 droppableElementConfig
   :: forall s d

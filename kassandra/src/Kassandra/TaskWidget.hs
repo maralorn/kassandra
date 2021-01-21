@@ -1,57 +1,59 @@
 module Kassandra.TaskWidget
   ( taskTreeWidget
   , taskList
-  )
-where
+  ) where
 
-import qualified Data.Text                     as Text
 import qualified Data.HashSet                  as HashSet
+import qualified Data.List                     as List
 import qualified Data.Set                      as Set
-import           Reflex.Dom                     ( (=:) )
-import qualified Reflex.Dom                    as D
-import qualified Reflex                        as R
-import qualified Taskwarrior.Status            as Status
-import           Taskwarrior.UDA                ( UDA )
-import           Kassandra.Util                 ( tellNewTask
-                                                , lookupCurrentDyn
-                                                , lookupCurrent
-                                                , lookupTasksM
-                                                , tellTask
-                                                , tellToggle
-                                                )
-import           Kassandra.Types                (DragState(DraggedTask), getDragState,  getExpandedTasks
-                                                , getIsExpanded
-                                                , ToggleEvent(ToggleEvent)
-                                                , TaskTreeState
-                                                , Have
-                                                , TaskTreeStateChange
-                                                , TaskTreeWidget
-                                                , getTime
-                                                , StandardWidget
-                                                , TaskInfos
-                                                , AppState
-                                                , getAppState
-                                                , al
-                                                , fl
-                                                )
-import           Kassandra.TextEditWidget       ( lineWidget
-                                                , createTextWidget
-                                                )
+import qualified Data.Text                     as Text
 import           Kassandra.BaseWidgets          ( button
                                                 , icon
                                                 )
-import           Kassandra.Sorting              ( sortTasks
-                                                , SortMode(SortModePartof)
-                                                , SortPosition(SortPosition)
+import           Kassandra.Debug                ( Severity(..)
+                                                , log
                                                 )
-import           Kassandra.DragAndDrop          ( tellDragTask
+import           Kassandra.DragAndDrop          ( childDropArea
                                                 , taskDropArea
-                                                , childDropArea
+                                                , tellDragTask
+                                                )
+import           Kassandra.Sorting              ( SortMode(SortModePartof)
+                                                , SortPosition(SortPosition)
+                                                , sortTasks
+                                                )
+import           Kassandra.TextEditWidget       ( createTextWidget
+                                                , lineWidget
                                                 )
 import           Kassandra.TimeWidgets          ( dateSelectionWidget )
-import           Kassandra.Debug                ( log
-                                                , Severity(..)
+import           Kassandra.Types                ( AppState
+                                                , DragState(DraggedTasks)
+                                                , Have
+                                                , StandardWidget
+                                                , TaskInfos
+                                                , TaskTreeState
+                                                , TaskTreeStateChange
+                                                , TaskTreeWidget
+                                                , ToggleEvent(ToggleEvent)
+                                                , al
+                                                , fl
+                                                , getAppState
+                                                , getDragState
+                                                , getExpandedTasks
+                                                , getIsExpanded
+                                                , getTime
                                                 )
+import           Kassandra.Util                 ( lookupCurrent
+                                                , lookupCurrentDyn
+                                                , lookupTasksM
+                                                , tellNewTask
+                                                , tellTask
+                                                , tellToggle
+                                                )
+import qualified Reflex                        as R
+import           Reflex.Dom                     ( (=:) )
+import qualified Reflex.Dom                    as D
+import qualified Taskwarrior.Status            as Status
+import           Taskwarrior.UDA                ( UDA )
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -102,7 +104,6 @@ taskWidget taskInfos' = D.divClass "task" $ do
     D.divClass "statusWrapper" statusWidget
     D.divClass "righttask" $ do
       collapseButton
-      dropChildWidget
       descriptionWidget
       tagsWidget
       waitWidget
@@ -113,6 +114,8 @@ taskWidget taskInfos' = D.divClass "task" $ do
       addChildWidget
       deleteButton
       completedWidget
+      selectWidget
+      dropChildWidget
 
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do
@@ -195,19 +198,16 @@ dropChildWidget = do
   taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
                (icon "dropHere plusOne" "block")
     $ fmap
-        (\dependency ->
+        (\dependencies ->
           one
             $  #depends
-            %~ Set.insert (dependency ^. #uuid)
+            %~ Set.union (Set.fromList $ toList $ (^. #uuid) <$> dependencies)
             $  taskInfos
             ^. #task
         )
   taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
                (icon "dropHere plusTwo" "schedule")
-    $ fmap
-        (\task ->
-          one $ #depends %~ Set.insert (taskInfos ^. #uuid) $ task ^. #task
-        )
+    $ fmap (fmap ((#depends %~ Set.insert (taskInfos ^. #uuid)) . (^. #task)))
 
 tagsWidget :: forall t m r e . TaskWidget t m r e => m ()
 tagsWidget = do
@@ -292,15 +292,24 @@ dueWidget = do
   event <- dateSelectionWidget "due" $ task ^. #due
   tellTask $ flip (#due .~) task <$> event
 
+selectWidget :: TaskWidget t m r e => m ()
+selectWidget = do
+  uuid <- getTaskInfos ^. al (#task % #uuid)
+  (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
+  dragStateB  <- R.current <$> getDragState
+  tellDragTask $ R.attachWith
+    (\dragState _ -> case dragState of
+      DraggedTasks (toList -> uuids) ->
+        if uuid `elem` uuids then List.delete uuid uuids else uuids ++ [uuid]
+      _ -> [uuid]
+    )
+    dragStateB
+    (D.domEvent D.Click dragEl)
+
 descriptionWidget :: TaskWidget t m r e => m ()
 descriptionWidget = do
-  task        <- getTaskInfos ^. al #task
-  let uuid = task ^. #uuid
-  (dragEl, _) <- D.el' "span"
-    $ icon "edit slimButton" "open_with"
-  event <- lineWidget $ task ^. #description
-  dragStateB <- R.current <$> getDragState
-  tellDragTask $ R.attachWith (\dragState _ -> if dragState == DraggedTask uuid then Nothing else Just uuid) dragStateB (D.domEvent D.Click dragEl)
+  task <- getTaskInfos ^. al #task
+  event       <- lineWidget $ task ^. #description
   tellTask $ flip (#description .~) task <$> event
 
 tellStatusByTime

@@ -15,13 +15,15 @@ import           Kassandra.Types                ( al
                                                 , Widget
                                                 , getTasks
                                                 )
-import           Kassandra.Util                 ( filterCurrent )
+import           Kassandra.Util                 (tellNewTask,  filterCurrent )
 import           Kassandra.TaskWidget           ( taskList
                                                 , taskTreeWidget
                                                 )
 import           Kassandra.Sorting              ( sortTasks
                                                 , SortMode(SortModeTag)
                                                 )
+import Kassandra.TextEditWidget (createTextWidget)
+import Kassandra.BaseWidgets (button)
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving stock (Eq, Show, Read)
 
@@ -47,10 +49,10 @@ listsWidget = do
     buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
     R.holdDyn (SubList []) buttonSum
   listButton :: (Widget t m) => TaskList -> m (R.Event t TaskList)
-  listButton list | TagList tag <- list = button tag
-                  | otherwise           = button "Anonymous List"
+  listButton list | TagList tag <- list = localButton tag
+                  | otherwise           = localButton "Anonymous List"
    where
-    button =
+    localButton =
       fmap ((list <$) . D.domEvent D.Click . fst)
         . D.elClass' "a" "selector"
         . D.text
@@ -78,6 +80,8 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
                (sortTasks sortMode <$> showTasks)
                (R.constDyn [])
                taskTreeWidget
+      tellNewTask . fmap (, #tags %~ Set.insert tag) =<< createTextWidget
+          (button "selector" $ D.text "Add task to list")
     | SubList sublists <- list'
     = void . D.simpleList (D.constDyn sublists) $ listWidget
 

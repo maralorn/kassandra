@@ -5,7 +5,7 @@ module Kassandra.Types
   , TaskInfos(TaskInfos)
   , TaskState
   , AppStateChange
-  , DragState(DraggedTask, NoDrag)
+  , DragState(DraggedTasks, NoDrag)
   , TaskTreeState
   , TaskTreeStateChange
   , DataChange(ChangeTask, CreateTask)
@@ -58,7 +58,7 @@ makeLabels ''TaskInfos
 
 type TaskState = (HashMap UUID TaskInfos)
 
-data DragState = DraggedTask UUID | DraggedTag Text | NoDrag deriving stock (Eq, Show, Generic)
+data DragState = DraggedTasks (NonEmpty UUID) | DraggedTag Text | NoDrag deriving stock (Eq, Show, Generic)
 makePrismLabels ''DragState
 
 data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) deriving stock (Generic)
