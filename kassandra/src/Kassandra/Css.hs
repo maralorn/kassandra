@@ -32,9 +32,7 @@ css fontPath = do
        fontFamily [fontName] []
        fontFaceSrc [FontFaceSrcUrl fontSrc (Just TrueType)]
   let --darkBlue      = rgb 0 0 33
-      veryLightBlue = rgb 235 235 255
       lightBlue     = rgb 200 200 255
-      lighterBlue   = rgb 144 144 255
       noMargin      = margin (px 0) (px 0) (px 0) (px 0)
       noPadding     = padding (px 0) (px 0) (px 0) (px 0)
   star ? do
