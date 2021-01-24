@@ -200,13 +200,13 @@ webClientSocket closeEvent backend@RemoteBackend { url, user, password } = do
         mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
     (taskMap :: Map UUID Task) <-
       maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
-    let f tasks currentMap = foldr
-          (\task theMap -> insert (task ^. #uuid) task theMap)
-          currentMap
-          tasks
-    tasksToSave <- R.foldDyn f taskMap taskUpdates
-    R.performEvent_ $ R.updated tasksToSave <&> \tasks ->
-      setItem storage mapKey (decodeUtf8 @Text . encode $ tasks)
+    --let f tasks currentMap = foldr
+          --(\task theMap -> insert (task ^. #uuid) task theMap)
+          --currentMap
+          --tasks
+    --tasksToSave <- R.foldDyn f taskMap taskUpdates
+    --R.performEvent_ $ R.updated tasksToSave <&> \tasks ->
+    --  setItem storage mapKey (decodeUtf8 @Text . encode $ tasks)
     ev <- R.getPostBuild
     let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
     pure . pure $ taskUpdates <> cachedTasks
