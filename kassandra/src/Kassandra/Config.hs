@@ -1,68 +1,70 @@
-module Kassandra.Config
-  ( AccountConfig(..)
-  , RemoteBackend(..)
-  , NamedBackend(..)
-  , UserConfig(..)
-  , LocalBackend(..)
-  , Dict
-  , UIConfig(..)
-  , PortConfig(..)
-  , Widget(..)
-  , TreeOption(..)
-  , ListItem(..)
-  , HabiticaTask(..)
-  , HabiticaList(..)
-  , DefinitionElement(..)
-  , ListQuery(..)
-  , Query
-  , QueryFilter(..)
-  , TaskProperty(..)
-  , UIFeatures(..)
-  , PasswordConfig(..)
-  , NamedListQuery(..)
-  , TaskwarriorOption(..)
-  ) where
+module Kassandra.Config (
+  AccountConfig (..),
+  RemoteBackend (..),
+  NamedBackend (..),
+  UserConfig (..),
+  LocalBackend (..),
+  Dict,
+  UIConfig (..),
+  PortConfig (..),
+  Widget (..),
+  TreeOption (..),
+  ListItem (..),
+  HabiticaTask (..),
+  HabiticaList (..),
+  DefinitionElement (..),
+  ListQuery (..),
+  Query,
+  QueryFilter (..),
+  TaskProperty (..),
+  UIFeatures (..),
+  PasswordConfig (..),
+  NamedListQuery (..),
+  TaskwarriorOption (..),
+) where
 
-import           Data.Default.Class
-import           Data.Password.Argon2           ( Argon2
-                                                , PasswordHash
-                                                )
+import Data.Default.Class
+import Data.Password.Argon2 (
+  Argon2,
+  PasswordHash,
+ )
 
 type Dict = Map Text
 
-
 data AccountConfig = AccountConfig
   { passwordHash :: PasswordHash Argon2
-  , userConfig   :: UserConfig
-  , filterTag    :: Text
+  , userConfig :: UserConfig
+  , filterTag :: Text
   }
   deriving stock (Show, Eq, Ord, Generic)
 
 data UserConfig = UserConfig
   { localBackend :: LocalBackend
-  , uiConfig     :: UIConfig
+  , uiConfig :: UIConfig
   }
   deriving stock (Show, Eq, Ord, Generic)
 
 data UIConfig = UIConfig
-  { viewList        :: Seq Widget
+  { viewList :: Seq Widget
   , configuredLists :: Seq NamedListQuery
-  , uiFeatures      :: UIFeatures
+  , uiFeatures :: UIFeatures
   }
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Default UIConfig where
-  def = UIConfig { viewList        = mempty
-                 , configuredLists = mempty
-                 , uiFeatures      = UIFeatures True PartOfTree
-                 }
+  def =
+    UIConfig
+      { viewList = mempty
+      , configuredLists = mempty
+      , uiFeatures = UIFeatures True PartOfTree
+      }
 
 instance Default UserConfig where
   def = UserConfig def def
 
 data UIFeatures = UIFeatures
-  { sortInTag  :: Bool
+  { sortInTag :: Bool
   , treeOption :: TreeOption
   }
   deriving stock (Show, Eq, Ord, Generic, Read)
@@ -99,7 +101,7 @@ data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | Lis
   deriving anyclass (ToJSON, FromJSON)
 
 data TaskwarriorOption = TaskwarriorOption
-  { name  :: Text
+  { name :: Text
   , value :: Text
   }
   deriving stock (Show, Eq, Ord, Generic)
@@ -152,54 +154,56 @@ data PasswordConfig = Prompt | Password {plaintext :: Text} | PasswordCommand {c
 data LocalBackend
   = TaskwarriorBackend
       { -- | Set config file
-        taskRcPath :: Maybe Text,
-        -- | Set task data directory
-        taskDataPath :: Maybe Text,
-        -- | Override config variables
-        taskConfig :: Seq TaskwarriorOption,
-        -- | Path to taskwarrior binary. Nothing => Lookup "task" from PATH
-        taskBin :: Maybe Text,
-        -- | Use the first free port from the given range for the taskwarrior hook listener.
-        hookListenPort :: PortConfig,
-        -- | Created hooks are called ".on-add.<suffix>.<port>" and ".on-remove.<suffix>.<port>"
-        hookSuffix :: Text,
-        -- | Ensure existence of taskwarrior hook on every start
-        createHooksOnStart :: Bool,
-        -- | Remove hook on exit.
+        taskRcPath :: Maybe Text
+      , -- | Set task data directory
+        taskDataPath :: Maybe Text
+      , -- | Override config variables
+        taskConfig :: Seq TaskwarriorOption
+      , -- | Path to taskwarrior binary. Nothing => Lookup "task" from PATH
+        taskBin :: Maybe Text
+      , -- | Use the first free port from the given range for the taskwarrior hook listener.
+        hookListenPort :: PortConfig
+      , -- | Created hooks are called ".on-add.<suffix>.<port>" and ".on-remove.<suffix>.<port>"
+        hookSuffix :: Text
+      , -- | Ensure existence of taskwarrior hook on every start
+        createHooksOnStart :: Bool
+      , -- | Remove hook on exit.
         removeHooksOnExit :: Bool
       }
   | GitBackend
-      { directoryPath :: Text,
-        commit :: Bool,
-        configureMerge :: Bool,
-        createIfMissing :: Bool,
-        origin :: Maybe Text,
-        pushOnWrite :: Bool,
-        watchFiles :: Bool,
-        pullTimerSeconds :: Maybe Natural
+      { directoryPath :: Text
+      , commit :: Bool
+      , configureMerge :: Bool
+      , createIfMissing :: Bool
+      , origin :: Maybe Text
+      , pushOnWrite :: Bool
+      , watchFiles :: Bool
+      , pullTimerSeconds :: Maybe Natural
       }
   deriving stock (Show, Eq, Ord, Generic)
 
 instance Default LocalBackend where
-  def = TaskwarriorBackend { taskRcPath         = Nothing
-                           , taskDataPath       = Nothing
-                           , taskConfig         = mempty
-                           , taskBin            = Nothing
-                           , hookListenPort     = Port 6545
-                           , hookSuffix         = "kassandra"
-                           , createHooksOnStart = True
-                           , removeHooksOnExit  = True
-                           }
+  def =
+    TaskwarriorBackend
+      { taskRcPath = Nothing
+      , taskDataPath = Nothing
+      , taskConfig = mempty
+      , taskBin = Nothing
+      , hookListenPort = Port 6545
+      , hookSuffix = "kassandra"
+      , createHooksOnStart = True
+      , removeHooksOnExit = True
+      }
 
 data RemoteBackend a = RemoteBackend
-  { url      :: Text
-  , user     :: Text
+  { url :: Text
+  , user :: Text
   , password :: a
   }
   deriving stock (Show, Eq, Ord, Generic)
 
 data NamedBackend b = NamedBackend
-  { name    :: Text
+  { name :: Text
   , backend :: b
   }
   deriving stock (Show, Eq, Ord, Generic)

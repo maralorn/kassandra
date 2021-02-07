@@ -1,14 +1,14 @@
-module Kassandra.Css
-  ( cssAsBS
-  , cssAsText
-  ) where
+module Kassandra.Css (
+  cssAsBS,
+  cssAsText,
+) where
 
-import           Clay
-import           Prelude                 hiding ( (&)
-                                                , i
-                                                , (|>)
-                                                )
-
+import Clay
+import Prelude hiding (
+  i,
+  (&),
+  (|>),
+ )
 
 cssToBS :: Css -> ByteString
 cssToBS = encodeUtf8 . cssToText
@@ -28,13 +28,13 @@ fontName = "Material Icons"
 css :: Maybe Text -> Css
 css fontPath = do
   whenJust fontPath $ \fontSrc -> do
-     fontFace $ do
-       fontFamily [fontName] []
-       fontFaceSrc [FontFaceSrcUrl fontSrc (Just TrueType)]
+    fontFace $ do
+      fontFamily [fontName] []
+      fontFaceSrc [FontFaceSrcUrl fontSrc (Just TrueType)]
   let --darkBlue      = rgb 0 0 33
-      lightBlue     = rgb 200 200 255
-      noMargin      = margin (px 0) (px 0) (px 0) (px 0)
-      noPadding     = padding (px 0) (px 0) (px 0) (px 0)
+      lightBlue = rgb 200 200 255
+      noMargin = margin (px 0) (px 0) (px 0) (px 0)
+      noPadding = padding (px 0) (px 0) (px 0) (px 0)
   star ? do
     fontFamily ["B612"] []
     noMargin
@@ -76,24 +76,24 @@ css fontPath = do
   ".above" ? marginTop (em (-0.8))
   ".pane" ? width (pct 100)
   let buttonPadding =
-          padding (em 0.3) (em 0.5) (em 0.3) (em 0.5)
+        padding (em 0.3) (em 0.5) (em 0.3) (em 0.5)
       buttonCss = do
-          display inlineBlock
-          margin (px 1) (px 1) (px 1) (px 1)
-          buttonPadding
-          border solid (em 0.1) black
-          active & do
-             background black
-             color white
+        display inlineBlock
+        margin (px 1) (px 1) (px 1) (px 1)
+        buttonPadding
+        border solid (em 0.1) black
+        active & do
+          background black
+          color white
   ".button" ? buttonCss
   ".selector" ? buttonCss
   --".tag" ? ".icon" ? do
-    --position absolute
-    --borderRadius tagRadius tagRadius tagRadius tagRadius
-    --background lightBlue
-    --marginLeft (em (-1.1))
-    --marginTop (em 0.70)
-    --fontSize (em 0.85)
+  --position absolute
+  --borderRadius tagRadius tagRadius tagRadius tagRadius
+  --background lightBlue
+  --marginLeft (em (-1.1))
+  --marginTop (em 0.70)
+  --fontSize (em 0.85)
   ".material-icons" ? do
     fontFamily [fontName] []
     fontWeight normal
@@ -111,7 +111,7 @@ css fontPath = do
   ".path" ? do
     color grey
     fontSize (em 0.8)
-  let radius       = em 0.3
+  let radius = em 0.3
       leftBarWidth = em 1.8
   ".activeEdit" ? buttonPadding
   ".task" ? do
@@ -136,8 +136,8 @@ css fontPath = do
     padding (px 0) (px 0) (px 0) leftBarWidth
     background black
   --".slimButton" ? do
-    --marginRight (px (-5))
-    --marginLeft (px (-5))
+  --marginRight (px (-5))
+  --marginLeft (px (-5))
   let blockSize = do
         width (em 1)
         height (em 1)
@@ -157,4 +157,4 @@ css fontPath = do
       ".show" & color black
       ".showable" & display none
     active & i ? do
-       background black
+      background black

@@ -1,57 +1,62 @@
 {-# LANGUAGE DerivingStrategies #-}
-module Kassandra.Standalone.Config
-  ( readConfig
-  , writeDeclarations
-  , StandaloneConfig
-  , StandaloneAccount(LocalAccount, RemoteAccount)
-  , backends
-  ) where
 
-import           Dhall                          ( FromDhall )
-import           Kassandra.Config               ( AccountConfig
-                                                , LocalBackend
-                                                , NamedBackend
-                                                , NamedListQuery
-                                                , PasswordConfig
-                                                , PortConfig
-                                                , RemoteBackend
-                                                , TaskwarriorOption
-                                                , TreeOption
-                                                , UserConfig
-                                                , Widget
-                                                )
-import           Kassandra.Config.Dhall         ( DhallLoadConfig(..)
-                                                , dhallType
-                                                , loadDhallConfig
-                                                )
+module Kassandra.Standalone.Config (
+  readConfig,
+  writeDeclarations,
+  StandaloneConfig,
+  StandaloneAccount (LocalAccount, RemoteAccount),
+  backends,
+) where
+
+import Dhall (FromDhall)
+import Kassandra.Config (
+  AccountConfig,
+  LocalBackend,
+  NamedBackend,
+  NamedListQuery,
+  PasswordConfig,
+  PortConfig,
+  RemoteBackend,
+  TaskwarriorOption,
+  TreeOption,
+  UserConfig,
+  Widget,
+ )
+import Kassandra.Config.Dhall (
+  DhallLoadConfig (..),
+  dhallType,
+  loadDhallConfig,
+ )
+
 newtype StandaloneConfig = Config
   { backends :: NonEmpty (NamedBackend StandaloneAccount)
   }
   deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass FromDhall
+  deriving anyclass (FromDhall)
 
 data StandaloneAccount = RemoteAccount {backend :: Maybe (RemoteBackend PasswordConfig)} | LocalAccount {userConfig :: UserConfig}
   deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass FromDhall
+  deriving anyclass (FromDhall)
 
 dhallTypes :: Text
-dhallTypes = [i|{
+dhallTypes =
+  [i|{
                  #{assignments}
                }|]
  where
   types :: [(String, Text)]
   types =
     [ ("StandaloneAccount", dhallType @StandaloneAccount)
-    , ("Widget"           , dhallType @Widget)
-    , ("NamedListQuery"   , dhallType @NamedListQuery)
-    , ("LocalBackend"     , dhallType @LocalBackend)
-    , ("TreeOption"       , dhallType @TreeOption)
-    , ("PortConfig"       , dhallType @PortConfig)
+    , ("Widget", dhallType @Widget)
+    , ("NamedListQuery", dhallType @NamedListQuery)
+    , ("LocalBackend", dhallType @LocalBackend)
+    , ("TreeOption", dhallType @TreeOption)
+    , ("PortConfig", dhallType @PortConfig)
     , ("TaskwarriorOption", dhallType @TaskwarriorOption)
-    , ("StandaloneConfig" , dhallType @StandaloneConfig)
-    , ("PasswordConfig"   , dhallType @PasswordConfig)
-    , ("AccountConfig"    , dhallType @AccountConfig)
-    , ("RemoteBackend"    , dhallType @(RemoteBackend PasswordConfig))
+    , ("StandaloneConfig", dhallType @StandaloneConfig)
+    , ("PasswordConfig", dhallType @PasswordConfig)
+    , ("AccountConfig", dhallType @AccountConfig)
+    , ("RemoteBackend", dhallType @(RemoteBackend PasswordConfig))
     ]
   assignments =
     intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types
@@ -61,10 +66,13 @@ writeDeclarations =
   writeFileText "/home/maralorn/.config/kassandra/types.dhall" dhallTypes
 
 readConfig :: Maybe Text -> IO StandaloneConfig
-readConfig = loadDhallConfig DhallLoadConfig
-  { envName = "KASSANDRA_CONFIG"
-  , defaultFile = "~/.config/kassandra/config.dhall"
-  , defaultConfig = [i|
+readConfig =
+  loadDhallConfig
+    DhallLoadConfig
+      { envName = "KASSANDRA_CONFIG"
+      , defaultFile = "~/.config/kassandra/config.dhall"
+      , defaultConfig =
+          [i|
     let
       types = #{dhallTypes} in
     {
@@ -97,4 +105,4 @@ readConfig = loadDhallConfig DhallLoadConfig
       ]
     }
 |]
-  }
+      }

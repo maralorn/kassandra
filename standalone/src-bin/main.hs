@@ -1,6 +1,6 @@
 module Main (main) where
 
-import           Kassandra.Standalone                     ( standalone )
+import Kassandra.Standalone (standalone)
 
 main :: IO ()
 main = standalone

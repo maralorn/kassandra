@@ -1,59 +1,66 @@
-module Kassandra.TaskWidget
-  ( taskTreeWidget
-  , taskList
-  ) where
+module Kassandra.TaskWidget (
+  taskTreeWidget,
+  taskList,
+) where
 
-import qualified Data.HashSet                  as HashSet
-import qualified Data.List                     as List
-import qualified Data.Set                      as Set
-import qualified Data.Text                     as Text
-import           Kassandra.BaseWidgets          ( button
-                                                , icon
-                                                )
-import           Kassandra.Debug                ( Severity(..)
-                                                , log
-                                                )
-import           Kassandra.DragAndDrop          ( childDropArea
-                                                , taskDropArea
-                                                , tellDragTask
-                                                )
-import           Kassandra.Sorting              ( SortMode(SortModePartof)
-                                                , SortPosition(SortPosition)
-                                                , sortTasks
-                                                )
-import           Kassandra.TextEditWidget       ( createTextWidget
-                                                , lineWidget
-                                                )
-import           Kassandra.TimeWidgets          ( dateSelectionWidget )
-import           Kassandra.Types                ( AppState
-                                                , DragState(DraggedTasks)
-                                                , Have
-                                                , StandardWidget
-                                                , TaskInfos
-                                                , TaskTreeState
-                                                , TaskTreeStateChange
-                                                , TaskTreeWidget
-                                                , ToggleEvent(ToggleEvent)
-                                                , al
-                                                , fl
-                                                , getAppState
-                                                , getDragState
-                                                , getExpandedTasks
-                                                , getIsExpanded
-                                                , getTime
-                                                )
-import           Kassandra.Util                 ( lookupCurrent
-                                                , lookupCurrentDyn
-                                                , lookupTasksM
-                                                , tellNewTask
-                                                , tellTask
-                                                , tellToggle
-                                                )
-import qualified Reflex                        as R
-import           Reflex.Dom                     ( (=:) )
-import qualified Reflex.Dom                    as D
-import qualified Taskwarrior.Status            as Status
-import           Taskwarrior.UDA                ( UDA )
+import qualified Data.HashSet as HashSet
+import qualified Data.List as List
+import qualified Data.Set as Set
+import qualified Data.Text as Text
+import Kassandra.BaseWidgets (
+  button,
+  icon,
+ )
+import Kassandra.Debug (
+  Severity (..),
+  log,
+ )
+import Kassandra.DragAndDrop (
+  childDropArea,
+  taskDropArea,
+  tellDragTask,
+ )
+import Kassandra.Sorting (
+  SortMode (SortModePartof),
+  SortPosition (SortPosition),
+  sortTasks,
+ )
+import Kassandra.TextEditWidget (
+  createTextWidget,
+  lineWidget,
+ )
+import Kassandra.TimeWidgets (dateSelectionWidget)
+import Kassandra.Types (
+  AppState,
+  DragState (DraggedTasks),
+  Have,
+  StandardWidget,
+  TaskInfos,
+  TaskTreeState,
+  TaskTreeStateChange,
+  TaskTreeWidget,
+  ToggleEvent (ToggleEvent),
+  al,
+  fl,
+  getAppState,
+  getDragState,
+  getExpandedTasks,
+  getIsExpanded,
+  getTime,
+ )
+import Kassandra.Util (
+  lookupCurrent,
+  lookupCurrentDyn,
+  lookupTasksM,
+  tellNewTask,
+  tellTask,
+  tellToggle,
+ )
+import qualified Reflex as R
+import Reflex.Dom ((=:))
+import qualified Reflex.Dom as D
+import qualified Taskwarrior.Status as Status
+import Taskwarrior.UDA (UDA)
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -67,36 +74,39 @@ getTaskInfos = ask ^. al typed
 getChildren :: TaskWidget t m r e => m (R.Dynamic t [TaskInfos])
 getChildren = getTaskInfos ^. al #children >>= lookupCurrent
 
-
-taskTreeWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskInfos -> m ()
+taskTreeWidget ::
+  forall t m r e. StandardWidget t m r e => R.Dynamic t TaskInfos -> m ()
 taskTreeWidget taskInfosD = do
   log Debug "Creating Tasktree Widget"
   (appState :: AppState t) <- getAppState
-  rec treeState <- R.foldDyn
-        (flip $ foldr
-          (\case
-            ToggleEvent uuid False -> HashSet.delete uuid
-            ToggleEvent uuid True  -> HashSet.insert uuid
-          ) :: NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
-        )
-        mempty
-        treeStateChanges
+  rec treeState <-
+        R.foldDyn
+          ( flip $
+              foldr
+                ( \case
+                    ToggleEvent uuid False -> HashSet.delete uuid
+                    ToggleEvent uuid True -> HashSet.insert uuid
+                ) ::
+              NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
+          )
+          mempty
+          treeStateChanges
       (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
-        R.runEventWriterT
-          $ runReaderT (taskWidget taskInfosD) (appState, treeState)
+        R.runEventWriterT $
+          runReaderT (taskWidget taskInfosD) (appState, treeState)
       let (appStateChanges, treeStateChanges) =
             R.fanThese $ partitionEithersNE <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
-taskWidget
-  :: forall t m r e . (TaskTreeWidget t m r e) => R.Dynamic t TaskInfos -> m ()
+taskWidget ::
+  forall t m r e. (TaskTreeWidget t m r e) => R.Dynamic t TaskInfos -> m ()
 taskWidget taskInfos' = D.divClass "task" $ do
   taskInfosD <- R.holdUniqDyn taskInfos'
-  appState   <- getAppState
-  treeState  <- ask ^. al (typed @(TaskTreeState t))
-  D.dyn_ $ taskInfosD <&> \taskInfos ->
-    runReaderT widgets (appState, taskInfos, treeState)
+  appState <- getAppState
+  treeState <- ask ^. al (typed @(TaskTreeState t))
+  D.dyn_ $
+    taskInfosD <&> \taskInfos ->
+      runReaderT widgets (appState, taskInfos, treeState)
   childrenWidget taskInfosD
  where
   widgets :: ReaderT (AppState t, TaskInfos, TaskTreeState t) m ()
@@ -136,80 +146,89 @@ br = D.el "br" pass
 
 dependenciesWidget :: (TaskWidget t m r e) => m ()
 dependenciesWidget = do
-  taskInfos  <- getTaskInfos
+  taskInfos <- getTaskInfos
   revDepends <- lookupTasksM $ taskInfos ^. #revDepends
-  depends    <- lookupTasksM . toList $ taskInfos ^. #depends
-  D.dyn_ $ whenNotNull <$> depends <*> pure
-    (\ds -> do
-      br
-      D.text "dependencies: "
-      forM_ ds $ \d -> do
-        makeOwnPath d
-        deleteEvent <- button "edit" $ icon "" "delete"
-        tellTask $ removeDep (taskInfos ^. #task) d <$ deleteEvent
-        br
-    )
-  D.dyn_ $ whenNotNull <$> revDepends <*> pure
-    (\rds -> do
-      br
-      D.text "reverse dependencies: "
-      forM_ rds $ \rd -> do
-        makeOwnPath rd
-        deleteEvent <- button "edit" $ icon "" "delete"
-        tellTask $ removeDep (rd ^. #task) taskInfos <$ deleteEvent
-        br
-    )
+  depends <- lookupTasksM . toList $ taskInfos ^. #depends
+  D.dyn_ $
+    whenNotNull <$> depends
+      <*> pure
+        ( \ds -> do
+            br
+            D.text "dependencies: "
+            forM_ ds $ \d -> do
+              makeOwnPath d
+              deleteEvent <- button "edit" $ icon "" "delete"
+              tellTask $ removeDep (taskInfos ^. #task) d <$ deleteEvent
+              br
+        )
+  D.dyn_ $
+    whenNotNull <$> revDepends
+      <*> pure
+        ( \rds -> do
+            br
+            D.text "reverse dependencies: "
+            forM_ rds $ \rd -> do
+              makeOwnPath rd
+              deleteEvent <- button "edit" $ icon "" "delete"
+              tellTask $ removeDep (rd ^. #task) taskInfos <$ deleteEvent
+              br
+        )
  where
-  removeDep
-    :: ( Is k1 A_Getter
-       , Is k2 A_Setter
-       , LabelOptic "depends" k2 s1 t (Set UUID) (Set UUID)
-       , LabelOptic "uuid" k1 s2 s2 UUID UUID
-       )
-    => s1
-    -> s2
-    -> t
+  removeDep ::
+    ( Is k1 A_Getter
+    , Is k2 A_Setter
+    , LabelOptic "depends" k2 s1 t (Set UUID) (Set UUID)
+    , LabelOptic "uuid" k1 s2 s2 UUID UUID
+    ) =>
+    s1 ->
+    s2 ->
+    t
   removeDep task dependency =
     #depends %~ Set.filter (dependency ^. #uuid /=) $ task
 
 makeOwnPath :: (TaskWidget t m r e) => TaskInfos -> m ()
 makeOwnPath task =
   D.dyn_
-    .   fmap (makePath . (\ps -> task ^. #description :| ps))
+    . fmap (makePath . (\ps -> task ^. #description :| ps))
     =<< lookupTasksM (task ^. #parents)
-    ^.  #description
+    ^. #description
 
 dropChildWidget :: (TaskWidget t m r e) => m ()
 dropChildWidget = do
   taskInfos <- getTaskInfos
   childrenD <- getChildren
-  showIcon  <- fmap not <$> getIsExpanded (taskInfos ^. #uuid)
-  D.dyn_ $ when <$> showIcon <*> pure
-    ( childDropArea
-        (SortPosition (SortModePartof <$> taskInfos ^. #uuid % to R.constant)
-                      (childrenD ^. al (al #task) % #current)
-                      (R.constant Nothing)
+  showIcon <- fmap not <$> getIsExpanded (taskInfos ^. #uuid)
+  D.dyn_ $
+    when <$> showIcon
+      <*> pure
+        ( childDropArea
+            ( SortPosition
+                (SortModePartof <$> taskInfos ^. #uuid % to R.constant)
+                (childrenD ^. al (al #task) % #current)
+                (R.constant Nothing)
+            )
+            ( R.constDyn
+                (taskInfos ^. #uuid : taskInfos ^. #parents <> taskInfos ^. #children)
+            )
+            $ icon "dropHere" "move_to_inbox"
         )
-        (R.constDyn
-          (taskInfos ^. #uuid : taskInfos ^. #parents <> taskInfos ^. #children)
-        )
-    $ icon "dropHere" "move_to_inbox"
-    )
-  taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
-               (icon "dropHere plusOne" "block")
+  taskDropArea
+    (taskInfos ^. #uuid % to (R.constDyn . one))
+    (icon "dropHere plusOne" "block")
     $ fmap
-        (\dependencies ->
-          one
-            $  #depends
-            %~ Set.union (Set.fromList $ toList $ (^. #uuid) <$> dependencies)
-            $  taskInfos
-            ^. #task
-        )
-  taskDropArea (taskInfos ^. #uuid % to (R.constDyn . one))
-               (icon "dropHere plusTwo" "schedule")
+      ( \dependencies ->
+          one $
+            #depends
+              %~ Set.union (Set.fromList $ toList $ (^. #uuid) <$> dependencies)
+              $ taskInfos
+                ^. #task
+      )
+  taskDropArea
+    (taskInfos ^. #uuid % to (R.constDyn . one))
+    (icon "dropHere plusTwo" "schedule")
     $ fmap (fmap ((#depends %~ Set.insert (taskInfos ^. #uuid)) . (^. #task)))
 
-tagsWidget :: forall t m r e . TaskWidget t m r e => m ()
+tagsWidget :: forall t m r e. TaskWidget t m r e => m ()
 tagsWidget = do
   task <- getTaskInfos ^. al #task
   forM_ (task ^. #tags) $ \tag -> D.elClass "span" "tag" $ do
@@ -219,68 +238,71 @@ tagsWidget = do
   tagEvent <- createTextWidget . button "edit" $ icon "" "add_circle"
   tellTask $ (\tag -> #tags %~ Set.insert tag $ task) <$> tagEvent
 
-getNewUDA :: forall t m r e . TaskWidget t m r e => m UDA
-getNewUDA = one . ("partof", ) . toJSON <$> getTaskInfos ^. al #uuid
+getNewUDA :: forall t m r e. TaskWidget t m r e => m UDA
+getNewUDA = one . ("partof",) . toJSON <$> getTaskInfos ^. al #uuid
 
 addChildWidget :: TaskWidget t m r e => m ()
 addChildWidget = do
   descriptionEvent <- createTextWidget . button "edit" $ icon "" "add_circle"
-  newUDA           <- getNewUDA
-  tellNewTask $ (, #uda .~ newUDA) <$> descriptionEvent
+  newUDA <- getNewUDA
+  tellNewTask $ (,#uda .~ newUDA) <$> descriptionEvent
 
-childrenWidget
-  :: forall t m r e . TaskTreeWidget t m r e => R.Dynamic t TaskInfos -> m ()
+childrenWidget ::
+  forall t m r e. TaskTreeWidget t m r e => R.Dynamic t TaskInfos -> m ()
 childrenWidget taskInfosD = do
   expandedTasks <- getExpandedTasks
-  showChildren  <- R.holdUniqDyn
-    $ R.zipDynWith HashSet.member (taskInfosD ^. #uuid) expandedTasks
+  showChildren <-
+    R.holdUniqDyn $
+      R.zipDynWith HashSet.member (taskInfosD ^. #uuid) expandedTasks
   --let showChildren = R.constDyn True
   D.dyn_ $ showOptional <$> showChildren
  where
   showOptional :: Bool -> m ()
   showOptional x = when x $ do
-    children <- R.holdUniqDyn =<< lookupCurrentDyn =<< R.holdUniqDyn
-      (taskInfosD ^. al #children)
+    children <-
+      R.holdUniqDyn =<< lookupCurrentDyn
+        =<< R.holdUniqDyn
+          (taskInfosD ^. al #children)
     let sortModeD = SortModePartof <$> taskInfosD ^. #uuid
-    blacklist <- R.holdUniqDyn
-      $ liftA2 (:) (taskInfosD ^. #uuid) (taskInfosD ^. al #parents)
+    blacklist <-
+      R.holdUniqDyn $
+        liftA2 (:) (taskInfosD ^. #uuid) (taskInfosD ^. al #parents)
     sortedList <- R.holdUniqDyn $ sortTasks <$> sortModeD <*> children
-    D.divClass "children"
-      $ taskList (sortModeD ^. #current) sortedList blacklist taskWidget
+    D.divClass "children" $
+      taskList (sortModeD ^. #current) sortedList blacklist taskWidget
 
-taskList
-  :: StandardWidget t m r e
-  => R.Behavior t SortMode
-  -> R.Dynamic t [TaskInfos]
-  -> R.Dynamic t [UUID]
-  -> (R.Dynamic t TaskInfos -> m ())
-  -> m ()
+taskList ::
+  StandardWidget t m r e =>
+  R.Behavior t SortMode ->
+  R.Dynamic t [TaskInfos] ->
+  R.Dynamic t [UUID] ->
+  (R.Dynamic t TaskInfos -> m ()) ->
+  m ()
 taskList mode childrenD blacklistD elementWidget = do
   let partialSortPosition =
         SortPosition mode (childrenD ^. al (al #task) % #current)
-  void
-    $ R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD)
-    $ \childD -> do
-        let
-          currentUuidD = childD ^. fl _1 % #uuid
-          ignoreD =
-            ((:) <$> currentUuidD <*>)
-              $   (^.. folded)
-              <$> childD
-              ^.  fl _2
-              %   #uuid
+  void $
+    R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD) $
+      \childD -> do
+        let currentUuidD = childD ^. fl _1 % #uuid
+            ignoreD =
+              ((:) <$> currentUuidD <*>) $
+                (^.. folded)
+                  <$> childD
+                  ^. fl _2
+                  % #uuid
         childDropArea
-            (partialSortPosition (Just <$> currentUuidD ^. #current))
-            (ignoreD <> blacklistD)
+          (partialSortPosition (Just <$> currentUuidD ^. #current))
+          (ignoreD <> blacklistD)
           $ icon "dropHere above" "forward"
         elementWidget $ childD ^. fl _1
   let ignoreD = (^.. folded) . lastOf folded <$> childrenD ^. #uuid
-  childDropArea (partialSortPosition (R.constant Nothing))
-                (ignoreD <> blacklistD)
+  childDropArea
+    (partialSortPosition (R.constant Nothing))
+    (ignoreD <> blacklistD)
     $ icon "dropHere above" "forward"
 
-
-waitWidget :: forall t m r e . TaskWidget t m r e => m ()
+waitWidget :: forall t m r e. TaskWidget t m r e => m ()
 waitWidget = do
   event <-
     getTaskInfos >>= ((^? #status % #_Waiting) >>> dateSelectionWidget "wait")
@@ -288,7 +310,7 @@ waitWidget = do
 
 dueWidget :: TaskWidget t m r e => m ()
 dueWidget = do
-  task  <- getTaskInfos ^. al #task
+  task <- getTaskInfos ^. al #task
   event <- dateSelectionWidget "due" $ task ^. #due
   tellTask $ flip (#due .~) task <$> event
 
@@ -296,24 +318,25 @@ selectWidget :: TaskWidget t m r e => m ()
 selectWidget = do
   uuid <- getTaskInfos ^. al (#task % #uuid)
   (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
-  dragStateB  <- R.current <$> getDragState
-  tellDragTask $ R.attachWith
-    (\dragState _ -> case dragState of
-      DraggedTasks (toList -> uuids) ->
-        if uuid `elem` uuids then List.delete uuid uuids else uuids ++ [uuid]
-      _ -> [uuid]
-    )
-    dragStateB
-    (D.domEvent D.Click dragEl)
+  dragStateB <- R.current <$> getDragState
+  tellDragTask $
+    R.attachWith
+      ( \dragState _ -> case dragState of
+          DraggedTasks (toList -> uuids) ->
+            if uuid `elem` uuids then List.delete uuid uuids else uuids ++ [uuid]
+          _ -> [uuid]
+      )
+      dragStateB
+      (D.domEvent D.Click dragEl)
 
 descriptionWidget :: TaskWidget t m r e => m ()
 descriptionWidget = do
   task <- getTaskInfos ^. al #task
-  event       <- lineWidget $ task ^. #description
+  event <- lineWidget $ task ^. #description
   tellTask $ flip (#description .~) task <$> event
 
-tellStatusByTime
-  :: TaskWidget t m r e => ((UTCTime -> Status) -> R.Event t a -> m ())
+tellStatusByTime ::
+  TaskWidget t m r e => ((UTCTime -> Status) -> R.Event t a -> m ())
 tellStatusByTime handler ev = do
   time <- getTime
   tellStatus $ handler . zonedTimeToUTC <$> R.tag (R.current time) ev
@@ -323,14 +346,14 @@ tellStatus ev = do
   task <- getTaskInfos ^. al #task
   tellTask $ flip (#status .~) task <$> ev
 
-parentButton :: forall t m r e . TaskWidget t m r e => m ()
+parentButton :: forall t m r e. TaskWidget t m r e => m ()
 parentButton = do
   task <- getTaskInfos ^. al #task
   when (isn't (#partof % _Nothing) task) $ do
     event <- button "edit" (icon "" "layers_clear")
     tellTask $ (#partof .~ Nothing $ task) <$ event
 
-deleteButton :: forall t m r e . TaskWidget t m r e => m ()
+deleteButton :: forall t m r e. TaskWidget t m r e => m ()
 deleteButton = do
   task <- getTaskInfos ^. al #task
   deleteWidget $ task ^. #status
@@ -342,14 +365,14 @@ deleteButton = do
   deleteWidget _ =
     button "edit" (icon "" "delete") >>= tellStatusByTime Status.Deleted
 
-completedWidget :: forall t m r e . TaskWidget t m r e => m ()
+completedWidget :: forall t m r e. TaskWidget t m r e => m ()
 completedWidget = do
   status <- getTaskInfos ^. al #status
   whenJust (status ^? #_Completed) $ \time -> do
     event <- dateSelectionWidget "completed" $ Just time
     tellStatus $ maybe Status.Pending Status.Completed <$> event
 
-statusWidget :: forall t m r e . TaskWidget t m r e => m ()
+statusWidget :: forall t m r e. TaskWidget t m r e => m ()
 statusWidget = do
   status <- getTaskInfos <&> (\t -> (t ^. #status, t ^. #blocked))
   widget . widgetState $ status
@@ -359,23 +382,24 @@ statusWidget = do
     let (altIcon, handler) = case handlerMay of
           Nothing -> (D.blank, const D.blank)
           Just (altIconLabel, altClass, handlerPure) ->
-            ( D.elClass "i" ("material-icons " <> altClass <> " showable")
-              $ D.text altIconLabel
+            ( D.elClass "i" ("material-icons " <> altClass <> " showable") $
+                D.text altIconLabel
             , tellStatusByTime handlerPure . D.domEvent D.Mouseup
             )
     (el, ()) <- D.elAttr' "div" ("class" =: "checkbox") $ do
       D.elClass
-          "i"
-          ("material-icons " <> showClass <> if isJust handlerMay
-            then " hideable"
-            else ""
-          )
+        "i"
+        ( "material-icons " <> showClass
+            <> if isJust handlerMay
+              then " hideable"
+              else ""
+        )
         $ D.text iconName
       altIcon
     handler el
-  widgetState
-    :: (Status, Bool)
-    -> (Text, Text, Maybe (Text, Text, UTCTime -> Status.Status))
+  widgetState ::
+    (Status, Bool) ->
+    (Text, Text, Maybe (Text, Text, UTCTime -> Status.Status))
   widgetState = \case
     (Status.Pending, False) ->
       ("done", "hide", Just ("done", "grey", Status.Completed))
@@ -389,19 +413,23 @@ statusWidget = do
       ("schedule", "show", Just ("done", "grey", Status.Completed))
     (Status.Recurring{}, _) -> ("repeat", "show", Nothing)
 
-
-collapseButton :: forall t m r e . TaskWidget t m r e => m ()
+collapseButton :: forall t m r e. TaskWidget t m r e => m ()
 collapseButton = do
-  taskInfos   <- getTaskInfos
-  hasChildren <- R.holdUniqDyn . fmap null =<< lookupCurrent
-    (taskInfos ^. #children)
-  D.dyn_ $ unless <$> hasChildren <*> pure
-    (do
-      open <- getIsExpanded $ taskInfos ^. #uuid
-      let label = \case
-            True  -> "unfold_less"
-            False -> "unfold_more"
-      buttonEvent <- button "slimButton"
-        $ D.dyn_ (icon "collapse" . label <$> open)
-      tellToggle $ taskInfos ^. #uuid <$ buttonEvent
-    )
+  taskInfos <- getTaskInfos
+  hasChildren <-
+    R.holdUniqDyn . fmap null
+      =<< lookupCurrent
+        (taskInfos ^. #children)
+  D.dyn_ $
+    unless <$> hasChildren
+      <*> pure
+        ( do
+            open <- getIsExpanded $ taskInfos ^. #uuid
+            let label = \case
+                  True -> "unfold_less"
+                  False -> "unfold_more"
+            buttonEvent <-
+              button "slimButton" $
+                D.dyn_ (icon "collapse" . label <$> open)
+            tellToggle $ taskInfos ^. #uuid <$ buttonEvent
+        )

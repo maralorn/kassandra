@@ -1,29 +1,32 @@
-module Kassandra.ListWidget
-  ( listsWidget
-  , listWidget
-  , TaskList(UUIDList, TagList)
-  )
-where
-import qualified Reflex.Dom                    as D
-import qualified Reflex                        as R
-import qualified Data.HashMap.Strict           as HashMap
-import qualified Data.Set                      as Set
-import           Kassandra.Types                ( al
-                                                , StandardWidget
-                                                , TaskInfos
-                                                , TaskState
-                                                , Widget
-                                                , getTasks
-                                                )
-import           Kassandra.Util                 (tellNewTask,  filterCurrent )
-import           Kassandra.TaskWidget           ( taskList
-                                                , taskTreeWidget
-                                                )
-import           Kassandra.Sorting              ( sortTasks
-                                                , SortMode(SortModeTag)
-                                                )
-import Kassandra.TextEditWidget (createTextWidget)
+module Kassandra.ListWidget (
+  listsWidget,
+  listWidget,
+  TaskList (UUIDList, TagList),
+) where
+
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Set as Set
 import Kassandra.BaseWidgets (button)
+import Kassandra.Sorting (
+  SortMode (SortModeTag),
+  sortTasks,
+ )
+import Kassandra.TaskWidget (
+  taskList,
+  taskTreeWidget,
+ )
+import Kassandra.TextEditWidget (createTextWidget)
+import Kassandra.Types (
+  StandardWidget,
+  TaskInfos,
+  TaskState,
+  Widget,
+  al,
+  getTasks,
+ )
+import Kassandra.Util (filterCurrent, tellNewTask)
+import qualified Reflex as R
+import qualified Reflex.Dom as D
 
 data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving stock (Eq, Show, Read)
 
@@ -42,48 +45,51 @@ listsWidget = do
       . filter (has $ #status % #_Pending)
       . (^. al #task)
       . HashMap.elems
-  listSelector
-    :: (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
+  listSelector ::
+    (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
   listSelector lists = D.el "div" $ do
-    buttons   <- D.dyn $ mapM listButton <$> lists
+    buttons <- D.dyn $ mapM listButton <$> lists
     buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
     R.holdDyn (SubList []) buttonSum
   listButton :: (Widget t m) => TaskList -> m (R.Event t TaskList)
-  listButton list | TagList tag <- list = localButton tag
-                  | otherwise           = localButton "Anonymous List"
+  listButton list
+    | TagList tag <- list = localButton tag
+    | otherwise = localButton "Anonymous List"
    where
     localButton =
       fmap ((list <$) . D.domEvent D.Click . fst)
         . D.elClass' "a" "selector"
         . D.text
 
-listWidget
-  :: forall t m r e . StandardWidget t m r e => R.Dynamic t TaskList -> m ()
+listWidget ::
+  forall t m r e. StandardWidget t m r e => R.Dynamic t TaskList -> m ()
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: TaskList -> m ()
   innerRenderList list'
-    | UUIDList uuids <- list'
-    = do
-      tasks <- getTasks
-      void
-        . D.simpleList
+    | UUIDList uuids <- list' =
+      do
+        tasks <- getTasks
+        void
+          . D.simpleList
             ((\tasks' -> mapMaybe (`HashMap.lookup` tasks') uuids) <$> tasks)
-        $ taskTreeWidget
-    | TagList tag <- list'
-    = do
-      D.text tag
-      tasks     <- getTasks
-      showTasks <- filterCurrent $ tasksToShow tag <$> tasks
-      let sortMode = SortModeTag tag
-      taskList (R.constant sortMode)
-               (sortTasks sortMode <$> showTasks)
-               (R.constDyn [])
-               taskTreeWidget
-      tellNewTask . fmap (, #tags %~ Set.insert tag) =<< createTextWidget
-          (button "selector" $ D.text "Add task to list")
-    | SubList sublists <- list'
-    = void . D.simpleList (D.constDyn sublists) $ listWidget
+          $ taskTreeWidget
+    | TagList tag <- list' =
+      do
+        D.text tag
+        tasks <- getTasks
+        showTasks <- filterCurrent $ tasksToShow tag <$> tasks
+        let sortMode = SortModeTag tag
+        taskList
+          (R.constant sortMode)
+          (sortTasks sortMode <$> showTasks)
+          (R.constDyn [])
+          taskTreeWidget
+        tellNewTask . fmap (,#tags %~ Set.insert tag)
+          =<< createTextWidget
+            (button "selector" $ D.text "Add task to list")
+    | SubList sublists <- list' =
+      void . D.simpleList (D.constDyn sublists) $ listWidget
 
   tasksToShow :: Text -> TaskState -> [TaskInfos]
   tasksToShow tag = mapMaybe maybePredicate . HashMap.elems
