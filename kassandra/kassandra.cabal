@@ -116,5 +116,6 @@ library
     , time
     , unordered-containers
     , uuid
+    , witherable
 
   hs-source-dirs:  src

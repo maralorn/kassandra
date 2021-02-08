@@ -1,36 +1,22 @@
 module Kassandra.State (
   makeStateProvider,
   StateProvider,
-  AppContext,
   ClientSocket,
+  DataState (..),
 ) where
 
-import qualified Data.Dependent.Map as DMap
-import qualified Data.GADT.Compare.TH as TH
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.List.NonEmpty as NonEmpty
 import Kassandra.Api (SocketRequest (ChangeTasks))
 import Kassandra.Config (UIConfig)
 import Kassandra.Types (
-  DataChange (
-    ChangeTask,
-    CreateTask
-  ),
-  TaskInfos (TaskInfos),
+  DataChange,
+  TaskInfos (..),
   TaskState,
   WidgetIO,
  )
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Taskwarrior.IO (createTask)
-
-data FanTag a where
-  ToggleEventTag :: FanTag (NonEmpty (UUID, Bool))
-  ChangeTaskTag :: FanTag (NonEmpty Task)
-  CreateTaskTag :: FanTag (NonEmpty (Text, Task -> Task))
-
-TH.deriveGEq ''FanTag
-TH.deriveGCompare ''FanTag
 
 getParents :: HashMap UUID Task -> UUID -> [UUID]
 getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
@@ -41,61 +27,40 @@ getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
     | Just next <- f x = next : go (x : accu) f next
     | otherwise = []
 
-type StateProvider t m =
-  R.Event t (NonEmpty DataChange) -> m (R.Dynamic t TaskState)
+data DataState = DataState
+  { taskState :: TaskState
+  , uiConfig :: UIConfig
+  , calendarData :: ()
+  }
+makeLabels ''DataState
 
-type AppContext t m = (StateProvider t m, UIConfig)
+type StateProvider t m = R.Event t (NonEmpty DataChange) -> m (R.Dynamic t DataState)
 
-type ClientSocket t m =
-  R.Event t SocketRequest -> m (R.Dynamic t (R.Event t (NonEmpty Task)))
+data SocketMessage = Tasks (NonEmpty Task) | CalendarUpdate | ConfigUpdate UIConfig
+makePrismLabels ''SocketMessage
 
-makeStateProvider ::
-  forall t m. (WidgetIO t m) => ClientSocket t m -> StateProvider t m
+type ClientSocket t m = R.Event t SocketRequest -> m (R.Dynamic t (R.Event t SocketMessage))
+
+makeStateProvider :: forall t m. WidgetIO t m => ClientSocket t m -> StateProvider t m
 makeStateProvider clientSocket dataChangeEvents = do
-  let fannedEvent :: FanTag a -> R.Event t a
-      fannedEvent =
-        R.select $
-          R.fan $
-            DMap.unionsWithKey proofAdd
-              . fmap mapToMap
-              . NonEmpty.toList
-              <$> dataChangeEvents
-      createTaskEvent = fannedEvent CreateTaskTag
-      changeTaskEvent = fannedEvent ChangeTaskTag
+  let fanEvent :: (b -> Maybe a) -> R.Event t (NonEmpty b) -> R.Event t (NonEmpty a)
+      fanEvent decons = R.fmapMaybe (nonEmpty . mapMaybe decons . toList)
+      createTaskEvent = fanEvent (^? #_CreateTask) dataChangeEvents
+      changeTaskEvent = fanEvent (^? #_ChangeTask) dataChangeEvents
   changesFromCreateEvents <- createToChangeEvent createTaskEvent
   let localChanges = changeTaskEvent <> changesFromCreateEvents
   remoteChanges <- R.switchDyn <$> clientSocket (ChangeTasks <$> localChanges)
-  fmap buildTaskInfosMap <$> holdTasks (localChanges <> remoteChanges)
+  tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> R.fmapMaybe (^? #_Tasks) remoteChanges)
+  pure $ DataState <$> tasksStateDyn <*> pure D.def <*> pass
 
-createToChangeEvent ::
-  WidgetIO t m =>
-  D.Event t (NonEmpty (Text, Task -> Task)) ->
-  m (D.Event t (NonEmpty Task))
-createToChangeEvent =
-  R.performEvent
-    . fmap
-      (liftIO . mapM (\(desc, properties) -> properties <$> createTask desc))
+createToChangeEvent :: WidgetIO t m => D.Event t (NonEmpty (Text, Task -> Task)) -> m (D.Event t (NonEmpty Task))
+createToChangeEvent = R.performEvent . fmap (liftIO . mapM (\(desc, properties) -> properties <$> createTask desc))
 
-holdTasks ::
-  WidgetIO t m =>
-  R.Event t (NonEmpty Task) ->
-  m (R.Dynamic t (HashMap UUID Task))
+holdTasks :: WidgetIO t m => R.Event t (NonEmpty Task) -> m (R.Dynamic t (HashMap UUID Task))
 holdTasks = R.foldDyn foldTasks mempty
 
 foldTasks :: Foldable t => t Task -> HashMap UUID Task -> HashMap UUID Task
 foldTasks = flip (foldr (\task -> HashMap.insert (task ^. #uuid) task))
-
-mapToMap :: DataChange -> DMap.DMap FanTag Identity
-mapToMap = \case
-  ChangeTask a -> DMap.singleton ChangeTaskTag (Identity $ pure a)
-  CreateTask a b -> DMap.singleton CreateTaskTag (Identity $ pure (a, b))
-
-proofAdd :: FanTag a -> Identity a -> Identity a -> Identity a
-proofAdd =
-  liftA2 . \case
-    ToggleEventTag -> (<>)
-    ChangeTaskTag -> (<>)
-    CreateTaskTag -> (<>)
 
 buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
 buildChildrenMap =
@@ -104,34 +69,26 @@ buildChildrenMap =
     . HashMap.toList
 
 buildDependenciesMap :: HashMap a Task -> HashMap UUID [a]
-buildDependenciesMap =
-  HashMap.fromListWith (++)
-    . ( HashMap.toList
-          >=> \(uuid, task) -> (,pure uuid) <$> toList (task ^. #depends)
-      )
+buildDependenciesMap = HashMap.fromListWith (++) . (HashMap.toList >=> \(uuid, task) -> (,pure uuid) <$> toList (task ^. #depends))
 
 buildTaskInfosMap :: HashMap UUID Task -> TaskState
 buildTaskInfosMap tasks =
-  HashMap.mapWithKey
-    ( \u t ->
-        TaskInfos
-          t
-          (HashMap.lookupDefault [] u childrenMap)
-          (getParentTasks u)
-          (HashMap.lookupDefault [] u dependenciesMap)
-          (isBlockedTask t)
-    )
-    tasks
+  HashMap.mapWithKey foldTaskMap tasks
  where
+  foldTaskMap uuid task =
+    TaskInfos
+      { task = task
+      , children = HashMap.lookupDefault [] uuid childrenMap
+      , parents = getParentTasks uuid
+      , revDepends = HashMap.lookupDefault [] uuid dependenciesMap
+      , blocked = isBlockedTask task
+      }
   isBlockedTask = isBlocked tasks
   getParentTasks = getParents tasks
   dependenciesMap = buildDependenciesMap tasks
   childrenMap = buildChildrenMap tasks
 
 isBlocked :: HashMap UUID Task -> Task -> Bool
-isBlocked tasks task =
-  any (\t -> has (#status % #_Pending) t || has (#status % #_Waiting) t)
-    . mapMaybe (`HashMap.lookup` tasks)
-    . toList
-    $ task
-      ^. #depends
+isBlocked tasks task = any isActive . mapMaybe (`HashMap.lookup` tasks) . toList $ task ^. #depends
+ where
+  isActive t = has (#status % #_Pending) t || has (#status % #_Waiting) t

@@ -25,7 +25,7 @@ smartSimpleList ::
   m ()
 smartSimpleList widget listElements = do
   postBuild <- R.getPostBuild
-  let keyMap = Seq.foldMapWithIndex Map.singleton <$> listElements
+  let keyMap = Seq.foldMapWithIndex (curry one) <$> listElements
       keyMapChange =
         R.attachWith
           Patch.patchThatChangesMap

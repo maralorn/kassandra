@@ -20,8 +20,8 @@ import Kassandra.Config (
   RemoteBackend (..),
  )
 import Kassandra.State (
-  AppContext,
   ClientSocket,
+  StateProvider,
   makeStateProvider,
  )
 import Kassandra.Types (WidgetJSM)
@@ -41,12 +41,11 @@ userKey = "User"
 passwordKey = "Password"
 loginStateKey = "LoginState"
 
-remoteBackendWidget ::
-  forall t m.
+remoteBackendWidget ::  forall t m.
   WidgetJSM t m =>
   CloseEvent t ->
   Maybe (RemoteBackend PasswordConfig) ->
-  m (R.Dynamic t (Maybe (AppContext t m)))
+  m (R.Dynamic t (Maybe (StateProvider t m)))
 remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
   backendDyn <- maybe inputBackend getPassword mayBackend
   responseEvent <-
@@ -62,21 +61,14 @@ remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
   getPassword RemoteBackend{url, user, password} = do
     fmap (pure . RemoteBackend url user) <$> case password of
       Password plain -> pure (pure plain)
-      PasswordCommand command ->
-        pure . Text
-          <$> liftIO
-            (readCreateProcess (shell $ toString command) "")
+      PasswordCommand command -> pure . Text <$> liftIO (readCreateProcess (shell $ toString command) "")
       Prompt -> do
         D.text [i|Enter password for #{user} on #{url}:|]
         storage <- getStorage
         initialPassword <- fromMaybe "" <$> getItem storage passwordKey
         passwordInput <- textInput True initialPassword
-        let sendEvent =
-              R.tag (inputValue passwordInput) (D.keypress D.Enter passwordInput)
-        R.performEvent_ $
-          sendEvent
-            <&> setItem storage ([i|PasswordFor#{user}On#{url}|] :: String)
-              . toString
+        let sendEvent = R.tag (inputValue passwordInput) (D.keypress D.Enter passwordInput)
+        R.performEvent_ $ sendEvent <&> setItem storage ([i|PasswordFor#{user}On#{url}|] :: String) . toString
         R.holdDyn "" sendEvent
   inputBackend :: m (R.Dynamic t (Maybe (RemoteBackend Text)))
   inputBackend = do
@@ -97,56 +89,44 @@ remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
         setItem storage urlKey url
         setItem storage userKey user
         setItem storage passwordKey password
-    fmap backendFromState
-      <$> R.holdDyn
-        (initialState, initialUrl, initialUser, initialPassword)
-        stateEvent
-  stateTransition (loginState, url, user, password) = do
-    case loginState of
-      LoggedOut -> D.divClass "loginDialog" $ do
-        D.text "Host:"
-        urlInput <- textInput False url
-        D.el "br" pass
-        D.text "User:"
-        userNameInput <- textInput False user
-        D.el "br" pass
-        D.text "Password:"
-        passwordInput <- textInput True password
-        D.el "br" pass
-        saveButton <- button "selector" $ D.text "Login"
-        let saveEvent =
-              liftA3
-                (LoggedIn,,,)
-                (inputValue urlInput)
-                (inputValue userNameInput)
-                (inputValue passwordInput)
-                R.<@ fold (saveButton : (D.keypress D.Enter <$> [urlInput, userNameInput, passwordInput]))
-        pure (saveEvent, saveEvent)
-      LoggedIn -> do
-        D.text [i|#{user} @ #{url}|]
-        logoutEvent <-
-          ((LoggedOut, url, user, password) <$)
-            <$> button "selector" (D.text "Logout")
-        pure (logoutEvent, logoutEvent)
-  backendFromState (LoggedIn, url, user, password) =
-    Just $ RemoteBackend url user password
+    fmap backendFromState <$> R.holdDyn (initialState, initialUrl, initialUser, initialPassword) stateEvent
+  stateTransition (loginState, url, user, password) = case loginState of
+    LoggedOut -> D.divClass "loginDialog" $ do
+      D.text "Host:"
+      urlInput <- textInput False url
+      D.el "br" pass
+      D.text "User:"
+      userNameInput <- textInput False user
+      D.el "br" pass
+      D.text "Password:"
+      passwordInput <- textInput True password
+      D.el "br" pass
+      saveButton <- button "selector" $ D.text "Login"
+      let saveEvent =
+            liftA3
+              (LoggedIn,,,)
+              (inputValue urlInput)
+              (inputValue userNameInput)
+              (inputValue passwordInput)
+              R.<@ fold (saveButton : (D.keypress D.Enter <$> [urlInput, userNameInput, passwordInput]))
+      pure (saveEvent, saveEvent)
+    LoggedIn -> do
+      D.text [i|#{user} @ #{url}|]
+      logoutEvent <-
+        ((LoggedOut, url, user, password) <$)
+          <$> button "selector" (D.text "Logout")
+      pure (logoutEvent, logoutEvent)
+  backendFromState (LoggedIn, url, user, password) = Just $ RemoteBackend url user password
   backendFromState (LoggedOut, _, _, _) = Nothing
-  withBackend :: CloseEvent t -> Maybe (RemoteBackend Text) -> m (Maybe (AppContext t m))
-  withBackend innerCloseEvent (Just backend) = do
-    clientSocket <- webClientSocket innerCloseEvent backend
-    let stateProvider = makeStateProvider clientSocket
-    pure $ Just (stateProvider, D.def)
-  withBackend _ Nothing = pure Nothing
+  withBackend :: CloseEvent t -> Maybe (RemoteBackend Text) -> m (Maybe (StateProvider t m))
+  withBackend innerCloseEvent = traverse (fmap makeStateProvider . webClientSocket innerCloseEvent)
   -- TODO: Get UI Config from Server
   textInput hidden defaultValue =
     D.inputElement $
       D.def
         & lensVL D.inputElementConfig_initialValue
         .~ defaultValue
-        & lensVL
-          ( D.inputElementConfig_elementConfig
-              . D.elementConfig_initialAttributes
-          )
+        & lensVL (D.inputElementConfig_elementConfig . D.elementConfig_initialAttributes)
         .~ if hidden then "type" D.=: "password" else mempty
   inputValue = R.current . D._inputElement_value
 
@@ -158,34 +138,35 @@ getStorage = getLocalStorage =<< currentWindowUnchecked
 webClientSocket ::
   WidgetJSM t m => CloseEvent t -> RemoteBackend Text -> m (ClientSocket t m)
 webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
+  refreshEvent <- button "selector" $ D.text "Refresh Tasks"
   let wsUrl = maybe "ws://localhost:8000" ("ws" <>) $ stripPrefix "http" url -- TODO: Warn user about missing http
       socketString = [i|#{wsUrl}/socket?username=#{user}&password=#{password}|]
-  refreshEvent <- button "selector" $ D.text "Refresh Tasks"
-  pure $ \socketRequestEvent -> do
-    let socketConfig =
-          D.def
-            & (lensVL D.webSocketConfig_send .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent])
-              . (lensVL D.webSocketConfig_reconnect .~ True)
-              . (lensVL D.webSocketConfig_close .~ ((3000, "Client unloaded websocket.") <$ un closeEvent))
-    storage <- getStorage
-    socket <- D.jsonWebSocket socketString socketConfig
-    let messages = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
-        err = [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
-        close = Just err <$ socket ^. lensVL D.webSocket_close
-        open = Nothing <$ socket ^. lensVL D.webSocket_open
-        messageParseFail = maybe (Just "Failed to parse SocketMessage JSON") (const Nothing) <$> socket ^. lensVL D.webSocket_recv
-        nextStateEvent = R.leftmost [messageParseFail, close, open]
-    D.dynText . fmap (fromMaybe "") =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
-    let taskUpdates = flip R.fmapMaybe messages $ \case
-          TaskUpdates newTasks -> Just newTasks
-          _ -> Nothing
-        mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
-        foldTasksToMap tasks currentMap = foldr (\task theMap -> insert (task ^. #uuid) task theMap) currentMap tasks
-        asyncSaveStorage = void . liftJSM . D.forkJSM . setItem storage mapKey . decodeUtf8 @Text . encode
-    taskMap :: Map UUID Task <- maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
-    tasksToSave <- R.foldDyn foldTasksToMap taskMap taskUpdates
-    -- TODO: Saving the whole Map everytime is probably quite inefficient, we should try to reduce writes by a smarter saving scheme
-    void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
-    ev <- R.getPostBuild
-    let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
-    pure . pure $ taskUpdates <> cachedTasks
+      clientSocket socketRequestEvent = do
+        let socketConfig =
+              D.def
+                & (lensVL D.webSocketConfig_send .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent])
+                  . (lensVL D.webSocketConfig_reconnect .~ True)
+                  . (lensVL D.webSocketConfig_close .~ ((3000, "Client unloaded websocket.") <$ un closeEvent))
+        storage <- getStorage
+        socket <- D.jsonWebSocket socketString socketConfig
+        let messages = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
+            err = [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
+            close = Just err <$ socket ^. lensVL D.webSocket_close
+            open = Nothing <$ socket ^. lensVL D.webSocket_open
+            messageParseFail = maybe (Just "Failed to parse SocketMessage JSON") (const Nothing) <$> socket ^. lensVL D.webSocket_recv
+            nextStateEvent = R.leftmost [messageParseFail, close, open]
+        D.dynText . fmap (fromMaybe "") =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
+        let taskUpdates = flip R.fmapMaybe messages $ \case
+              TaskUpdates newTasks -> Just newTasks
+              _ -> Nothing
+            mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
+            foldTasksToMap tasks currentMap = foldr (\task theMap -> insert (task ^. #uuid) task theMap) currentMap tasks
+            asyncSaveStorage = void . liftJSM . D.forkJSM . setItem storage mapKey . decodeUtf8 @Text . encode
+        taskMap :: Map UUID Task <- maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
+        tasksToSave <- R.foldDyn foldTasksToMap taskMap taskUpdates
+        -- TODO: Saving the whole Map everytime is probably quite inefficient, we should try to reduce writes by a smarter saving scheme
+        void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
+        ev <- R.getPostBuild
+        let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
+        pure . pure $ (#_Tasks #) <$> (taskUpdates <> cachedTasks)
+  pure clientSocket

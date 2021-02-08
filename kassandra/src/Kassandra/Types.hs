@@ -2,7 +2,7 @@ module Kassandra.Types (
   Widget,
   WidgetIO,
   WidgetJSM,
-  TaskInfos (TaskInfos),
+  TaskInfos (..),
   TaskState,
   AppStateChange,
   DragState (DraggedTasks, NoDrag),

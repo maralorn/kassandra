@@ -4,22 +4,15 @@ module Kassandra.LocalBackendWidget (
 
 import Control.Concurrent.STM (TQueue)
 import Kassandra.Config (
-  NamedBackend (
-    NamedBackend,
-    backend
-  ),
-  UserConfig (
-    UserConfig,
-    localBackend,
-    uiConfig
-  ),
+  NamedBackend (NamedBackend, backend),
+  UserConfig (UserConfig, localBackend, uiConfig),
  )
 import Kassandra.LocalBackend (
   LocalBackendRequest,
   localClientSocket,
  )
 import Kassandra.State (
-  AppContext,
+  StateProvider,
   makeStateProvider,
  )
 import Kassandra.Types (WidgetIO)
@@ -29,9 +22,7 @@ localBackendWidget ::
   WidgetIO t m =>
   TQueue LocalBackendRequest ->
   NamedBackend UserConfig ->
-  m (R.Dynamic t (Maybe (AppContext t m)))
+  m (R.Dynamic t (Maybe (StateProvider t m)))
 localBackendWidget requestsQueue NamedBackend{backend = UserConfig{localBackend, uiConfig}} =
-  do
-    clientSocket <- localClientSocket requestsQueue localBackend
-    let stateProvider = makeStateProvider clientSocket
-    pure $ pure $ Just (stateProvider, uiConfig)
+  -- TODO: Use the uiConfig
+  pure . pure . makeStateProvider <$> localClientSocket requestsQueue localBackend

@@ -46,7 +46,7 @@ mainWidget _uiConfig stateProvider = do
   let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
-      taskState <- stateProvider dataChangeEvents
+      taskState <- (^. #taskState) <<$>> stateProvider dataChangeEvents
       dragDyn <- R.holdDyn NoDrag $ last <$> appChangeEvents
       (_, stateChanges' :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $
