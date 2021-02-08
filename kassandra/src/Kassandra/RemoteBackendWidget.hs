@@ -4,7 +4,7 @@ module Kassandra.RemoteBackendWidget (
   CloseEvent (..),
 ) where
 
-import Data.Aeson (decode)
+import Data.Aeson (decode, encode)
 import Data.Map (elems, insert)
 import Data.Text (stripPrefix)
 import JSDOM (currentWindowUnchecked)
@@ -25,6 +25,7 @@ import Kassandra.State (
   makeStateProvider,
  )
 import Kassandra.Types (WidgetJSM)
+import Language.Javascript.JSaddle (liftJSM)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype (un, wrap)
@@ -161,47 +162,30 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
       socketString = [i|#{wsUrl}/socket?username=#{user}&password=#{password}|]
   refreshEvent <- button "selector" $ D.text "Refresh Tasks"
   pure $ \socketRequestEvent -> do
+    let socketConfig =
+          D.def
+            & (lensVL D.webSocketConfig_send .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent])
+              . (lensVL D.webSocketConfig_reconnect .~ True)
+              . (lensVL D.webSocketConfig_close .~ ((3000, "Client unloaded websocket.") <$ un closeEvent))
     storage <- getStorage
-    socket <-
-      D.jsonWebSocket
-        socketString
-        ( ( lensVL D.webSocketConfig_send
-              .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent]
-          )
-            . (lensVL D.webSocketConfig_reconnect .~ True)
-            . ( lensVL D.webSocketConfig_close
-                  .~ ((3000, "Client unloaded websocket.") <$ un closeEvent)
-              )
-            $ D.def
-        )
+    socket <- D.jsonWebSocket socketString socketConfig
     let messages = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
-        close =
-          Just
-            [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
-            <$ socket
-            ^. lensVL D.webSocket_close
+        err = [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
+        close = Just err <$ socket ^. lensVL D.webSocket_close
         open = Nothing <$ socket ^. lensVL D.webSocket_open
-        messageParseFail =
-          maybe (Just "Failed to parse SocketMessage JSON") (const Nothing)
-            <$> socket
-            ^. lensVL D.webSocket_recv
+        messageParseFail = maybe (Just "Failed to parse SocketMessage JSON") (const Nothing) <$> socket ^. lensVL D.webSocket_recv
         nextStateEvent = R.leftmost [messageParseFail, close, open]
-    D.dynText
-      . fmap (fromMaybe "")
-      =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
+    D.dynText . fmap (fromMaybe "") =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
     let taskUpdates = flip R.fmapMaybe messages $ \case
           TaskUpdates newTasks -> Just newTasks
           _ -> Nothing
         mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
-    (taskMap :: Map UUID Task) <-
-      maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
-    --let f tasks currentMap = foldr
-    --(\task theMap -> insert (task ^. #uuid) task theMap)
-    --currentMap
-    --tasks
-    --tasksToSave <- R.foldDyn f taskMap taskUpdates
-    --R.performEvent_ $ R.updated tasksToSave <&> \tasks ->
-    --  setItem storage mapKey (decodeUtf8 @Text . encode $ tasks)
+        foldTasksToMap tasks currentMap = foldr (\task theMap -> insert (task ^. #uuid) task theMap) currentMap tasks
+        asyncSaveStorage = void . liftJSM . D.forkJSM . setItem storage mapKey . decodeUtf8 @Text . encode
+    taskMap :: Map UUID Task <- maybeToMonoid . (decode . encodeUtf8 @Text =<<) <$> getItem storage mapKey
+    tasksToSave <- R.foldDyn foldTasksToMap taskMap taskUpdates
+    -- TODO: Saving the whole Map everytime is probably quite inefficient, we should try to reduce writes by a smarter saving scheme
+    void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
     ev <- R.getPostBuild
     let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
     pure . pure $ taskUpdates <> cachedTasks
