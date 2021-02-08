@@ -101,7 +101,7 @@ import Optics.TH
 import Relude hiding (uncons)
 import Taskwarrior.Status (Status)
 import Taskwarrior.Task (Task)
-import Witherable ((<$?>), (<&?>))
+import Data.Witherable ((<$?>), (<&?>))
 
 -- (lensField .~ noPrefixNamer $ fieldLabelsRules) == noPrefixFieldLabels but only in optics-th 0.2
 makeLabels :: Name -> Q [Dec]
