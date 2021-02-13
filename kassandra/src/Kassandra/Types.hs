@@ -26,8 +26,6 @@ module Kassandra.Types (
   getTime,
   getIsExpanded,
   getExpandedTasks,
-  fl,
-  al,
 ) where
 
 import qualified Data.Aeson as Aeson
@@ -91,8 +89,7 @@ type Write t m e s = (R.Reflex t, R.EventWriter t (NonEmpty e) m, AsType s e)
 type WriteApp t m e = (Write t m e AppStateChange)
 type WriteTaskTree t m e = (Write t m e TaskTreeStateChange)
 type StandardWidget t m r e = (Widget t m, HaveApp t m r, WriteApp t m e)
-type TaskTreeWidget t m r e =
-  (StandardWidget t m r e, HaveTaskTree t m r, WriteTaskTree t m e)
+type TaskTreeWidget t m r e = (StandardWidget t m r e, HaveTaskTree t m r, WriteTaskTree t m e)
 
 getIsExpanded ::
   (Widget t m, HaveTaskTree t m r) => UUID -> m (R.Dynamic t Bool)
@@ -105,24 +102,16 @@ getAppState :: (MonadReader r m, HasType (AppState t) r) => m (AppState t)
 getAppState = asks (^. typed)
 getTasks ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t TaskState)
-getTasks = getAppState ^. al #taskState
+getTasks = getAppState ^. mapping #taskState
 getDragState ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t DragState)
-getDragState = getAppState ^. al #dragState
+getDragState = getAppState ^. mapping #dragState
 getFilterState ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t FilterState)
-getFilterState = getAppState ^. al #filterState
+getFilterState = getAppState ^. mapping #filterState
 getTime ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t ZonedTime)
-getTime = getAppState ^. al #currentTime
-
-fl :: (Functor f, Is k A_Getter) => Optic' k is s a -> Getter (f s) (f a)
-fl a = to (view a <$>)
-al ::
-  (Applicative a, Is k A_Setter, Is k A_Getter) =>
-  Optic' k is s b ->
-  Lens' (a s) (a b)
-al a = lens (view a <$>) (flip (liftA2 (set a)))
+getTime = getAppState ^. mapping #currentTime
 
 deriving stock instance Generic Task
 makeLabels ''Task
@@ -138,7 +127,7 @@ instance LabelOptic "partof" A_Lens Task Task (Maybe UUID) (Maybe UUID) where
       ((^. #uda % at "partof") >=> (^? #_Success) . fromJSON)
       (\task uuid -> #uda % at "partof" .~ (toJSON <$> uuid) $ task)
 instance LabelOptic "description" A_Lens TaskInfos TaskInfos Text Text where
-  labelOptic = (#task :: Lens' TaskInfos Task) % #description
+  labelOptic = #task % #description
 instance LabelOptic "uuid" A_Lens TaskInfos TaskInfos UUID UUID where
   labelOptic = #task % #uuid
 instance LabelOptic "status" A_Lens TaskInfos TaskInfos Status Status where
@@ -151,23 +140,5 @@ instance LabelOptic "modified" A_Lens TaskInfos TaskInfos (Maybe UTCTime) (Maybe
   labelOptic = #task % #modified
 instance LabelOptic "depends" A_Lens TaskInfos TaskInfos (Set UUID) (Set UUID) where
   labelOptic = #task % #depends
-instance Field1 s t a b => LabelOptic "_1" A_Lens s t a b where
-  labelOptic = _1
-instance Field2 s t a b => LabelOptic "_2" A_Lens s t a b where
-  labelOptic = _2
-instance (Functor f, Is k A_Getter, LabelOptic "status" k s s a a, c ~ f a, d ~ f a) => LabelOptic "status" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"status"
-instance (Functor f, Is k A_Getter, LabelOptic "showChildren" k s s a a, c ~ f a, d ~ f a) => LabelOptic "showChildren" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"showChildren"
-instance (Functor f, Is k A_Getter, LabelOptic "uuid" k s s a a, c ~ f a, d ~ f a) => LabelOptic "uuid" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"uuid"
-instance (Functor f, Is k A_Getter, LabelOptic "description" k s s a a, c ~ f a, d ~ f a) => LabelOptic "description" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"description"
-instance (Functor f, Is k A_Getter, LabelOptic "partof" k s s a a, c ~ f a, d ~ f a) => LabelOptic "partof" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"partof"
-instance (Functor f, Is k A_Getter, LabelOptic "tags" k s s a a, c ~ f a, d ~ f a) => LabelOptic "tags" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"tags"
-instance (Functor f, Is k A_Getter, LabelOptic "depends" k s s a a, c ~ f a, d ~ f a) => LabelOptic "depends" A_Getter (f s) (f s) c d where
-  labelOptic = fl $ fromLabel @"depends"
 instance (R.Reflex t, c ~ R.Behavior t a) => LabelOptic "current" A_Getter (R.Dynamic t a) (R.Dynamic t a) c c where
   labelOptic = to R.current

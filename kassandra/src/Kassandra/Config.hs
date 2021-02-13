@@ -31,18 +31,7 @@ import Data.Password.Argon2 (
 
 type Dict = Map Text
 
-data AccountConfig = AccountConfig
-  { passwordHash :: PasswordHash Argon2
-  , userConfig :: UserConfig
-  , filterTag :: Text
-  }
-  deriving stock (Show, Eq, Ord, Generic)
 
-data UserConfig = UserConfig
-  { localBackend :: LocalBackend
-  , uiConfig :: UIConfig
-  }
-  deriving stock (Show, Eq, Ord, Generic)
 
 data UIConfig = UIConfig
   { viewList :: Seq Widget
@@ -105,6 +94,7 @@ data TaskwarriorOption = TaskwarriorOption
   , value :: Text
   }
   deriving stock (Show, Eq, Ord, Generic)
+  deriving anyclass (Hashable)
 
 data NamedListQuery = NamedListQuery
   { name :: Text
@@ -207,3 +197,18 @@ data NamedBackend b = NamedBackend
   , backend :: b
   }
   deriving stock (Show, Eq, Ord, Generic)
+
+data UserConfig = UserConfig
+  { localBackend :: LocalBackend
+  , uiConfig :: UIConfig
+  }
+  deriving stock (Show, Eq, Ord, Generic)
+
+data AccountConfig = AccountConfig
+  { passwordHash :: PasswordHash Argon2
+  , userConfig :: UserConfig
+  , filterTag :: Text
+  }
+  deriving stock (Show, Eq, Ord, Generic)
+
+makeLabels ''AccountConfig

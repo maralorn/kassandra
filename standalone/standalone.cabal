@@ -43,18 +43,15 @@ common common-config
     TypeFamilies
     UndecidableInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Wno-orphans
-    -Wincomplete-uni-patterns
-    -Wincomplete-record-updates
-    -Wmissing-export-lists
-    -Widentities
-    -Wredundant-constraints
-    -Wmissing-home-modules
+    -Wall -Wcompat -Wno-orphans -Wincomplete-uni-patterns
+    -Wincomplete-record-updates -Wmissing-export-lists -Widentities
+    -Wredundant-constraints -Wmissing-home-modules
+
   mixins:             base hiding (Prelude)
   default-language:   Haskell2010
+
 -- END dhall generated common configuration
 
 
@@ -71,21 +68,23 @@ library
     , aeson
     , async
     , base
+    , containers
     , dependent-map
     , dependent-sum-template
-    , paths
     , dhall
+    , either
     , kassandra
     , network-simple
+    , password                >=2.0.1.0
+    , paths
     , reflex
     , reflex-dom
+    , relude
+    , say
     , stm
     , taskwarrior
     , unordered-containers
-    , password         >=2.0.1.0
     , uuid
-    , either
-    , relude
 
   hs-source-dirs:  src
 

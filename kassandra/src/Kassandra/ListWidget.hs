@@ -21,7 +21,6 @@ import Kassandra.Types (
   TaskInfos,
   TaskState,
   Widget,
-  al,
   getTasks,
  )
 import Kassandra.Util (filterCurrent, tellNewTask)
@@ -43,7 +42,7 @@ listsWidget = do
       . toList
       . foldMap (^. #tags)
       . filter (has $ #status % #_Pending)
-      . (^. al #task)
+      . (^. mapping #task)
       . HashMap.elems
   listSelector ::
     (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
@@ -98,4 +97,4 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
     maybePredicate taskInfo =
       if inList taskInfo then Just taskInfo else Nothing
     inList :: TaskInfos -> Bool
-    inList = (tag `Set.member`) . (^. #tags)
+    inList = (tag `Set.member`) . (^. #task % #tags)

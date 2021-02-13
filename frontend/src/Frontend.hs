@@ -7,11 +7,6 @@ import Obelisk.Generated.Static
 import Obelisk.Route
 
 import Frontend.Route (FrontendRoute)
-import Kassandra.Config (
-  NamedBackend (..),
-  PasswordConfig (..),
-  RemoteBackend (..),
- )
 import Kassandra.Css (cssAsText)
 import Kassandra.MainWidget (mainWidget)
 import Kassandra.RemoteBackendWidget (

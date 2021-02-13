@@ -124,7 +124,7 @@ widgetSwitcher = D.el "div" $ do
 
 filterInbox :: TaskState -> [TaskInfos]
 filterInbox tasks =
-  sortOn (^. #modified) . filter inInbox . HashMap.elems $ tasks
+  sortOn (^. #modified) . toListOf (folded % filtered inInbox) $ tasks
  where
   inInbox :: TaskInfos -> Bool
   inInbox taskInfos =
@@ -134,8 +134,8 @@ filterInbox tasks =
       && ( not
             . any (`notElem` ["kategorie", "project", "root"])
             . Set.unions
+            . view (mapping #tags)
             $ lookupTasks tasks (taskInfos ^. #parents)
-              ^. #tags
          )
       && not (taskInfos ^. #blocked)
 

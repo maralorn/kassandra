@@ -41,7 +41,8 @@ userKey = "User"
 passwordKey = "Password"
 loginStateKey = "LoginState"
 
-remoteBackendWidget ::  forall t m.
+remoteBackendWidget ::
+  forall t m.
   WidgetJSM t m =>
   CloseEvent t ->
   Maybe (RemoteBackend PasswordConfig) ->
@@ -55,9 +56,7 @@ remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
       )
   D.holdDyn Nothing responseEvent
  where
-  getPassword ::
-    RemoteBackend PasswordConfig ->
-    m (R.Dynamic t (Maybe (RemoteBackend Text)))
+  getPassword :: RemoteBackend PasswordConfig -> m (R.Dynamic t (Maybe (RemoteBackend Text)))
   getPassword RemoteBackend{url, user, password} = do
     fmap (pure . RemoteBackend url user) <$> case password of
       Password plain -> pure (pure plain)
@@ -168,5 +167,5 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
         void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
         ev <- R.getPostBuild
         let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
-        pure . pure $ (#_Tasks #) <$> (taskUpdates <> cachedTasks)
+        pure . pure $ (#_TaskUpdates #) <$> (taskUpdates <> cachedTasks)
   pure clientSocket

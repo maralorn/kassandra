@@ -2,115 +2,90 @@ module Backend (
   backend,
 ) where
 
-import Backend.Config
-import Control.Concurrent.STM.TChan (
-  TChan,
-  dupTChan,
-  newBroadcastTChan,
-  readTChan,
-  writeTChan,
- )
+import Backend.Config (BackendConfig, readConfig, users)
+import Control.Concurrent.STM.TQueue (TQueue, newTQueueIO, writeTQueue)
+import Control.Exception (try)
 import qualified Data.Aeson as Aeson
-import Data.Default.Class (def)
 import Data.Map (lookup)
 import Data.Password.Argon2
-import Frontend.Route (
-  BackendRoute (..),
-  FrontendRoute,
-  fullRouteEncoder,
- )
-import Kassandra.Api (
-  SocketMessage (..),
-  SocketRequest (..),
- )
-import Kassandra.Config hiding (
-  backend,
-  id,
- )
-import Kassandra.Standalone.State (taskMonitor)
-import Network.WebSockets (
-  ServerApp,
-  acceptRequest,
-  forkPingThread,
-  receiveData,
-  rejectRequest,
-  sendTextData,
- )
+import Frontend.Route (BackendRoute (..), FrontendRoute, fullRouteEncoder)
+import Kassandra.Config (AccountConfig (..))
+import Kassandra.LocalBackend (BackendError (..), LocalBackendRequest (..), LocalBackendResponse (..))
+import Kassandra.Standalone.State (localBackendProvider)
+import Network.WebSockets (ConnectionException, ServerApp, acceptRequest, forkPingThread, receiveData, rejectRequest, sendTextData)
 import Network.WebSockets.Snap (runWebSocketsSnap)
 import Obelisk.Backend (Backend (..))
-import Obelisk.Route (
-  R,
-  pattern (:/),
- )
-import Say
-import Snap.Core (MonadSnap)
-import Taskwarrior.IO (
-  getTasks,
-  saveTasks,
- )
+import Obelisk.Route (R, pattern (:/))
+import Relude.Extra.Newtype (un)
+import Say (say, sayErr)
+import Snap (MonadSnap, Snap)
 
 backend :: Backend BackendRoute FrontendRoute
 backend =
   Backend
-    { _backend_run = \serve -> do
-        config <- readConfig Nothing
-        broadCastChannel <- atomically newBroadcastTChan
-        concurrently_
-          (taskMonitor def (atomically . writeTChan broadCastChannel))
-          (serve . backendSnaplet config $ broadCastChannel)
+    { _backend_run = serveSnaplet
     , _backend_routeEncoder = fullRouteEncoder
     }
 
-backendSnaplet ::
+serveSnaplet :: ((R BackendRoute -> Snap ()) -> IO b) -> IO ()
+serveSnaplet serve = do
+  config <- readConfig Nothing
+  backendRequestQueue <- newTQueueIO
+  let backendSnaplet :: MonadSnap m => R BackendRoute -> m ()
+      backendSnaplet = \case
+        BackendRouteSocket :/ (_, params) -> serveWebsocket config backendRequestQueue params
+        BackendRouteMissing :/ () -> pass
+  concurrently_
+    (localBackendProvider backendRequestQueue)
+    (serve backendSnaplet)
+
+serveWebsocket ::
   MonadSnap m =>
   BackendConfig ->
-  TChan (NonEmpty Task) ->
-  R BackendRoute ->
+  TQueue LocalBackendRequest ->
+  Map Text (Maybe Text) ->
   m ()
-backendSnaplet config broadCastChannel = \case
-  BackendRouteSocket :/ (_, params) ->
-    let mayUsername = join (params ^. at "username")
-        mayPassword = join (params ^. at "password")
-        mayCreds = liftA2 (,) mayUsername mayPassword
-        action (Just (username, password))
-          | Just userConfig <- lookup username (users config)
-            , PasswordCheckSuccess <-
-                checkPassword
-                  (mkPassword password)
-                  (passwordHash userConfig) =
-            acceptSocket broadCastChannel username userConfig
-        action (Just (username, _))
-          | Just _ <- lookup username (users config) =
-            \connection -> do
-              putTextLn
-                [i|Rejecting Websocket request for #{username :: Text}, wrong password.|]
-              rejectRequest
-                connection
-                "No valid 'username' and 'password' provided."
-        action _ = \connection -> do
-          putTextLn
-            [i|Rejecting Websocket request #{show mayUsername :: Text}. No matching user found.|]
-          rejectRequest
-            connection
-            "No valid 'username' and 'password' provided."
-     in runWebSocketsSnap . action $ mayCreds
-  BackendRouteMissing :/ () -> pass
+serveWebsocket config backendRequestQueue params =
+  let mayUsername = join (params ^. at "username")
+      mayPassword = join (params ^. at "password")
+      mayCreds = liftA2 (,) mayUsername mayPassword
+      action (Just (username, password))
+        | Just userConfig <- lookup username (users config)
+          , PasswordCheckSuccess <- checkPassword (mkPassword password) (passwordHash userConfig) =
+          acceptSocket backendRequestQueue username userConfig
+      action (Just (username, _))
+        | Just _ <- lookup username (users config) =
+          \connection -> do
+            say [i|Rejecting Websocket request for #{username :: Text}, wrong password.|]
+            rejectRequest connection "No valid 'username' and 'password' provided."
+      action _ = \connection -> do
+        say [i|Rejecting Websocket request #{show mayUsername :: Text}. No matching user found.|]
+        rejectRequest connection "No valid 'username' and 'password' provided."
+   in runWebSocketsSnap . action $ mayCreds
 
-acceptSocket :: TChan (NonEmpty Task) -> Text -> AccountConfig -> ServerApp
-acceptSocket broadCastChannel username userConfig pendingConnection = do
-  putStrLn [i|Websocket Client by user #{username} connected!|]
+acceptSocket :: TQueue LocalBackendRequest -> Text -> AccountConfig -> ServerApp
+acceptSocket backendRequestQueue username accountConfig pendingConnection = do
+  say [i|Websocket Client by user #{username} connected!|]
   connection <- acceptRequest pendingConnection
   forkPingThread connection 30
-  channel <- atomically $ dupTChan broadCastChannel
-  let sendTasks = sendTextData connection . Aeson.encode . TaskUpdates
-      sendAll = whenNotNullM (getTasks []) sendTasks
-      sendUpdates = forever $ sendTasks =<< atomically (readTChan channel)
-      waitForRequests = do
-        msg <- Aeson.decode <$> receiveData connection
-        concurrently_ waitForRequests $
-          whenJust msg $ \case
-            AllTasks -> sendAll
-            ChangeTasks tasks -> saveTasks . toList $ tasks
-            UIConfigRequest ->
-              sayErr "Got an UI ConfigRequest, wasn‘t expecting this."
-  forConcurrently_ [sendAll, sendUpdates, waitForRequests] id
+  let responseCallback = \case
+        ErrorState err -> sayErr [i|LocalBackend reported error #{un err :: Text}|]
+        SetupComplete -> say "Connection accepted"
+        DataResponse msg -> sendTextData connection . Aeson.encode $ msg
+  alive <- newTVarIO True
+  requestQueue <- newTQueueIO
+  atomically . writeTQueue backendRequestQueue $
+    LocalBackendRequest
+      { userConfig = accountConfig ^. #userConfig
+      , alive
+      , responseCallback
+      , requestQueue
+      }
+  let go =
+        (try (receiveData connection) :: IO (Either ConnectionException LByteString)) >>= \case
+          Left err -> do
+            say [i|Socket for #{username} closed. With error #{err}|]
+            atomically (writeTVar alive False)
+          Right (Aeson.decode -> msg) ->
+            concurrently_ go . whenJust msg $ atomically . writeTQueue requestQueue
+  go

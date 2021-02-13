@@ -164,7 +164,7 @@ insertBefore list toInsert = \case
      in front <> (toInsert ++ back)
   Nothing -> cleanList <> toInsert
  where
-  cleanList = filter ((`notElem` (toInsert ^. #uuid)) . (^. #uuid)) list
+  cleanList = filter ((`notElem` (toInsert ^. mapping #uuid)) . (^. #uuid)) list
 
 type InsertEvent t = R.Event t (NonEmpty Task, Maybe UUID)
 
