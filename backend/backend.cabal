@@ -75,6 +75,7 @@ library
     , obelisk-backend
     , obelisk-route
     , password         >=2.0.1.0
+    , relude
     , snap-core
     , standalone
     , stm

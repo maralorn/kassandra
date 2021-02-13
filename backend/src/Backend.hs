@@ -18,7 +18,7 @@ import Obelisk.Backend (Backend (..))
 import Obelisk.Route (R, pattern (:/))
 import Relude.Extra.Newtype (un)
 import Say (say, sayErr)
-import Snap (MonadSnap, Snap)
+import Snap.Core (MonadSnap, Snap)
 
 backend :: Backend BackendRoute FrontendRoute
 backend =
