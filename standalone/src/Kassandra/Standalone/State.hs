@@ -101,14 +101,12 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do
   say "Listening for changed or new tasks on 127.0.0.1:6545."
-  Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) ->
-    Net.recv socket 4096
-      >>= maybe
-        (sayErr "Unsuccessful connection attempt.")
-        ( \changes ->
-            either
-              (\err -> sayErr [i|Couldn‘t decode #{changes} as Task: #{err}|])
-              (newTasksCallBack . one)
-              . Aeson.eitherDecodeStrict @Task
-              $ changes
-        )
+  Net.serve (Net.Host "127.0.0.1") "6545" $ \(socket, _) -> Net.recv socket 4096 >>= unwrapChanges
+ where
+  unwrapChanges = maybe (sayErr "Unsuccessful connection attempt.") handleChanges
+  handleChanges changes =
+    either
+      (\err -> sayErr [i|Couldn‘t decode #{changes} as Task: #{err}|])
+      (newTasksCallBack . one)
+      . Aeson.eitherDecodeStrict @Task
+      $ changes
