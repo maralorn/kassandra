@@ -11,26 +11,25 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import Kassandra.Api (
-  SocketMessage (TaskUpdates, UIConfigResponse),
+  SocketMessage (..),
   SocketRequest (AllTasks, ChangeTasks, UIConfigRequest),
  )
 import Kassandra.Config (LocalBackend, UserConfig (..))
 import Kassandra.LocalBackend (
   LocalBackendRequest (LocalBackendRequest),
-  LocalBackendResponse (DataResponse, SetupComplete),
   alive,
   requestQueue,
   responseCallback,
   userConfig,
  )
 import qualified Network.Simple.TCP as Net
-import Say
+import Say (say, sayErr)
 import Taskwarrior.IO (getTasks, saveTasks)
 
 waitTillFalse :: MonadIO m => TVar Bool -> m ()
 waitTillFalse boolTvar = (atomically . whenM (readTVar boolTvar)) retry
 foreverWhileTrue :: TVar Bool -> IO a -> IO ()
-foreverWhileTrue boolTvar action = (withAsync (forever action) . const) (waitTillFalse boolTvar)
+foreverWhileTrue boolTvar action = (withAsync (forever action) . const . waitTillFalse) boolTvar
 lookupTMap :: (Ord k, MonadIO f) => k -> TVar (Map k a) -> f (Maybe a)
 lookupTMap key tvarMap = Map.lookup key <$> readTVarIO tvarMap
 insertOrAddTMap :: Ord k => k -> e -> TVar (Map k (Seq e)) -> STM Bool
@@ -52,11 +51,17 @@ handleRequests requestQueue mapVar = go
   go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req mapVar) $ const go
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
-monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (\(_, callback) -> callback (TaskUpdates tasks))
+monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates tasks) . snd)
 
 handleRequest :: LocalBackendRequest -> TVar ClientMap -> IO ()
 handleRequest req mapVar =
-  forConcurrently_ [do { handleRequestsWhileAlive req; removeClientFromMap req mapVar }, launchOrAttachMonitor req mapVar, responseCallback req SetupComplete] id
+  forConcurrently_
+    [ do handleRequestsWhileAlive req; removeClientFromMap req mapVar
+    , launchOrAttachMonitor req mapVar
+    , responseCallback req ConnectionEstablished
+    , say "Client registered on backend"
+    ]
+    id
 
 removeClientFromMap :: MonadIO m => LocalBackendRequest -> TVar ClientMap -> m ()
 removeClientFromMap req mapVar = atomically (modifyTVar' mapVar updateMap)
@@ -74,12 +79,12 @@ removeClientFromMap req mapVar = atomically (modifyTVar' mapVar updateMap)
 launchOrAttachMonitor :: LocalBackendRequest -> TVar ClientMap -> IO ()
 launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} mapVar =
   whenM (atomically $ insertOrAddTMap localBackend entry mapVar) $
-    whileClientsNotEmpty do
-      taskMonitor localBackend (monitorCallback localBackend mapVar)
+    do
+      whileClientsNotEmpty $ taskMonitor localBackend (monitorCallback localBackend mapVar)
       say "Stopped listening for changes"
  where
   UserConfig{localBackend} = userConfig
-  entry = (alive, responseCallback . DataResponse)
+  entry = (alive, responseCallback)
   whileClientsNotEmpty action =
     withAsync action . const . atomically . whenJustM (Map.lookup localBackend <$> readTVar mapVar) . const $ retry
 
@@ -89,11 +94,9 @@ handleRequestsWhileAlive :: LocalBackendRequest -> IO ()
 handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} =
   foreverWhileTrue alive $
     atomically (readTQueue requestQueue) >>= \case
-      UIConfigRequest -> (cb . UIConfigResponse . uiConfig) userConfig
-      AllTasks -> whenNotNullM (getTasks []) (cb . TaskUpdates)
-      ChangeTasks tasks -> saveTasks $ toList tasks
- where
-  cb = responseCallback . DataResponse
+      UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
+      AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
+      ChangeTasks tasks -> (saveTasks . toList) tasks
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do

@@ -11,7 +11,7 @@ import JSDOM (currentWindowUnchecked)
 import JSDOM.Custom.Window (getLocalStorage)
 import JSDOM.Generated.Storage (Storage, getItem, setItem)
 import Kassandra.Api (
-  SocketMessage (TaskUpdates),
+  SocketMessage,
   SocketRequest (AllTasks),
  )
 import Kassandra.BaseWidgets (button, stateWidget)
@@ -51,9 +51,7 @@ remoteBackendWidget closeEvent mayBackend = D.divClass "remoteBackend" $ do
   backendDyn <- maybe inputBackend getPassword mayBackend
   responseEvent <-
     D.dyn
-      ( withBackend (closeEvent <> wrap (() <$ R.updated backendDyn))
-          <$> backendDyn
-      )
+      (withBackend (closeEvent <> wrap (() <$ R.updated backendDyn)) <$> backendDyn)
   D.holdDyn Nothing responseEvent
  where
   getPassword :: RemoteBackend PasswordConfig -> m (R.Dynamic t (Maybe (RemoteBackend Text)))
@@ -143,11 +141,11 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
       clientSocket socketRequestEvent = do
         let socketConfig =
               D.def
-                & (lensVL D.webSocketConfig_send .~ foldMap (fmap one) [socketRequestEvent, AllTasks <$ refreshEvent])
+                & (lensVL D.webSocketConfig_send .~ (toList <$> (socketRequestEvent <> (one AllTasks <$ refreshEvent))))
                   . (lensVL D.webSocketConfig_reconnect .~ True)
                   . (lensVL D.webSocketConfig_close .~ ((3000, "Client unloaded websocket.") <$ un closeEvent))
         storage <- getStorage
-        socket <- D.jsonWebSocket socketString socketConfig
+        socket <- D.jsonWebSocket @SocketRequest @SocketMessage socketString socketConfig
         let messages = R.fmapMaybe id $ socket ^. lensVL D.webSocket_recv
             err = [i|Connection to kassandra server not possible. Check network connection, server url and credentials. #{backend}|]
             close = Just err <$ socket ^. lensVL D.webSocket_close
@@ -155,9 +153,7 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
             messageParseFail = maybe (Just "Failed to parse SocketMessage JSON") (const Nothing) <$> socket ^. lensVL D.webSocket_recv
             nextStateEvent = R.leftmost [messageParseFail, close, open]
         D.dynText . fmap (fromMaybe "") =<< R.holdDyn (Just "Websocket Connecting ...") nextStateEvent
-        let taskUpdates = flip R.fmapMaybe messages $ \case
-              TaskUpdates newTasks -> Just newTasks
-              _ -> Nothing
+        let taskUpdates = (^? #_TaskUpdates) <$?> messages
             mapKey = [i|TaskMap#{wsUrl}#{user}|] :: String
             foldTasksToMap tasks currentMap = foldr (\task theMap -> insert (task ^. #uuid) task theMap) currentMap tasks
             asyncSaveStorage = void . liftJSM . D.forkJSM . setItem storage mapKey . decodeUtf8 @Text . encode
@@ -167,5 +163,5 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
         void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
         ev <- R.getPostBuild
         let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
-        pure . pure $ (#_TaskUpdates #) <$> (taskUpdates <> cachedTasks)
+        pure . pure $ R.leftmost [messages, (#_TaskUpdates #) <$> cachedTasks]
   pure clientSocket

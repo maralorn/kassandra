@@ -79,11 +79,7 @@ postComposeMayDecoder err f dec =
   dec
     { Dhall.extract =
         fromMonadic
-          . ( maybe (toMonadic $ extractError err) Right
-                . f
-                <=< toMonadic
-                  . Dhall.extract dec
-            )
+          . (maybe (toMonadic $ extractError err) Right . f <=< toMonadic . Dhall.extract dec)
     }
 instance FromDhall UUID where
   autoWith =

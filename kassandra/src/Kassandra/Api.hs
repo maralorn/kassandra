@@ -1,11 +1,13 @@
 module Kassandra.Api (
-  SocketMessage (TaskUpdates, UIConfigResponse),
-  SocketRequest (AllTasks, ChangeTasks, UIConfigRequest),
+  SocketMessage (..),
+  SocketRequest (..),
 ) where
 
 import Kassandra.Config (UIConfig)
 
-data SocketMessage = TaskUpdates (NonEmpty Task) | CalendarUpdate | UIConfigResponse UIConfig
+type SocketError = Text
+
+data SocketMessage = TaskUpdates (NonEmpty Task) | CalendarUpdate | UIConfigResponse UIConfig | SocketError SocketError | ConnectionEstablished
   deriving stock (Show, Read, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 makePrismLabels ''SocketMessage

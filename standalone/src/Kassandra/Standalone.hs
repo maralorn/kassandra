@@ -2,7 +2,7 @@ module Kassandra.Standalone (
   standalone,
 ) where
 
-import Control.Concurrent.STM (TQueue, newTQueue)
+import Control.Concurrent.STM (TQueue, newTQueueIO)
 import Kassandra.Config (
   NamedBackend (NamedBackend, backend, name),
  )
@@ -37,7 +37,7 @@ standalone = do
   config <- readConfig Nothing
   print config
   log Debug "Loaded Config"
-  requestQueue <- atomically newTQueue
+  requestQueue <- newTQueueIO
   race_ (localBackendProvider requestQueue) $
     D.mainWidgetWithCss cssAsBS $
       -- TODO: Use Config from stateProvider here

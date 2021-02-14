@@ -6,7 +6,7 @@ module Kassandra.State (
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
-import Kassandra.Api (SocketRequest (ChangeTasks), SocketMessage)
+import Kassandra.Api (SocketRequest (..), SocketMessage(..))
 import Kassandra.Config (UIConfig)
 import Kassandra.Types (
   DataChange,
@@ -36,7 +36,7 @@ makeLabels ''DataState
 
 type StateProvider t m = R.Event t (NonEmpty DataChange) -> m (R.Dynamic t DataState)
 
-type ClientSocket t m = R.Event t SocketRequest -> m (R.Dynamic t (R.Event t SocketMessage))
+type ClientSocket t m = R.Event t (NonEmpty SocketRequest) -> m (R.Dynamic t (R.Event t SocketMessage))
 
 makeStateProvider :: forall t m. WidgetIO t m => ClientSocket t m -> StateProvider t m
 makeStateProvider clientSocket dataChangeEvents = do
@@ -46,8 +46,11 @@ makeStateProvider clientSocket dataChangeEvents = do
       changeTaskEvent = fanEvent (^? #_ChangeTask) dataChangeEvents
   changesFromCreateEvents <- createToChangeEvent createTaskEvent
   let localChanges = changeTaskEvent <> changesFromCreateEvents
-  remoteChanges <- R.switchDyn <$> clientSocket (ChangeTasks <$> localChanges)
-  tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> R.fmapMaybe (^? #_TaskUpdates) remoteChanges)
+  rec remoteChanges <- R.switchDyn <$> clientSocket ((one . ChangeTasks <$> localChanges) <> (one AllTasks <$ connectedEvent))
+      let connectedEvent = (^? #_ConnectionEstablished) <$?> remoteChanges
+  let errorEvent = (^? #_SocketError) <$?> remoteChanges
+  D.dynText =<< R.foldDyn (<>) "" errorEvent
+  tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> ((^? #_TaskUpdates) <$?> remoteChanges))
   pure $ DataState <$> tasksStateDyn <*> pure D.def <*> pass
 
 createToChangeEvent :: WidgetIO t m => D.Event t (NonEmpty (Text, Task -> Task)) -> m (D.Event t (NonEmpty Task))

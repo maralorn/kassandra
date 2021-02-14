@@ -10,14 +10,13 @@ import Data.Map (lookup)
 import Data.Password.Argon2
 import Frontend.Route (BackendRoute (..), FrontendRoute, fullRouteEncoder)
 import Kassandra.Config (AccountConfig (..))
-import Kassandra.LocalBackend (BackendError (..), LocalBackendRequest (..), LocalBackendResponse (..))
+import Kassandra.LocalBackend (LocalBackendRequest (..))
 import Kassandra.Standalone.State (localBackendProvider)
 import Network.WebSockets (ConnectionException, ServerApp, acceptRequest, forkPingThread, receiveData, rejectRequest, sendTextData)
 import Network.WebSockets.Snap (runWebSocketsSnap)
 import Obelisk.Backend (Backend (..))
 import Obelisk.Route (R, pattern (:/))
-import Relude.Extra.Newtype (un)
-import Say (say, sayErr)
+import Say (say)
 import Snap.Core (MonadSnap, Snap)
 
 backend :: Backend BackendRoute FrontendRoute
@@ -68,10 +67,7 @@ acceptSocket backendRequestQueue username accountConfig pendingConnection = do
   say [i|Websocket Client by user #{username} connected!|]
   connection <- acceptRequest pendingConnection
   forkPingThread connection 30
-  let responseCallback = \case
-        ErrorState err -> sayErr [i|LocalBackend reported error #{un err :: Text}|]
-        SetupComplete -> say "Connection accepted"
-        DataResponse msg -> sendTextData connection . Aeson.encode $ msg
+  let responseCallback = sendTextData connection . Aeson.encode
   alive <- newTVarIO True
   requestQueue <- newTQueueIO
   atomically . writeTQueue backendRequestQueue $
