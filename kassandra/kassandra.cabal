@@ -60,6 +60,7 @@ library
   import:          common-config
   exposed-modules:
     Kassandra.Api
+    Kassandra.Calendar
     Kassandra.Config
     Kassandra.Css
     Kassandra.Debug
@@ -74,6 +75,8 @@ library
     Prelude
 
   other-modules:
+    Kassandra.AgendaWidget
+    Kassandra.LogWidget
     Kassandra.BaseWidgets
     Kassandra.DragAndDrop
     Kassandra.ListWidget

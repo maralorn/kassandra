@@ -9,6 +9,7 @@ project ./. (
     let
       inherit (pkgs.haskell.lib)
         markUnbroken dontCheck addBuildDepend doJailbreak
+        overrideCabal
         ;
     in
       {
@@ -29,6 +30,9 @@ project ./. (
           repline = doJailbreak (self.callHackage "repline" "0.4.0.0" {});
           dhall = dontCheck (self.callHackage "dhall" "1.35.0" {});
           relude = dontCheck super.relude;
+          iCalendar = overrideCabal (doJailbreak (markUnbroken super.iCalendar)) {
+            preConfigure = ''substituteInPlace iCalendar.cabal --replace "network >=2.6 && <2.7" "network -any"'';
+          };
           prettyprinter = self.callHackageDirect {
             pkg = "prettyprinter";
             ver = "1.5.1";

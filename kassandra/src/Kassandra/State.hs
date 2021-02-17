@@ -6,7 +6,8 @@ module Kassandra.State (
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
-import Kassandra.Api (SocketRequest (..), SocketMessage(..))
+import Kassandra.Api (SocketMessage (..), SocketRequest (..))
+import Kassandra.Calendar
 import Kassandra.Config (UIConfig)
 import Kassandra.Types (
   DataChange,
@@ -30,7 +31,7 @@ getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
 data DataState = DataState
   { taskState :: TaskState
   , uiConfig :: UIConfig
-  , calendarData :: ()
+  , calendarData :: Seq CalendarEvent
   }
 makeLabels ''DataState
 
@@ -46,12 +47,14 @@ makeStateProvider clientSocket dataChangeEvents = do
       changeTaskEvent = fanEvent (^? #_ChangeTask) dataChangeEvents
   changesFromCreateEvents <- createToChangeEvent createTaskEvent
   let localChanges = changeTaskEvent <> changesFromCreateEvents
-  rec remoteChanges <- R.switchDyn <$> clientSocket ((one . ChangeTasks <$> localChanges) <> (one AllTasks <$ connectedEvent))
+  rec remoteChanges <- R.switchDyn <$> clientSocket ((one . ChangeTasks <$> localChanges) <> (fromList [AllTasks, CalenderRequest] <$ connectedEvent))
       let connectedEvent = (^? #_ConnectionEstablished) <$?> remoteChanges
   let errorEvent = (^? #_SocketError) <$?> remoteChanges
+  calendarData <- R.holdDyn mempty $ (^? #_CalendarEvents) <$?> remoteChanges
+  uiConfig <- R.holdDyn D.def $ (^? #_UIConfigResponse) <$?> remoteChanges
   D.dynText =<< R.foldDyn (<>) "" errorEvent
   tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> ((^? #_TaskUpdates) <$?> remoteChanges))
-  pure $ DataState <$> tasksStateDyn <*> pure D.def <*> pass
+  pure $ DataState <$> tasksStateDyn <*> uiConfig <*> calendarData
 
 createToChangeEvent :: WidgetIO t m => D.Event t (NonEmpty (Text, Task -> Task)) -> m (D.Event t (NonEmpty Task))
 createToChangeEvent = R.performEvent . fmap (liftIO . mapM (\(desc, properties) -> properties <$> createTask desc))

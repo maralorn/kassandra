@@ -1,5 +1,4 @@
 {-# LANGUAGE BlockArguments #-}
-
 module Kassandra.Standalone.State (
   localBackendProvider,
 ) where
@@ -12,8 +11,9 @@ import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import Kassandra.Api (
   SocketMessage (..),
-  SocketRequest (AllTasks, ChangeTasks, UIConfigRequest),
+  SocketRequest (..),
  )
+import Kassandra.Backend.Calendar
 import Kassandra.Config (LocalBackend, UserConfig (..))
 import Kassandra.LocalBackend (
   LocalBackendRequest (LocalBackendRequest),
@@ -97,6 +97,7 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
       AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
       ChangeTasks tasks -> (saveTasks . toList) tasks
+      CalenderRequest -> responseCallback . CalendarEvents =<< getEvents
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do

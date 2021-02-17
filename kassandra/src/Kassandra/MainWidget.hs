@@ -22,7 +22,6 @@ import Kassandra.Types (
   AppState (AppState),
   AppStateChange,
   DragState (NoDrag),
-  FilterState (FilterState),
   StandardWidget,
   TaskInfos,
   TaskState,
@@ -33,6 +32,8 @@ import Kassandra.Types (
 import Kassandra.Util (tellNewTask)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
+import Kassandra.AgendaWidget (agendaWidget)
+import Kassandra.LogWidget (logWidget)
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
@@ -43,10 +44,9 @@ mainWidget _uiConfig stateProvider = do
   timeDyn <-
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
       <$> R.clockLossy 1 (zonedTimeToUTC time)
-  let filterState = R.constDyn (FilterState 0 60)
   rec let (appChangeEvents, dataChangeEvents) =
             R.fanThese $ partitionEithersNE <$> stateChanges
-      taskState <- (^. #taskState) <<$>> stateProvider dataChangeEvents
+      appData <- stateProvider dataChangeEvents
       dragDyn <- R.holdDyn NoDrag $ last <$> appChangeEvents
       (_, stateChanges' :: R.Event t (NonEmpty AppStateChange)) <-
         R.runEventWriterT $
@@ -56,7 +56,12 @@ mainWidget _uiConfig stateProvider = do
                 D.divClass "content" widgetSwitcher
                 infoFooter
             )
-            (AppState taskState timeDyn dragDyn filterState)
+            ( AppState
+                (appData ^. mapping #taskState)
+                timeDyn
+                dragDyn
+                (appData ^. mapping #calendarData)
+            )
       stateChanges <- logR Info (const "StateChange") stateChanges'
   pass
 
@@ -109,6 +114,8 @@ widgets =
   , ("Lists", listsWidget)
   , ("Inbox", inboxWidget)
   , ("Unsorted", unsortedWidget)
+  , ("Agenda", agendaWidget)
+  , ("Logs", logWidget)
   ]
 
 widgetSwitcher :: forall t m r e. StandardWidget t m r e => m ()

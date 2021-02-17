@@ -59,6 +59,7 @@ library
   import:          common-config
   hs-source-dirs:  src
   exposed-modules:
+    Kassandra.Backend.Calendar
     Kassandra.Config.Dhall
     Kassandra.Standalone
     Kassandra.Standalone.Config
@@ -69,10 +70,14 @@ library
     , async
     , base
     , containers
+    , data-default
     , dependent-map
     , dependent-sum-template
     , dhall
     , either
+    , filepath
+    , filepattern
+    , iCalendar               >=0.4
     , kassandra
     , network-simple
     , password                >=2.0.1.0
@@ -83,6 +88,7 @@ library
     , say
     , stm
     , taskwarrior
+    , time
     , unordered-containers
     , uuid
 

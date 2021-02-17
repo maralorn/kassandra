@@ -22,7 +22,6 @@ module Kassandra.Types (
   getAppState,
   getTasks,
   getDragState,
-  getFilterState,
   getTime,
   getIsExpanded,
   getExpandedTasks,
@@ -35,6 +34,7 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 import qualified Taskwarrior.Status
 import qualified Taskwarrior.Task
+import Kassandra.Calendar
 
 type Widget t m =
   ( D.DomBuilder t m
@@ -79,7 +79,7 @@ makeLabels ''FilterState
 type ExpandedTasks = HashSet UUID
 type TaskTreeState t = R.Dynamic t ExpandedTasks
 
-data AppState t = AppState {taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime, dragState :: R.Dynamic t DragState, filterState :: R.Dynamic t FilterState} deriving stock (Generic)
+data AppState t = AppState {taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime, dragState :: R.Dynamic t DragState, calendarEvents :: R.Dynamic t (Seq CalendarEvent)} deriving stock (Generic)
 makeLabels ''AppState
 
 type Have m r s = (MonadReader r m, HasType s r)
@@ -106,9 +106,6 @@ getTasks = getAppState ^. mapping #taskState
 getDragState ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t DragState)
 getDragState = getAppState ^. mapping #dragState
-getFilterState ::
-  (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t FilterState)
-getFilterState = getAppState ^. mapping #filterState
 getTime ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t ZonedTime)
 getTime = getAppState ^. mapping #currentTime

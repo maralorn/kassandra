@@ -1,5 +1,4 @@
 module Kassandra.Util (
-  filterCurrent,
   tellSingleton,
   tellTask,
   tellToggle,
@@ -8,8 +7,7 @@ module Kassandra.Util (
   lookupTaskM,
   lookupTasks,
   lookupTasksM,
-  lookupCurrentDyn,
-  lookupCurrent,
+  lookupTasksDynM,
   defDyn,
   defDynDyn,
 ) where
@@ -28,13 +26,10 @@ import Kassandra.Types (
   Widget,
   WriteApp,
   getExpandedTasks,
-  getFilterState,
   getTasks,
-  getTime,
  )
 import qualified Reflex as R
 import qualified Reflex.Dom as D
-import Taskwarrior.Status as Status
 
 tellToggle :: TaskTreeWidget t m r e => R.Event t UUID -> m ()
 tellToggle ev = do
@@ -79,40 +74,6 @@ lookupTasksDynM ::
   HaveApp t m r => R.Dynamic t [UUID] -> m (R.Dynamic t [TaskInfos])
 lookupTasksDynM uuids =
   getTasks <&> \tasks -> flip lookupTasks <$> uuids <*> tasks
-
-lookupCurrent ::
-  (Widget t m, HaveApp t m r) => [UUID] -> m (R.Dynamic t [TaskInfos])
-lookupCurrent = lookupTasksM >=> filterCurrent
-
-lookupCurrentDyn ::
-  (Widget t m, HaveApp t m r) =>
-  R.Dynamic t [UUID] ->
-  m (R.Dynamic t [TaskInfos])
-lookupCurrentDyn = lookupTasksDynM >=> filterCurrent
-
-filterCurrent ::
-  (Widget t m, HaveApp t m r) =>
-  R.Dynamic t [TaskInfos] ->
-  m (R.Dynamic t [TaskInfos])
-filterCurrent taskinfos = do
-  time <- fmap zonedTimeToUTC <$> getTime
-  filterStateD <- getFilterState
-  let thresholds =
-        R.zipDynWith
-          ( \time' filterState ->
-              ( addUTCTime (- (filterState ^. #deletedFade)) time'
-              , addUTCTime (- (filterState ^. #completedFade)) time'
-              )
-          )
-          time
-          filterStateD
-  R.holdUniqDyn $ R.zipDynWith (filter . filterTask) thresholds taskinfos
-
-filterTask :: ((UTCTime, UTCTime) -> TaskInfos -> Bool)
-filterTask (deletedThreshold, completedThreshold) ((^. #status) -> status)
-  | Status.Deleted time <- status = time >= deletedThreshold
-  | Status.Completed time <- status = time >= completedThreshold
-  | otherwise = True
 
 defDyn :: Widget t m => a -> R.Dynamic t (m a) -> m (R.Dynamic t a)
 defDyn defVal = R.holdDyn defVal <=< D.dyn

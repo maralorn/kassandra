@@ -23,7 +23,7 @@ import Kassandra.Types (
   Widget,
   getTasks,
  )
-import Kassandra.Util (filterCurrent, tellNewTask)
+import Kassandra.Util (tellNewTask)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 
@@ -77,7 +77,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
       do
         D.text tag
         tasks <- getTasks
-        showTasks <- filterCurrent $ tasksToShow tag <$> tasks
+        let showTasks = tasksToShow tag <$> tasks
         let sortMode = SortModeTag tag
         taskList
           (R.constant sortMode)

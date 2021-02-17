@@ -46,14 +46,7 @@ import Kassandra.Types (
   getIsExpanded,
   getTime,
  )
-import Kassandra.Util (
-  lookupCurrent,
-  lookupCurrentDyn,
-  lookupTasksM,
-  tellNewTask,
-  tellTask,
-  tellToggle,
- )
+import Kassandra.Util (lookupTasksM, tellNewTask, tellTask, tellToggle, lookupTasksDynM)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
@@ -70,7 +63,7 @@ getTaskInfos :: HaveTask m r => m TaskInfos
 getTaskInfos = ask ^. mapping typed
 
 getChildren :: TaskWidget t m r e => m (R.Dynamic t [TaskInfos])
-getChildren = getTaskInfos ^. mapping #children >>= lookupCurrent
+getChildren = getTaskInfos ^. mapping #children >>= lookupTasksM
 
 taskTreeWidget ::
   forall t m r e. StandardWidget t m r e => R.Dynamic t TaskInfos -> m ()
@@ -255,7 +248,7 @@ childrenWidget taskInfosD = do
   showOptional :: Bool -> m ()
   showOptional x = when x $ do
     children <-
-      R.holdUniqDyn =<< lookupCurrentDyn
+      R.holdUniqDyn =<< lookupTasksDynM
         =<< R.holdUniqDyn
           (taskInfosD ^. mapping #children)
     let sortModeD = SortModePartof <$> taskInfosD ^. mapping #uuid
@@ -412,7 +405,7 @@ collapseButton = do
   taskInfos <- getTaskInfos
   hasChildren <-
     R.holdUniqDyn . fmap null
-      =<< lookupCurrent
+      =<< lookupTasksM
         (taskInfos ^. #children)
   D.dyn_ $
     unless <$> hasChildren

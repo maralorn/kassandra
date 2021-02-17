@@ -114,6 +114,8 @@ css fontPath = do
   let radius = em 0.3
       leftBarWidth = em 1.8
   ".activeEdit" ? buttonPadding
+  ".event" ? do
+    border solid (px 1) black
   ".task" ? do
     color (rgb 0 0 33)
     border solid (px 1) black
