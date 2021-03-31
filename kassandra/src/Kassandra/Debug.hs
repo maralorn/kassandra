@@ -28,6 +28,8 @@ import System.Console.ANSI (
   SGR (..),
   setSGRCode,
  )
+import Relude.Extra.Bifunctor
+import Relude.Extra.Enum
 
 data Severity = Debug | Info | Warning | Error deriving stock (Show, Read, Eq, Ord)
 
@@ -55,7 +57,7 @@ logR severity decorate loggable = do
   isSevere <- severeEnough severity
   if isSevere
     then do
-      myId <- liftIO $ modifyMVar traceID $ \a -> pure (succ a, a)
+      myId <- liftIO $ modifyMVar traceID $ \a -> pure (next a, a)
       withFrozenCallStack $ log Debug ("Registering eventTrace " <> show myId)
       let f comment value =
             formatMessage
@@ -151,7 +153,7 @@ showSeverity = \case
         (setSGRCode [Reset])
 
 showSourceLoc :: CallStack -> Text
-showSourceLoc = square . showCallStack . fmap (first toText) . getCallStack
+showSourceLoc = square . showCallStack . firstF toText . getCallStack
  where
   showCallStack = \case
     [] -> "<unknown loc>"
