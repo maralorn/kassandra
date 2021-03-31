@@ -105,6 +105,7 @@ library
     , optics-th
     , password
     , patch
+    , pretty-simple
     , process
     , reflex
     , reflex-dom

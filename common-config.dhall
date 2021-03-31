@@ -2,6 +2,7 @@ let Prelude = https://prelude.dhall-lang.org/v16.0.0/package.dhall
 
 let extensions =
       [ "AllowAmbiguousTypes"
+      , "BlockArguments"
       , "ConstraintKinds"
       , "DataKinds"
       , "DeriveAnyClass"

@@ -1,69 +1,138 @@
-{-# LANGUAGE BlockArguments #-}
-
 module Kassandra.Backend.Calendar (
   getEvents,
+  newCache,
+  Cache (..),
 ) where
 
+import qualified Control.Concurrent.STM as STM
 import Data.Default
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Text as Text
 import Data.Time
-import Kassandra.Calendar
-import Say
+import Data.Time.Zones
+import qualified StmContainers.Map as STM
+import System.Directory
 import System.FilePath
 import System.FilePattern.Directory
-import System.IO.Unsafe
 import Text.ICalendar
-import Control.Concurrent.Async
+import UnliftIO.Async
 
-dirName :: Seq FilePath
-dirName = ("/home/maralorn/.calendars/nextcloud/" </>) <$> fromList ["Planung", "Standard", "Uni"]
+import Kassandra.Calendar
+import Kassandra.Debug
 
-getEvents :: IO (Seq CalendarEvent)
-getEvents = do
-  calendarFiles <- (fromList =<<) <$> forM dirName (\x -> fmap (x </>) <$> getDirectoryFiles x ["*.ics"])
+dirName :: FilePath
+dirName = "/home/maralorn/.calendars/"
+
+data FileInfo = FileInfo
+  { lastRead :: UTCTime
+  , events :: Seq CalendarEvent
+  }
+  deriving stock (Show, Generic)
+
+type ICSCache = STM.Map FilePath FileInfo
+type TZCache = STM.Map (Maybe Text) (Maybe (Text, TZ))
+
+data Cache = Cache
+  { icsCache :: ICSCache
+  , tzCache :: TZCache
+  }
+
+newCache :: IO Cache
+newCache = atomically $ Cache <$> STM.new <*> STM.new
+
+makeLabels ''Cache
+
+getEvents :: Cache -> IO (Seq CalendarEvent)
+getEvents cache = do
+  calendarFiles <- fromList . fmap (dirName </>) <$> getDirectoryFiles dirName ["**/*.ics"]
   now <- getCurrentTime
-  Seq.sort . Seq.filter (onlyNextWeek now) . translateCalendar . join
-    <$> forConcurrently
-      calendarFiles
-      ( parseICalendarFile def >=> \case
-          Right (fromList -> calendarsInFile, fmap toText -> warnings) -> do
-            mapM_ (\x -> sayErr [i|WARN: #{x}|]) warnings
-            pure calendarsInFile
-          Left (toText -> parseError) -> do
-            sayErr [i|ERROR: #{parseError}|]
-            pure mempty
-      )
+  log Info "Retrieving ics events"
+  allEvents <- join
+    <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache now)
+  log Info [i|Retrieved ics #{Seq.length allEvents} events.|]
+  (pure . Seq.sortBy sortEvents . Seq.filter (onlyNextWeek now)) allEvents
+
+getWithCache :: Cache -> UTCTime -> FilePath -> IO (Seq CalendarEvent)
+getWithCache cache now fileName = do
+  infoMay <- atomically $ STM.lookup fileName (cache ^. #icsCache)
+  let update = do
+        newEvents <- readEvents cache fileName
+        atomically $ STM.insert (FileInfo now newEvents) fileName (cache ^. #icsCache)
+        pure newEvents
+  infoMay & maybe update \FileInfo{lastRead, events} -> do
+    modTime <- getModificationTime fileName
+    if lastRead >= modTime then pure events else update
+
+readEvents :: Cache -> FilePath -> IO (Seq CalendarEvent)
+readEvents cache path =
+  parseICalendarFile def path >>= \case
+    Right (fromList -> calendarsInFile, fmap toText -> _warnings) -> do
+      mapM_ (log Debug) _warnings
+      join <$> traverse (translateCalendar cache (tryExtractBaseDir (toText path))) calendarsInFile
+    Left _parseError -> do
+      log Debug (toText _parseError)
+      pure mempty
+
+tryExtractBaseDir :: Text -> Text
+tryExtractBaseDir name = fromMaybe name . (viaNonEmpty last <=< viaNonEmpty init) . Text.splitOn "/" $ name
 
 onlyNextWeek :: UTCTime -> CalendarEvent -> Bool
 onlyNextWeek now CalendarEvent{time}
-  | SimpleEvent start end <- time = end >= now && start <= addUTCTime (14 * nominalDay) now
+  | SimpleEvent (tzTimeToUTC -> start) (tzTimeToUTC -> end) <- time = end >= now && start <= addUTCTime (14 * nominalDay) now
 onlyNextWeek _ _ = False
 
-translateCalendar :: Seq VCalendar -> Seq CalendarEvent
-translateCalendar calendars = fmap translateEvent . fromList . Map.elems . vcEvents =<< calendars
+translateCalendar :: Cache -> Text -> VCalendar -> IO (Seq CalendarEvent)
+translateCalendar cache calendarName = traverse (translateEvent cache calendarName) . fromList . Map.elems . vcEvents
 
-translateEvent :: VEvent -> CalendarEvent
-translateEvent vEvent =
-  CalendarEvent
-    { uid = toStrict (uidValue (veUID vEvent))
-    , description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
-    , todoList = mempty
-    , time
-    }
+translateEvent :: Cache -> Text -> VEvent -> IO CalendarEvent
+translateEvent cache calendarName vEvent = do
+  time <- getTime
+  pure
+    CalendarEvent
+      { uid = toStrict (uidValue (veUID vEvent))
+      , description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
+      , todoList = mempty
+      , time
+      , calendarName
+      }
  where
-  time
+  getTime
     | Just (DTStartDateTime start _) <- veDTStart vEvent
       , Just (Left (DTEndDateTime end _)) <- veDTEndDuration vEvent =
-      SimpleEvent (datetimeToUTC start) (datetimeToUTC end)
-    | otherwise = RecurringEvent
+      SimpleEvent <$> datetimeToTZTime cache start <*> datetimeToTZTime cache end
+    | otherwise = pure RecurringEvent
 
-{-# NOINLINE timezone #-}
-timezone :: TimeZone
-timezone = unsafePerformIO getCurrentTimeZone
+datetimeToTZTime :: Cache -> DateTime -> IO TZTime
+datetimeToTZTime cache = \case
+  FloatingDateTime t -> withTZ t Nothing
+  UTCDateTime t -> pure $ TZTime (utcToZonedTime utc t) "UTC"
+  ZonedDateTime t (Just . toStrict -> tzname) -> withTZ t tzname
+ where
+  withTZ :: LocalTime -> Maybe Text -> IO TZTime
+  withTZ t tzname =
+    mkTZTime <$> getTZ (cache ^. #tzCache) tzname <*> pure t
 
-datetimeToUTC :: DateTime -> UTCTime
-datetimeToUTC = \case
-  FloatingDateTime x -> localTimeToUTC timezone x
-  UTCDateTime x -> x
-  ZonedDateTime x _ -> localTimeToUTC timezone x
+getTZ :: TZCache -> Maybe Text -> IO (Text, TZ)
+getTZ cache tzname = do
+  tzMay <- atomically $ do
+    cached <- STM.lookup tzname cache
+    cached & \case
+      Just (Just tz) -> pure (Just tz) -- Cache hit
+      Just Nothing -> STM.retry -- Another thread is already getting this value, wait for it.
+      Nothing -> STM.insert Nothing tzname cache >> pure Nothing -- We need to get this value
+  tzMay & flip maybe pure do
+    newTz <-
+      tzname & maybe (("Your Time",) <$> loadLocalTZ) \tzname' ->
+        ((tzname',) <$> loadTZFromDB (toString tzname')) `catch` \(e :: IOException) -> do
+          log Info [i|Timezone not found "#{tzname'}" trying next.|]
+          log Debug [i|Timezone lookup error was: #{e}|]
+          getTZ cache (nextName tzname')
+    atomically $ STM.insert (Just newTz) tzname cache
+    pure newTz
+
+mkTZTime :: (Text, TZ) -> LocalTime -> TZTime
+mkTZTime (tzname, tz) t = TZTime (ZonedTime t (timeZoneForUTCTime tz (localTimeToUTCTZ tz t))) tzname
+
+nextName :: Text -> Maybe Text
+nextName = fmap (Text.intercalate "/") . viaNonEmpty tail . Text.splitOn "/"

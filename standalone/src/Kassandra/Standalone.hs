@@ -29,7 +29,7 @@ import Relude.Extra.Newtype
 
 standalone :: IO ()
 standalone = do
-  setLogLevel $ Just Debug
+  setLogLevel $ Just Info
   log Info "Started kassandra"
   log Debug "Writing Types file"
   writeDeclarations

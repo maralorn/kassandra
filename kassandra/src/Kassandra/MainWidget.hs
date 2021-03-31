@@ -38,7 +38,7 @@ import Kassandra.LogWidget (logWidget)
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
   -- TODO: Use ui Config
-  liftIO $ setLogLevel $ Just Debug
+  liftIO $ setLogLevel $ Just Info
   log Info "Loaded Mainwidget"
   time <- liftIO getZonedTime
   timeDyn <-

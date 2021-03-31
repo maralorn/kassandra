@@ -9,6 +9,11 @@ import Control.Monad.STM (retry)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Network.Simple.TCP as Net
+import Say (say, sayErr)
+import Taskwarrior.IO (getTasks, saveTasks)
+
+import Kassandra.Debug
 import Kassandra.Api (
   SocketMessage (..),
   SocketRequest (..),
@@ -22,9 +27,6 @@ import Kassandra.LocalBackend (
   responseCallback,
   userConfig,
  )
-import qualified Network.Simple.TCP as Net
-import Say (say, sayErr)
-import Taskwarrior.IO (getTasks, saveTasks)
 
 waitTillFalse :: MonadIO m => TVar Bool -> m ()
 waitTillFalse boolTvar = (atomically . whenM (readTVar boolTvar)) retry
@@ -46,17 +48,18 @@ localBackendProvider :: TQueue LocalBackendRequest -> IO ()
 localBackendProvider requestQueue = newTVarIO mempty >>= handleRequests requestQueue
 
 handleRequests :: TQueue LocalBackendRequest -> TVar ClientMap -> IO ()
-handleRequests requestQueue mapVar = go
- where
-  go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req mapVar) $ const go
+handleRequests requestQueue mapVar = do
+   cache <- newCache
+   let go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req cache mapVar) $ const go
+   withAsync (void (getEvents cache)) (const go)
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
 monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates tasks) . snd)
 
-handleRequest :: LocalBackendRequest -> TVar ClientMap -> IO ()
-handleRequest req mapVar =
+handleRequest :: LocalBackendRequest -> Cache -> TVar ClientMap -> IO ()
+handleRequest req cache mapVar =
   forConcurrently_
-    [ do handleRequestsWhileAlive req; removeClientFromMap req mapVar
+    [ do handleRequestsWhileAlive req cache; removeClientFromMap req mapVar
     , launchOrAttachMonitor req mapVar
     , responseCallback req ConnectionEstablished
     , say "Client registered on backend"
@@ -90,14 +93,17 @@ launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} m
 
 -- TODO: Use backend config
 
-handleRequestsWhileAlive :: LocalBackendRequest -> IO ()
-handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} =
-  foreverWhileTrue alive $
+handleRequestsWhileAlive :: LocalBackendRequest -> Cache -> IO ()
+handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} cache = do
+  withAsync (getEvents cache) \_ ->  foreverWhileTrue alive $
     atomically (readTQueue requestQueue) >>= \case
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
       AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
       ChangeTasks tasks -> (saveTasks . toList) tasks
-      CalenderRequest -> responseCallback . CalendarEvents =<< getEvents
+      CalenderRequest -> do
+         events <- getEvents cache
+         log Debug [i|Sending #{length events} events to client.|]
+         responseCallback . CalendarEvents $ events
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do

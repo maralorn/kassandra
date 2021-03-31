@@ -30,6 +30,8 @@ project ./. (
           repline = doJailbreak (self.callHackage "repline" "0.4.0.0" {});
           dhall = dontCheck (self.callHackage "dhall" "1.35.0" {});
           relude = dontCheck super.relude;
+          stm-containers = markUnbroken super.stm-containers;
+          stm-hamt = markUnbroken (doJailbreak super.stm-hamt);
           iCalendar = overrideCabal (doJailbreak (markUnbroken super.iCalendar)) {
             preConfigure = ''substituteInPlace iCalendar.cabal --replace "network >=2.6 && <2.7" "network -any"'';
           };

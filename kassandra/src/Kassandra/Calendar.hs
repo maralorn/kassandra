@@ -1,32 +1,53 @@
 module Kassandra.Calendar (
   CalendarEvent (..),
   EventTime (..),
+  TZTime (..),
+  sortEvents,
+  tzTimeToUTC,
 ) where
 
 import Data.Time
 import Kassandra.Config
 
 data EventTime
-  = SimpleEvent {startTime :: UTCTime, endTime :: UTCTime}
+  = SimpleEvent {start :: TZTime, end :: TZTime}
   | AllDayEvent {startDay :: Day, endDay :: Day}
   | RecurringEvent
-  deriving stock (Eq, Show, Read, Generic)
+  deriving stock (Show, Read, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+data TZTime = TZTime
+  { time :: ZonedTime
+  , zone :: Text
+  }
+  deriving stock (Show, Read, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+makeLabels ''TZTime
 
 data CalendarEvent = CalendarEvent
   { uid :: Text
   , time :: EventTime
   , description :: Text
   , todoList :: Seq DefinitionElement
+  , calendarName :: Text
   }
-  deriving stock (Eq, Show, Read, Generic)
+  deriving stock (Show, Read, Generic)
   deriving anyclass (ToJSON, FromJSON)
+makeLabels ''CalendarEvent
 
-instance Ord EventTime where
-  SimpleEvent startTimeLhs _ <= SimpleEvent startTimeRhs _ = startTimeLhs <= startTimeRhs
-  AllDayEvent startDayLhs _ <= AllDayEvent startDayRhs _ = startDayLhs <= startDayRhs
-  AllDayEvent startDayLhs _ <= SimpleEvent startTimeRhs _ = startDayLhs <= utctDay startTimeRhs
-  SimpleEvent startTimeLhs _ <=  AllDayEvent startDayRhs _ = utctDay startTimeLhs <= startDayRhs
-  _ <= _ = True
-instance Ord CalendarEvent where
-  lhs <= rhs = time lhs <= time rhs
+sortEvents :: CalendarEvent -> CalendarEvent -> Ordering
+sortEvents = sortEventTimes `on` (^. #time)
+
+sortEventTimes :: EventTime -> EventTime -> Ordering
+sortEventTimes lhs rhs = case (lhs, rhs) of
+  (SimpleEvent startTimeLhs _, SimpleEvent startTimeRhs _) -> compare (tzTimeToUTC startTimeLhs) (tzTimeToUTC startTimeRhs)
+  (AllDayEvent startDayLhs _, AllDayEvent startDayRhs _) -> compare startDayLhs startDayRhs
+  (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> compare startDayLhs (zonedDay startTimeRhs)
+  (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> compare (zonedDay startTimeLhs) startDayRhs
+  (_, _) -> EQ
+
+tzTimeToUTC :: TZTime -> UTCTime
+tzTimeToUTC = zonedTimeToUTC . (^. #time)
+
+zonedDay :: TZTime -> Day
+zonedDay = localDay . zonedTimeToLocalTime . (^. #time)
