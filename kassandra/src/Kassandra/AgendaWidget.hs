@@ -13,12 +13,20 @@ agendaWidget = do
   let calendarEvents = appState ^. #calendarEvents
   void $
     D.dyn_ $
-      calendarEvents <&> mapM_ \CalendarEvent{description, time, calendarName} -> do
+      calendarEvents <&> mapM_ \CalendarEvent{description, time, calendarName, location, comment} -> do
         D.divClass "event" $ do
-          icon "" "description"
-          D.text description
-          D.el "br" pass
           icon "" "event"
+          D.text description
+          whenJust location \l -> do
+             D.el "br" pass
+             icon "" "room"
+             D.text l
+          whenJust comment \c -> do
+             D.el "br" pass
+             icon "" "comment"
+             D.text c
+          D.el "br" pass
+          icon "" "schedule"
           printEventTime time
           D.el "br" pass
           icon "" "list"

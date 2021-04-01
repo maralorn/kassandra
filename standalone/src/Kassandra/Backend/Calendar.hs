@@ -20,6 +20,7 @@ import UnliftIO.Async
 
 import Kassandra.Calendar
 import Kassandra.Debug
+import UnliftIO (onException)
 
 dirName :: FilePath
 dirName = "/home/maralorn/.calendars/"
@@ -48,8 +49,9 @@ getEvents cache = do
   calendarFiles <- fromList . fmap (dirName </>) <$> getDirectoryFiles dirName ["**/*.ics"]
   now <- getCurrentTime
   log Info "Retrieving ics events"
-  allEvents <- join
-    <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache now)
+  allEvents <-
+    join
+      <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache now)
   log Info [i|Retrieved ics #{Seq.length allEvents} events.|]
   (pure . Seq.sortBy sortEvents . Seq.filter (onlyNextWeek now)) allEvents
 
@@ -88,14 +90,12 @@ translateCalendar cache calendarName = traverse (translateEvent cache calendarNa
 translateEvent :: Cache -> Text -> VEvent -> IO CalendarEvent
 translateEvent cache calendarName vEvent = do
   time <- getTime
-  pure
-    CalendarEvent
-      { uid = toStrict (uidValue (veUID vEvent))
-      , description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
-      , todoList = mempty
-      , time
-      , calendarName
-      }
+  let uid = toStrict (uidValue (veUID vEvent))
+      description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
+      todoList = mempty
+      location = toStrict . locationValue <$> veLocation vEvent
+      comment = toStrict . descriptionValue <$> veDescription vEvent
+  pure CalendarEvent{uid, description, todoList, time, calendarName, location, comment}
  where
   getTime
     | Just (DTStartDateTime start _) <- veDTStart vEvent
@@ -121,15 +121,18 @@ getTZ cache tzname = do
       Just (Just tz) -> pure (Just tz) -- Cache hit
       Just Nothing -> STM.retry -- Another thread is already getting this value, wait for it.
       Nothing -> STM.insert Nothing tzname cache >> pure Nothing -- We need to get this value
-  tzMay & flip maybe pure do
-    newTz <-
-      tzname & maybe (("Your Time",) <$> loadLocalTZ) \tzname' ->
-        ((tzname',) <$> loadTZFromDB (toString tzname')) `catch` \(e :: IOException) -> do
-          log Info [i|Timezone not found "#{tzname'}" trying next.|]
-          log Debug [i|Timezone lookup error was: #{e}|]
-          getTZ cache (nextName tzname')
-    atomically $ STM.insert (Just newTz) tzname cache
-    pure newTz
+  ( tzMay & flip maybe pure do
+      newTz <- maybe (("Your Time",) <$> loadLocalTZ) loadTZ tzname
+      atomically $ STM.insert (Just newTz) tzname cache
+      pure newTz
+    )
+    `onException` atomically (STM.delete tzname cache)
+ where
+  loadTZ name =
+    ((name,) <$> loadTZFromDB (toString name)) `catch` \(e :: IOException) -> do
+      log Info [i|Timezone not found "#{name}" trying next.|]
+      log Debug [i|Timezone lookup error was: #{e}|]
+      getTZ cache (nextName name)
 
 mkTZTime :: (Text, TZ) -> LocalTime -> TZTime
 mkTZTime (tzname, tz) t = TZTime (ZonedTime t (timeZoneForUTCTime tz (localTimeToUTCTZ tz t))) tzname

@@ -9,13 +9,6 @@ module Kassandra.Calendar (
 import Data.Time
 import Kassandra.Config
 
-data EventTime
-  = SimpleEvent {start :: TZTime, end :: TZTime}
-  | AllDayEvent {startDay :: Day, endDay :: Day}
-  | RecurringEvent
-  deriving stock (Show, Read, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
 data TZTime = TZTime
   { time :: ZonedTime
   , zone :: Text
@@ -24,10 +17,20 @@ data TZTime = TZTime
   deriving anyclass (ToJSON, FromJSON)
 makeLabels ''TZTime
 
+data EventTime
+  = SimpleEvent {start :: TZTime, end :: TZTime}
+  | AllDayEvent {startDay :: Day, endDay :: Day}
+  | RecurringEvent
+  deriving stock (Show, Read, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+makeLabels ''EventTime
+
 data CalendarEvent = CalendarEvent
   { uid :: Text
   , time :: EventTime
   , description :: Text
+  , location :: Maybe Text
+  , comment :: Maybe Text
   , todoList :: Seq DefinitionElement
   , calendarName :: Text
   }

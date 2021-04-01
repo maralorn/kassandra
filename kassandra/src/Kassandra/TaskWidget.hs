@@ -223,7 +223,7 @@ tagsWidget = do
     D.text tag
     deleteEvent <- button "edit" $ icon "" "delete"
     tellTask $ (#tags %~ Set.filter (tag /=) $ task) <$ deleteEvent
-  tagEvent <- createTextWidget . button "edit" $ icon "" "add_circle"
+  tagEvent <- createTextWidget . button "edit" $ icon "" "add_box"
   tellTask $ (\tag -> #tags %~ Set.insert tag $ task) <$> tagEvent
 
 getNewUDA :: forall t m r e. TaskWidget t m r e => m UDA
@@ -231,7 +231,7 @@ getNewUDA = one . ("partof",) . toJSON <$> getTaskInfos ^. mapping #uuid
 
 addChildWidget :: TaskWidget t m r e => m ()
 addChildWidget = do
-  descriptionEvent <- createTextWidget . button "edit" $ icon "" "add_circle"
+  descriptionEvent <- createTextWidget . button "edit" $ icon "" "add_task"
   newUDA <- getNewUDA
   tellNewTask $ (,#uda .~ newUDA) <$> descriptionEvent
 
