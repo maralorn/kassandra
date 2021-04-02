@@ -39,4 +39,10 @@ printEventTime (SimpleEvent start end) = do
    D.text (printFullTime start)
    icon "" "arrow_right_alt"
    D.text (printEndTime end)
+printEventTime (AllDayEvent startDay endDay) = do
+   let printFullTime = toText . formatTime defaultTimeLocale "%a %Y-%m-%d"
+   D.text (printFullTime startDay)
+   when (startDay /= endDay) do
+     icon "" "arrow_right_alt"
+     D.text (printFullTime endDay)
 printEventTime _ = pass

@@ -47,11 +47,11 @@ makeLabels ''Cache
 getEvents :: Cache -> IO (Seq CalendarEvent)
 getEvents cache = do
   calendarFiles <- fromList . fmap (dirName </>) <$> getDirectoryFiles dirName ["**/*.ics"]
-  now <- getCurrentTime
+  now <- getZonedTime
   log Info "Retrieving ics events"
   allEvents <-
     join
-      <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache now)
+      <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache (zonedTimeToUTC now))
   log Info [i|Retrieved ics #{Seq.length allEvents} events.|]
   (pure . Seq.sortBy sortEvents . Seq.filter (onlyNextWeek now)) allEvents
 
@@ -79,29 +79,38 @@ readEvents cache path =
 tryExtractBaseDir :: Text -> Text
 tryExtractBaseDir name = fromMaybe name . (viaNonEmpty last <=< viaNonEmpty init) . Text.splitOn "/" $ name
 
-onlyNextWeek :: UTCTime -> CalendarEvent -> Bool
-onlyNextWeek now CalendarEvent{time}
+onlyNextWeek :: ZonedTime -> CalendarEvent -> Bool
+onlyNextWeek (zonedTimeToUTC -> now) CalendarEvent{time}
   | SimpleEvent (tzTimeToUTC -> start) (tzTimeToUTC -> end) <- time = end >= now && start <= addUTCTime (14 * nominalDay) now
+onlyNextWeek now CalendarEvent{time}
+  | AllDayEvent startDay endDay <- time = endDay >= zonedDay now && startDay <= addDays 14 (zonedDay now)
 onlyNextWeek _ _ = False
 
 translateCalendar :: Cache -> Text -> VCalendar -> IO (Seq CalendarEvent)
-translateCalendar cache calendarName = traverse (translateEvent cache calendarName) . fromList . Map.elems . vcEvents
+translateCalendar cache calendarName = fmap join . traverse (translateEvent cache calendarName) . fromList . Map.elems . vcEvents
 
-translateEvent :: Cache -> Text -> VEvent -> IO CalendarEvent
-translateEvent cache calendarName vEvent = do
-  time <- getTime
-  let uid = toStrict (uidValue (veUID vEvent))
-      description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
-      todoList = mempty
-      location = toStrict . locationValue <$> veLocation vEvent
-      comment = toStrict . descriptionValue <$> veDescription vEvent
-  pure CalendarEvent{uid, description, todoList, time, calendarName, location, comment}
+translateEvent :: Cache -> Text -> VEvent -> IO (Seq CalendarEvent)
+translateEvent cache calendarName vEvent =
+  withTime <<$>> getTimes
  where
-  getTime
+  withTime time = CalendarEvent{uid, description, todoList, time, calendarName, location, comment}
+   where
+    uid = toStrict (uidValue (veUID vEvent))
+    description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
+    todoList = mempty
+    location = toStrict . locationValue <$> veLocation vEvent
+    comment = toStrict . descriptionValue <$> veDescription vEvent
+  -- TODO: This currently misses recurring events and
+  -- events with a duration configured
+  -- Also we are ignoring the timezone delivered with this calendar and taking our own
+  getTimes
     | Just (DTStartDateTime start _) <- veDTStart vEvent
       , Just (Left (DTEndDateTime end _)) <- veDTEndDuration vEvent =
-      SimpleEvent <$> datetimeToTZTime cache start <*> datetimeToTZTime cache end
-    | otherwise = pure RecurringEvent
+      (one .). SimpleEvent <$> datetimeToTZTime cache start <*> datetimeToTZTime cache end
+    | Just (dateValue . dtStartDateValue -> start) <- veDTStart vEvent
+      , Just (Left (dateValue . dtEndDateValue -> end)) <- veDTEndDuration vEvent =
+      pure . one $ AllDayEvent start (addDays (-1) end)
+    | otherwise = pure mempty
 
 datetimeToTZTime :: Cache -> DateTime -> IO TZTime
 datetimeToTZTime cache = \case
@@ -130,7 +139,7 @@ getTZ cache tzname = do
  where
   loadTZ name =
     ((name,) <$> loadTZFromDB (toString name)) `catch` \(e :: IOException) -> do
-      log Info [i|Timezone not found "#{name}" trying next.|]
+      log Debug [i|Timezone not found "#{name}" trying next.|]
       log Debug [i|Timezone lookup error was: #{e}|]
       getTZ cache (nextName name)
 

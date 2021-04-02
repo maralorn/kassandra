@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+
 module Kassandra.Standalone.State (
   localBackendProvider,
 ) where
@@ -13,13 +14,13 @@ import qualified Network.Simple.TCP as Net
 import Say (say, sayErr)
 import Taskwarrior.IO (getTasks, saveTasks)
 
-import Kassandra.Debug
 import Kassandra.Api (
   SocketMessage (..),
   SocketRequest (..),
  )
 import Kassandra.Backend.Calendar
 import Kassandra.Config (LocalBackend, UserConfig (..))
+import Kassandra.Debug
 import Kassandra.LocalBackend (
   LocalBackendRequest (LocalBackendRequest),
   alive,
@@ -49,9 +50,9 @@ localBackendProvider requestQueue = newTVarIO mempty >>= handleRequests requestQ
 
 handleRequests :: TQueue LocalBackendRequest -> TVar ClientMap -> IO ()
 handleRequests requestQueue mapVar = do
-   cache <- newCache
-   let go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req cache mapVar) $ const go
-   withAsync (void (getEvents cache)) (const go)
+  cache <- newCache
+  let go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req cache mapVar) $ const go
+  withAsync (void (getEvents cache)) (const go)
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
 monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates tasks) . snd)
@@ -94,16 +95,16 @@ launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} m
 -- TODO: Use backend config
 
 handleRequestsWhileAlive :: LocalBackendRequest -> Cache -> IO ()
-handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} cache = do
-  withAsync (getEvents cache) \_ ->  foreverWhileTrue alive $
+handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} cache =
+  foreverWhileTrue alive $
     atomically (readTQueue requestQueue) >>= \case
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
       AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
       ChangeTasks tasks -> (saveTasks . toList) tasks
       CalenderRequest -> do
-         events <- getEvents cache
-         log Debug [i|Sending #{length events} events to client.|]
-         responseCallback . CalendarEvents $ events
+        events <- getEvents cache
+        log Debug [i|Sending #{length events} events to client.|]
+        responseCallback . CalendarEvents $ events
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do

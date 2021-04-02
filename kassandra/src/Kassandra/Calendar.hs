@@ -4,6 +4,7 @@ module Kassandra.Calendar (
   TZTime (..),
   sortEvents,
   tzTimeToUTC,
+  zonedDay
 ) where
 
 import Data.Time
@@ -45,12 +46,15 @@ sortEventTimes :: EventTime -> EventTime -> Ordering
 sortEventTimes lhs rhs = case (lhs, rhs) of
   (SimpleEvent startTimeLhs _, SimpleEvent startTimeRhs _) -> compare (tzTimeToUTC startTimeLhs) (tzTimeToUTC startTimeRhs)
   (AllDayEvent startDayLhs _, AllDayEvent startDayRhs _) -> compare startDayLhs startDayRhs
-  (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> compare startDayLhs (zonedDay startTimeRhs)
-  (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> compare (zonedDay startTimeLhs) startDayRhs
+  (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> compare startDayLhs (tzTimeDay startTimeRhs)
+  (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> compare (tzTimeDay startTimeLhs) startDayRhs
   (_, _) -> EQ
 
 tzTimeToUTC :: TZTime -> UTCTime
 tzTimeToUTC = zonedTimeToUTC . (^. #time)
 
-zonedDay :: TZTime -> Day
-zonedDay = localDay . zonedTimeToLocalTime . (^. #time)
+tzTimeDay :: TZTime -> Day
+tzTimeDay = localDay . zonedTimeToLocalTime . (^. #time)
+
+zonedDay :: ZonedTime -> Day
+zonedDay = localDay . zonedTimeToLocalTime
