@@ -46,8 +46,8 @@ sortEventTimes :: EventTime -> EventTime -> Ordering
 sortEventTimes lhs rhs = case (lhs, rhs) of
   (SimpleEvent startTimeLhs _, SimpleEvent startTimeRhs _) -> compare (tzTimeToUTC startTimeLhs) (tzTimeToUTC startTimeRhs)
   (AllDayEvent startDayLhs _, AllDayEvent startDayRhs _) -> compare startDayLhs startDayRhs
-  (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> compare startDayLhs (tzTimeDay startTimeRhs)
-  (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> compare (tzTimeDay startTimeLhs) startDayRhs
+  (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> case compare startDayLhs (tzTimeDay startTimeRhs) of EQ -> LT; a -> a
+  (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> case compare (tzTimeDay startTimeLhs) startDayRhs of EQ -> GT; a -> a
   (_, _) -> EQ
 
 tzTimeToUTC :: TZTime -> UTCTime
