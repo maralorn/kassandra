@@ -4,7 +4,8 @@ module Kassandra.Calendar (
   TZTime (..),
   sortEvents,
   tzTimeToUTC,
-  zonedDay
+  zonedDay,
+  switchToCurrentZone
 ) where
 
 import Data.Time
@@ -49,6 +50,12 @@ sortEventTimes lhs rhs = case (lhs, rhs) of
   (AllDayEvent startDayLhs _, SimpleEvent startTimeRhs _) -> case compare startDayLhs (tzTimeDay startTimeRhs) of EQ -> LT; a -> a
   (SimpleEvent startTimeLhs _, AllDayEvent startDayRhs _) -> case compare (tzTimeDay startTimeLhs) startDayRhs of EQ -> GT; a -> a
   (_, _) -> EQ
+
+switchToCurrentZone :: MonadIO m => ZonedTime -> m ZonedTime
+switchToCurrentZone time = do
+   let inUtc = zonedTimeToUTC time
+   zone <- liftIO $ getTimeZone inUtc
+   pure $ utcToZonedTime zone inUtc
 
 tzTimeToUTC :: TZTime -> UTCTime
 tzTimeToUTC = zonedTimeToUTC . (^. #time)

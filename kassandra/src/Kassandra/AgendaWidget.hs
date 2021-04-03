@@ -34,11 +34,15 @@ agendaWidget = do
 
 printEventTime :: Widget t m => EventTime -> m ()
 printEventTime (SimpleEvent start end) = do
-   let printFullTime time = toText (formatTime defaultTimeLocale "%a %Y-%m-%d %H:%M " (time ^. #time)) <> time ^. #zone
-   let printEndTime = toText . formatTime defaultTimeLocale "%H:%M" . (^. #time)
-   D.text (printFullTime start)
+   showstart <- switchToCurrentZone (start ^. #time)
+   showend <- switchToCurrentZone (end ^. #time)
+   let printFullTime = toText . formatTime defaultTimeLocale "%a %Y-%m-%d %H:%M"
+   let printEndTime = toText . formatTime defaultTimeLocale "%H:%M"
+   let zone = start ^. #zone
+   D.text (printFullTime showstart)
    icon "" "arrow_right_alt"
-   D.text (printEndTime end)
+   D.text (printEndTime showend)
+   D.text [i|(Defined in #{zone})|]
 printEventTime (AllDayEvent startDay endDay) = do
    let printFullTime = toText . formatTime defaultTimeLocale "%a %Y-%m-%d"
    D.text (printFullTime startDay)
