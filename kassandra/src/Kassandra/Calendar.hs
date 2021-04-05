@@ -1,11 +1,12 @@
 module Kassandra.Calendar (
   CalendarEvent (..),
+  CalendarList (..),
   EventTime (..),
   TZTime (..),
   sortEvents,
   tzTimeToUTC,
   zonedDay,
-  switchToCurrentZone
+  switchToCurrentZone,
 ) where
 
 import Data.Time
@@ -27,13 +28,21 @@ data EventTime
   deriving anyclass (ToJSON, FromJSON)
 makeLabels ''EventTime
 
+data CalendarList = CalendarList
+  { entries :: Seq DefinitionElement
+  , completed :: Set Text
+  }
+  deriving stock (Eq, Show, Read, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+makeLabels ''CalendarList
+
 data CalendarEvent = CalendarEvent
   { uid :: Text
   , time :: EventTime
   , description :: Text
   , location :: Maybe Text
   , comment :: Maybe Text
-  , todoList :: Seq DefinitionElement
+  , todoList :: CalendarList
   , calendarName :: Text
   }
   deriving stock (Show, Read, Generic)
@@ -53,9 +62,9 @@ sortEventTimes lhs rhs = case (lhs, rhs) of
 
 switchToCurrentZone :: MonadIO m => ZonedTime -> m ZonedTime
 switchToCurrentZone time = do
-   let inUtc = zonedTimeToUTC time
-   zone <- liftIO $ getTimeZone inUtc
-   pure $ utcToZonedTime zone inUtc
+  let inUtc = zonedTimeToUTC time
+  zone <- liftIO $ getTimeZone inUtc
+  pure $ utcToZonedTime zone inUtc
 
 tzTimeToUTC :: TZTime -> UTCTime
 tzTimeToUTC = zonedTimeToUTC . (^. #time)

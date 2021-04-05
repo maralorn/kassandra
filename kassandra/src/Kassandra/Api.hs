@@ -23,6 +23,7 @@ data SocketRequest
   | AllTasks
   | CalenderRequest
   | ChangeTasks (NonEmpty Task)
+  | SetCalendarList Text CalendarList
   deriving stock (Show, Read, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 makePrismLabels ''SocketRequest

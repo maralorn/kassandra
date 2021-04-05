@@ -45,10 +45,16 @@ makeStateProvider clientSocket dataChangeEvents = do
       fanEvent decons = R.fmapMaybe (nonEmpty . mapMaybe decons . toList)
       createTaskEvent = fanEvent (^? #_CreateTask) dataChangeEvents
       changeTaskEvent = fanEvent (^? #_ChangeTask) dataChangeEvents
+      setListEvent = fanEvent (^? #_SetEventList) dataChangeEvents
   changesFromCreateEvents <- createToChangeEvent createTaskEvent
   let localChanges = changeTaskEvent <> changesFromCreateEvents
-  rec remoteChanges <- R.switchDyn <$> clientSocket ((one . ChangeTasks <$> localChanges) <> (fromList [AllTasks, CalenderRequest] <$ connectedEvent))
+  rec remoteChanges <- R.switchDyn <$> clientSocket (fold eventsToSend)
       let connectedEvent = (^? #_ConnectionEstablished) <$?> remoteChanges
+          eventsToSend =
+            [ one . ChangeTasks <$> localChanges
+            , fromList [AllTasks, CalenderRequest] <$ connectedEvent
+            , uncurry SetCalendarList <<$>> setListEvent
+            ]
   let errorEvent = (^? #_SocketError) <$?> remoteChanges
   calendarData <- R.holdDyn mempty $ (^? #_CalendarEvents) <$?> remoteChanges
   uiConfig <- R.holdDyn D.def $ (^? #_UIConfigResponse) <$?> remoteChanges

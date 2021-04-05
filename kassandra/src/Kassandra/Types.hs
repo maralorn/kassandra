@@ -8,7 +8,7 @@ module Kassandra.Types (
   DragState (DraggedTasks, NoDrag),
   TaskTreeState,
   TaskTreeStateChange,
-  DataChange (ChangeTask, CreateTask),
+  DataChange (..),
   FilterState (FilterState),
   StandardWidget,
   TaskTreeWidget,
@@ -59,7 +59,7 @@ type TaskState = (HashMap UUID TaskInfos)
 data DragState = DraggedTasks (NonEmpty UUID) | DraggedTag Text | NoDrag deriving stock (Eq, Show, Generic)
 makePrismLabels ''DragState
 
-data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) deriving stock (Generic)
+data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) | SetEventList Text CalendarList deriving stock (Generic)
 makePrismLabels ''DataChange
 
 data ToggleEvent = ToggleEvent UUID Bool deriving stock (Eq, Show, Generic)

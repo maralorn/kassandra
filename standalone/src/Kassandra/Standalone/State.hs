@@ -101,7 +101,11 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
       AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
       ChangeTasks tasks -> (saveTasks . toList) tasks
-      CalenderRequest -> do
+      SetCalendarList uid list -> do
+        setList cache uid list
+        sendCalendarEvents
+      CalenderRequest -> sendCalendarEvents
+ where sendCalendarEvents = do
         events <- getEvents cache
         log Debug [i|Sending #{length events} events to client.|]
         responseCallback . CalendarEvents $ events
