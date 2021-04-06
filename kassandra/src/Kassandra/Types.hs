@@ -5,7 +5,6 @@ module Kassandra.Types (
   TaskInfos (..),
   TaskState,
   AppStateChange,
-  DragState (DraggedTasks, NoDrag),
   TaskTreeState,
   TaskTreeStateChange,
   DataChange (..),
@@ -19,9 +18,10 @@ module Kassandra.Types (
   Have,
   HaveApp,
   AppState (AppState),
+  SelectState,
   getAppState,
   getTasks,
-  getDragState,
+  getSelectState,
   getTime,
   getIsExpanded,
   getExpandedTasks,
@@ -29,12 +29,13 @@ module Kassandra.Types (
 
 import qualified Data.Aeson as Aeson
 import Data.HashSet (member)
+import Kassandra.Calendar
+import Kassandra.Config (DefinitionElement)
 import Language.Javascript.JSaddle (MonadJSM)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import qualified Taskwarrior.Status
 import qualified Taskwarrior.Task
-import Kassandra.Calendar
 
 type Widget t m =
   ( D.DomBuilder t m
@@ -51,13 +52,10 @@ type Widget t m =
 type WidgetJSM t m =
   (D.HasJSContext m, MonadJSM (R.Performable m), MonadJSM m, WidgetIO t m)
 type WidgetIO t m = Widget t m
-data TaskInfos = TaskInfos {task :: Task, children :: [UUID], parents :: [UUID], revDepends :: [UUID], blocked :: Bool} deriving stock (Eq, Show, Generic)
+data TaskInfos = TaskInfos {task :: Task, children :: Seq UUID, parents :: Seq UUID, revDepends :: Seq UUID, blocked :: Bool} deriving stock (Eq, Show, Generic)
 makeLabels ''TaskInfos
 
 type TaskState = (HashMap UUID TaskInfos)
-
-data DragState = DraggedTasks (NonEmpty UUID) | DraggedTag Text | NoDrag deriving stock (Eq, Show, Generic)
-makePrismLabels ''DragState
 
 data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) | SetEventList Text CalendarList deriving stock (Generic)
 makePrismLabels ''DataChange
@@ -65,7 +63,8 @@ makePrismLabels ''DataChange
 data ToggleEvent = ToggleEvent UUID Bool deriving stock (Eq, Show, Generic)
 makePrismLabels ''ToggleEvent
 
-type AppStateChange = Either DragState DataChange
+type SelectState = Seq DefinitionElement
+type AppStateChange = Either SelectState DataChange
 type TaskTreeStateChange = Either AppStateChange ToggleEvent
 
 instance {-# OVERLAPPING #-} AsType AppStateChange AppStateChange where
@@ -79,13 +78,13 @@ makeLabels ''FilterState
 type ExpandedTasks = HashSet UUID
 type TaskTreeState t = R.Dynamic t ExpandedTasks
 
-data AppState t = AppState {taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime, dragState :: R.Dynamic t DragState, calendarEvents :: R.Dynamic t (Seq CalendarEvent)} deriving stock (Generic)
+data AppState t = AppState {taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime, selectState :: R.Dynamic t SelectState, calendarEvents :: R.Dynamic t (Seq CalendarEvent)} deriving stock (Generic)
 makeLabels ''AppState
 
 type Have m r s = (MonadReader r m, HasType s r)
 type HaveApp t m r = (R.Reflex t, Have m r (AppState t))
 type HaveTaskTree t m r = (Have m r (TaskTreeState t))
-type Write t m e s = (R.Reflex t, R.EventWriter t (NonEmpty e) m, AsType s e)
+type Write t m e s = (R.Reflex t, R.EventWriter t (NESeq e) m, AsType s e)
 type WriteApp t m e = (Write t m e AppStateChange)
 type WriteTaskTree t m e = (Write t m e TaskTreeStateChange)
 type StandardWidget t m r e = (Widget t m, HaveApp t m r, WriteApp t m e)
@@ -100,12 +99,12 @@ getExpandedTasks = asks (^. typed)
 
 getAppState :: (MonadReader r m, HasType (AppState t) r) => m (AppState t)
 getAppState = asks (^. typed)
-getTasks ::
-  (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t TaskState)
+
+getTasks :: (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t TaskState)
 getTasks = getAppState ^. mapping #taskState
-getDragState ::
-  (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t DragState)
-getDragState = getAppState ^. mapping #dragState
+
+getSelectState :: (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t SelectState)
+getSelectState = getAppState ^. mapping #selectState
 getTime ::
   (MonadReader r m, HasType (AppState t) r) => m (R.Dynamic t ZonedTime)
 getTime = getAppState ^. mapping #currentTime

@@ -101,6 +101,7 @@ library
     , jsaddle
     , jsaddle-dom
     , mtl
+    , nonempty-containers
     , optics
     , optics-th
     , password

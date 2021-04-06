@@ -32,6 +32,16 @@ project ./. (
           relude = dontCheck super.relude;
           stm-containers = markUnbroken super.stm-containers;
           stm-hamt = markUnbroken (doJailbreak super.stm-hamt);
+          nonempty-vector =  self.callHackageDirect {
+            pkg = "nonempty-vector";
+            ver = "0.2.1.0";
+            sha256 = "002gg1x7zrqxy98yl4mnipviq973200792l189rbhnb96x0jxg2n";
+          } {};
+          nonempty-containers =  self.callHackageDirect {
+            pkg = "nonempty-containers";
+            ver = "0.3.4.1";
+            sha256 = "0nbnr0az201lv09dwcxcppkfc9b05kyw4la990z5asn9737pvpr2";
+          } {};
           iCalendar = overrideCabal (doJailbreak (markUnbroken super.iCalendar)) {
             preConfigure = ''substituteInPlace iCalendar.cabal --replace "network >=2.6 && <2.7" "network -any"'';
           };

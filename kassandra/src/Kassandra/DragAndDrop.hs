@@ -2,9 +2,10 @@ module Kassandra.DragAndDrop (
   droppableElementConfig,
   childDropArea,
   taskDropArea,
-  tellDragTask,
+  tellSelectedTasks,
 ) where
 
+import Kassandra.Config (DefinitionElement)
 import Kassandra.Debug (
   Severity (..),
   logRShow,
@@ -16,14 +17,11 @@ import Kassandra.Sorting (
 import Kassandra.Types (
   AppStateChange,
   DataChange,
-  DragState (
-    DraggedTasks,
-    NoDrag
-  ),
+  SelectState,
   StandardWidget,
   TaskInfos,
   WriteApp,
-  getDragState,
+  getSelectState,
   getTasks,
  )
 import Kassandra.Util (
@@ -33,41 +31,31 @@ import Kassandra.Util (
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 
-tellDragTask :: (MonadIO m, WriteApp t m e) => R.Event t [UUID] -> m ()
-tellDragTask =
-  tellSingleton
-    . fmap
-      ( (_Typed @AppStateChange % _Typed @DragState #)
-          . maybe NoDrag DraggedTasks
-          . nonEmpty
-      )
+tellSelectedTasks :: (MonadIO m, WriteApp t m e) => R.Event t (Seq DefinitionElement) -> m ()
+tellSelectedTasks =
+  tellSingleton . fmap (_Typed @AppStateChange % _Typed @SelectState #)
     <=< logRShow Info
 
 taskDropArea ::
   StandardWidget t m r e =>
-  R.Dynamic t [UUID] ->
+  R.Dynamic t (Seq UUID) ->
   m () ->
-  (R.Event t (NonEmpty TaskInfos) -> R.Event t (NonEmpty Task)) ->
+  (R.Event t (NESeq TaskInfos) -> R.Event t (NESeq Task)) ->
   m ()
 taskDropArea blacklistD areaW handler = do
   tasksD <- getTasks
-  dragStateD <- getDragState
+  selectStateD <- getSelectState
   let dropActive = do
-        dragState <- dragStateD
+        selectState <- selectStateD
+        let selectedTasks = forM selectState (^? #_ListElement % #_TaskwarriorTask)
         blacklist <- blacklistD
-        let retval
-              | DraggedTasks draggedUuid <- dragState
-                , all (`notElem` blacklist) draggedUuid =
-                Just draggedUuid
-              | otherwise =
-                Nothing
-        pure retval
+        pure $ selectedTasks >>= \uuids -> if all (`notElem` blacklist) uuids then nonEmptySeq uuids else Nothing
   D.dyn_ $
     dropActive <&> \case
       Just draggedUuid -> do
         dropEl <- fmap fst <$> D.element "span" D.def $ areaW
         let event = D.domEvent D.Click dropEl
-        tellSingleton $ (_Typed @AppStateChange % _Typed # NoDrag) <$ event
+        tellSelectedTasks (mempty <$ event)
         let droppedTaskEvent =
               R.attachWithMaybe
                 (\tasks -> const . sequence $ lookupTask tasks <$> draggedUuid)
@@ -81,7 +69,7 @@ taskDropArea blacklistD areaW handler = do
 childDropArea ::
   StandardWidget t m r e =>
   SortPosition t ->
-  R.Dynamic t [UUID] ->
+  R.Dynamic t (Seq UUID) ->
   m () ->
   m ()
 childDropArea pos blacklistD areaW =

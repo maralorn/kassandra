@@ -4,13 +4,15 @@ module Kassandra.TaskWidget (
 ) where
 
 import qualified Data.HashSet as HashSet
-import qualified Data.List as List
+import qualified Data.Sequence as Seq
+import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Kassandra.BaseWidgets (
   button,
   icon,
  )
+import Kassandra.Config (DefinitionElement)
 import Kassandra.Debug (
   Severity (..),
   log,
@@ -18,7 +20,7 @@ import Kassandra.Debug (
 import Kassandra.DragAndDrop (
   childDropArea,
   taskDropArea,
-  tellDragTask,
+  tellSelectedTasks,
  )
 import Kassandra.Sorting (
   SortMode (SortModePartof),
@@ -32,7 +34,6 @@ import Kassandra.TextEditWidget (
 import Kassandra.TimeWidgets (dateSelectionWidget)
 import Kassandra.Types (
   AppState,
-  DragState (DraggedTasks),
   Have,
   StandardWidget,
   TaskInfos,
@@ -41,12 +42,12 @@ import Kassandra.Types (
   TaskTreeWidget,
   ToggleEvent (ToggleEvent),
   getAppState,
-  getDragState,
   getExpandedTasks,
   getIsExpanded,
+  getSelectState,
   getTime,
  )
-import Kassandra.Util (lookupTasksM, tellNewTask, tellTask, tellToggle, lookupTasksDynM)
+import Kassandra.Util (lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
@@ -62,7 +63,7 @@ instance LabelOptic "taskInfos" A_Lens (a, TaskInfos) (a, TaskInfos) TaskInfos T
 getTaskInfos :: HaveTask m r => m TaskInfos
 getTaskInfos = ask ^. mapping typed
 
-getChildren :: TaskWidget t m r e => m (R.Dynamic t [TaskInfos])
+getChildren :: TaskWidget t m r e => m (R.Dynamic t (Seq TaskInfos))
 getChildren = getTaskInfos ^. mapping #children >>= lookupTasksM
 
 taskTreeWidget ::
@@ -78,15 +79,15 @@ taskTreeWidget taskInfosD = do
                     ToggleEvent uuid False -> HashSet.delete uuid
                     ToggleEvent uuid True -> HashSet.insert uuid
                 ) ::
-              NonEmpty ToggleEvent -> HashSet UUID -> HashSet UUID
+              NESeq ToggleEvent -> HashSet UUID -> HashSet UUID
           )
           mempty
           treeStateChanges
-      (_, events :: R.Event t (NonEmpty TaskTreeStateChange)) <-
+      (_, events :: R.Event t (NESeq TaskTreeStateChange)) <-
         R.runEventWriterT $
           runReaderT (taskWidget taskInfosD) (appState, treeState)
       let (appStateChanges, treeStateChanges) =
-            R.fanThese $ partitionEithersNE <$> events
+            R.fanThese $ partitionEithersNESeq <$> events
   R.tellEvent (fmap (_Typed #) <$> appStateChanges)
 
 taskWidget ::
@@ -119,16 +120,16 @@ taskWidget taskInfos' = D.divClass "task" $ do
 pathWidget :: (TaskWidget t m r e) => m ()
 pathWidget = do
   parents <- getTaskInfos ^. mapping #parents >>= lookupTasksM ^. mapping (mapping (mapping (mapping #description)))
-  D.dyn_ $ flip whenNotNull showPath <$> parents
+  D.dyn_ $ flip whenJust showPath . nonEmptySeq <$> parents
  where
-  showPath :: TaskWidget t m r e => NonEmpty Text -> m ()
+  showPath :: TaskWidget t m r e => NESeq Text -> m ()
   showPath parents = D.elClass "span" "parentPath" $ do
     br
     makePath parents
 
-makePath :: (TaskWidget t m r e) => NonEmpty Text -> m ()
+makePath :: (TaskWidget t m r e) => NESeq Text -> m ()
 makePath =
-  D.elClass "span" "path" . D.text . Text.intercalate " ≫ " . reverse . toList
+  D.elClass "span" "path" . D.text . Text.intercalate " ≫ " . toList . NESeq.reverse
 
 br :: D.DomBuilder t m => m ()
 br = D.el "br" pass
@@ -151,7 +152,7 @@ dependenciesWidget = do
               br
         )
   D.dyn_ $
-    whenNotNull <$> revDepends
+    whenJust . nonEmptySeq <$> revDepends
       <*> pure
         ( \rds -> do
             br
@@ -178,7 +179,7 @@ dependenciesWidget = do
 makeOwnPath :: (TaskWidget t m r e) => TaskInfos -> m ()
 makeOwnPath task =
   D.dyn_
-    . fmap (makePath . (\ps -> task ^. #description :| ps))
+    . fmap (makePath . (\ps -> task ^. #description :<|| ps))
     =<< lookupTasksM (task ^. #parents) ^. mapping (mapping (mapping #description))
 
 dropChildWidget :: (TaskWidget t m r e) => m ()
@@ -196,7 +197,7 @@ dropChildWidget = do
                 (R.constant Nothing)
             )
             ( R.constDyn
-                (taskInfos ^. #uuid : taskInfos ^. #parents <> taskInfos ^. #children)
+                (taskInfos ^. #uuid <| taskInfos ^. #parents <> taskInfos ^. #children)
             )
             $ icon "dropHere" "move_to_inbox"
         )
@@ -242,7 +243,6 @@ childrenWidget taskInfosD = do
   showChildren <-
     R.holdUniqDyn $
       R.zipDynWith HashSet.member (taskInfosD ^. mapping #uuid) expandedTasks
-  --let showChildren = R.constDyn True
   D.dyn_ $ showOptional <$> showChildren
  where
   showOptional :: Bool -> m ()
@@ -254,7 +254,7 @@ childrenWidget taskInfosD = do
     let sortModeD = SortModePartof <$> taskInfosD ^. mapping #uuid
     blacklist <-
       R.holdUniqDyn $
-        liftA2 (:) (taskInfosD ^. mapping #uuid) (taskInfosD ^. mapping #parents)
+        liftA2 (<|) (taskInfosD ^. mapping #uuid) (taskInfosD ^. mapping #parents)
     sortedList <- R.holdUniqDyn $ sortTasks <$> sortModeD <*> children
     D.divClass "children" $
       taskList (sortModeD ^. #current) sortedList blacklist taskWidget
@@ -262,28 +262,24 @@ childrenWidget taskInfosD = do
 taskList ::
   StandardWidget t m r e =>
   R.Behavior t SortMode ->
-  R.Dynamic t [TaskInfos] ->
-  R.Dynamic t [UUID] ->
+  R.Dynamic t (Seq TaskInfos) ->
+  R.Dynamic t (Seq UUID) ->
   (R.Dynamic t TaskInfos -> m ()) ->
   m ()
 taskList mode childrenD blacklistD elementWidget = do
   let partialSortPosition =
         SortPosition mode (childrenD ^. mapping (mapping #task) % #current)
   void $
-    R.simpleList ((\xs -> zip xs (Nothing : fmap Just xs)) <$> childrenD) $
+    R.simpleList ((\xs -> toList (Seq.zip xs (Nothing <| fmap Just xs))) <$> childrenD) $
       \childD -> do
         let currentUuidD = childD ^. mapping (_1 % #uuid)
-            ignoreD =
-              ((:) <$> currentUuidD <*>) $
-                (^.. folded)
-                  <$> childD
-                  ^. mapping (_2 % mapping #uuid)
+            ignoreD = ((<|) <$> currentUuidD <*>) $ fromList . (^.. folded) <$> childD ^. mapping (_2 % mapping #uuid)
         childDropArea
           (partialSortPosition (Just <$> currentUuidD ^. #current))
           (ignoreD <> blacklistD)
           $ icon "dropHere above" "forward"
         elementWidget $ childD ^. mapping _1
-  let ignoreD = (^.. folded) . lastOf folded <$> childrenD ^. mapping (mapping #uuid)
+  let ignoreD = fromList . (^.. folded) . lastOf folded <$> childrenD ^. mapping (mapping #uuid)
   childDropArea
     (partialSortPosition (R.constant Nothing))
     (ignoreD <> blacklistD)
@@ -305,16 +301,12 @@ selectWidget :: TaskWidget t m r e => m ()
 selectWidget = do
   uuid <- getTaskInfos ^. mapping (#task % #uuid)
   (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
-  dragStateB <- R.current <$> getDragState
-  tellDragTask $
-    R.attachWith
-      ( \dragState _ -> case dragState of
-          DraggedTasks (toList -> uuids) ->
-            if uuid `elem` uuids then List.delete uuid uuids else uuids ++ [uuid]
-          _ -> [uuid]
-      )
-      dragStateB
-      (D.domEvent D.Click dragEl)
+  selectStateB <- toggleContainUUID uuid <<$>> R.current <$> getSelectState
+  tellSelectedTasks $ R.tag selectStateB (D.domEvent D.Click dragEl)
+ where
+  toggleContainUUID :: UUID -> Seq DefinitionElement -> Seq DefinitionElement
+  toggleContainUUID ((#_ListElement % #_TaskwarriorTask #) -> entry) selectedTasks =
+    Seq.findIndexL (== entry) selectedTasks & maybe (selectedTasks |> entry) (`Seq.deleteAt` selectedTasks)
 
 descriptionWidget :: TaskWidget t m r e => m ()
 descriptionWidget = do

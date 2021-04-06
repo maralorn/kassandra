@@ -32,6 +32,58 @@ import Data.Password.Argon2 (
 type Dict = Map Text
 
 
+data UIFeatures = UIFeatures
+  { sortInTag :: Bool
+  , treeOption :: TreeOption
+  }
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data Widget
+  = SearchWidget
+  | ConfigListWidget {name :: Text, limit :: Maybe Natural}
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data TreeOption = NoTree | PartOfTree | DependsTree
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data HabiticaTask = HabiticaDaily | HabiticaTodo
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data ListItem
+  = TaskwarriorTask {uuid :: UUID}
+  | AdHocTask {description :: Text}
+  | HabiticaTask {task :: HabiticaTask}
+  | Mail {id :: Text}
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+makePrismLabels ''ListItem
+
+data HabiticaList = HabiticaDailys | HabiticaTodos
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | ListElement {item :: ListItem}
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+makePrismLabels ''DefinitionElement
+
+data TaskwarriorOption = TaskwarriorOption
+  { name :: Text
+  , value :: Text
+  }
+  deriving stock (Show, Eq, Ord, Generic)
+  deriving anyclass (Hashable)
+
+data NamedListQuery = NamedListQuery
+  { name :: Text
+  , list :: ListQuery
+  }
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 data UIConfig = UIConfig
   { viewList :: Seq Widget
@@ -48,60 +100,6 @@ instance Default UIConfig where
       , configuredLists = mempty
       , uiFeatures = UIFeatures True PartOfTree
       }
-
-instance Default UserConfig where
-  def = UserConfig def def
-
-data UIFeatures = UIFeatures
-  { sortInTag :: Bool
-  , treeOption :: TreeOption
-  }
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data Widget
-  = SearchWidget
-  | ListWidget {query :: ListQuery}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data TreeOption = NoTree | PartOfTree | DependsTree
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data ListItem
-  = TaskwarriorTask {uuid :: UUID}
-  | AdHocTask {description :: Text}
-  | HabiticaTask {task :: HabiticaTask}
-  | Mail {id :: Text}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data HabiticaTask = HabiticaDaily | HabiticaTodo
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data HabiticaList = HabiticaDailys | HabiticaTodos
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | ListElement {item :: ListItem}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data TaskwarriorOption = TaskwarriorOption
-  { name :: Text
-  , value :: Text
-  }
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass (Hashable)
-
-data NamedListQuery = NamedListQuery
-  { name :: Text
-  , list :: ListQuery
-  }
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
 
 data ListQuery
   = QueryList {query :: Query}
@@ -203,6 +201,10 @@ data UserConfig = UserConfig
   , uiConfig :: UIConfig
   }
   deriving stock (Show, Eq, Ord, Generic)
+
+instance Default UserConfig where
+  def = UserConfig def def
+
 
 data AccountConfig = AccountConfig
   { passwordHash :: PasswordHash Argon2

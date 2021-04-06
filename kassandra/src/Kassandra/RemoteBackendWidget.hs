@@ -162,6 +162,6 @@ webClientSocket closeEvent backend@RemoteBackend{url, user, password} = do
         -- TODO: Saving the whole Map everytime is probably quite inefficient, we should try to reduce writes by a smarter saving scheme
         void . R.performEventAsync $ const . asyncSaveStorage <$> R.updated tasksToSave
         ev <- R.getPostBuild
-        let cachedTasks = R.fmapMaybe nonEmpty $ elems taskMap <$ ev
+        let cachedTasks = R.fmapMaybe (nonEmptySeq . fromList) $ elems taskMap <$ ev
         pure . pure $ R.leftmost [messages, (#_TaskUpdates #) <$> cachedTasks]
   pure clientSocket

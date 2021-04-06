@@ -82,7 +82,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
         taskList
           (R.constant sortMode)
           (sortTasks sortMode <$> showTasks)
-          (R.constDyn [])
+          (R.constDyn IsEmpty)
           taskTreeWidget
         tellNewTask . fmap (,#tags %~ Set.insert tag)
           =<< createTextWidget
@@ -90,8 +90,8 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
     | SubList sublists <- list' =
       void . D.simpleList (D.constDyn sublists) $ listWidget
 
-  tasksToShow :: Text -> TaskState -> [TaskInfos]
-  tasksToShow tag = mapMaybe maybePredicate . HashMap.elems
+  tasksToShow :: Text -> TaskState -> Seq TaskInfos
+  tasksToShow tag = mapMaybe maybePredicate . fromList . HashMap.elems
    where
     maybePredicate :: TaskInfos -> Maybe TaskInfos
     maybePredicate taskInfo =

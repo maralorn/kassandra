@@ -48,15 +48,7 @@ calendarListWidget uid calendarList = do
               ConfigList _ _ -> error "ConfigLists are not implemented"
               ListElement el -> case el of
                 (TaskwarriorTask _) -> error "Can‘t display tw tasks"
-                (AdHocTask t) -> do
-                  changeDoneStatus <- if t `Set.member` completed calendarList then (False <$) <$> button "" (D.text "[x]") else (True <$) <$> button "" (D.text "[ ]")
-                  D.text [i| #{t}|]
-                  delete <- button "" (D.text "x")
-                  tellList $ delete $> (#entries %~ Seq.filter (ListElement (AdHocTask t) /=)) calendarList
-                  tellList $
-                    changeDoneStatus <&> \case
-                      True -> (#completed %~ Set.insert t) calendarList
-                      False -> (#completed %~ Set.delete t) calendarList
+                (AdHocTask t) -> adhocTaskWidget uid calendarList t
                 (HabiticaTask _) -> error "HabiticaTasks are not yet supported"
                 (Mail _) -> error "Mails are not yet supported"
           )
@@ -64,9 +56,22 @@ calendarListWidget uid calendarList = do
   newTaskEvent <-
     createTextWidget
       (button "selector" $ D.text "New Task")
-  tellList $ newTaskEvent <&> \content -> (#entries %~ (Seq.|> ListElement (AdHocTask content))) calendarList
- where
-  tellList listEvent = tellSingleton $ (_Typed @AppStateChange % _Typed @DataChange #) . SetEventList uid <$> listEvent
+  tellList uid $ newTaskEvent <&> \content -> (#entries %~ (Seq.|> ListElement (AdHocTask content))) calendarList
+
+tellList :: StandardWidget t m r e => Text -> D.Event t CalendarList -> m ()
+tellList uid listEvent = tellSingleton $ (_Typed @AppStateChange % _Typed @DataChange #) . SetEventList uid <$> listEvent
+
+adhocTaskWidget :: StandardWidget t m r e => Text -> CalendarList -> Text -> m ()
+adhocTaskWidget uid calendarList description = do
+  changeDoneStatus <- if description `Set.member` completed calendarList then (False <$) <$> button "" (D.text "[x]") else (True <$) <$> button "" (D.text "[ ]")
+  D.text [i| #{description}|]
+  delete <- button "" (D.text "x")
+  tellList uid $ delete $> (#entries %~ Seq.filter (ListElement (AdHocTask description) /=)) calendarList
+  tellList uid $
+    changeDoneStatus <&> \case
+      True -> (#completed %~ Set.insert description) calendarList
+      False -> (#completed %~ Set.delete description) calendarList
+
 printEventTime :: Widget t m => EventTime -> m ()
 printEventTime (SimpleEvent start end) = do
   showstart <- switchToCurrentZone (start ^. #time)

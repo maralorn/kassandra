@@ -6,8 +6,10 @@ module Kassandra.MainWidget (
 
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Set as Set
+import qualified Data.Sequence.NonEmpty as NESeq
+import qualified Data.Sequence as Seq
 import Kassandra.BaseWidgets (button)
-import Kassandra.Config (UIConfig)
+import Kassandra.Config (UIConfig, DefinitionElement)
 import Kassandra.Debug (
   Severity (..),
   log,
@@ -21,15 +23,14 @@ import Kassandra.TextEditWidget (createTextWidget)
 import Kassandra.Types (
   AppState (AppState),
   AppStateChange,
-  DragState (NoDrag),
   StandardWidget,
   TaskInfos,
   TaskState,
   WidgetIO,
-  getDragState,
+  getSelectState,
   getTasks,
  )
-import Kassandra.Util (tellNewTask)
+import Kassandra.Util (tellNewTask, lookupTasks)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Kassandra.AgendaWidget (agendaWidget)
@@ -45,10 +46,10 @@ mainWidget _uiConfig stateProvider = do
     fmap (utcToZonedTime (zonedTimeZone time) . (^. lensVL R.tickInfo_lastUTC))
       <$> R.clockLossy 1 (zonedTimeToUTC time)
   rec let (appChangeEvents, dataChangeEvents) =
-            R.fanThese $ partitionEithersNE <$> stateChanges
+            R.fanThese $ partitionEithersNESeq <$> stateChanges
       appData <- stateProvider dataChangeEvents
-      dragDyn <- R.holdDyn NoDrag $ last <$> appChangeEvents
-      (_, stateChanges' :: R.Event t (NonEmpty AppStateChange)) <-
+      selectedDyn <- R.holdDyn mempty $ NESeq.last <$> appChangeEvents
+      (_, stateChanges' :: R.Event t (NESeq AppStateChange)) <-
         R.runEventWriterT $
           runReaderT
             ( do
@@ -59,7 +60,7 @@ mainWidget _uiConfig stateProvider = do
             ( AppState
                 (appData ^. mapping #taskState)
                 timeDyn
-                dragDyn
+                selectedDyn
                 (appData ^. mapping #calendarData)
             )
       stateChanges <- logR Info (const "StateChange") stateChanges'
@@ -67,16 +68,17 @@ mainWidget _uiConfig stateProvider = do
 
 infoFooter :: (StandardWidget t m r e) => m ()
 infoFooter = D.divClass "footer" $ do
-  dragState <- getDragState
+  selectedState <- getSelectState
   D.dyn_ $
-    dragState <&> \a -> do
-      whenJust (preview #_DraggedTasks a) $ \(draggedTasksUuids :: NonEmpty UUID) -> do
-        draggedTasksDyn <- (\taskMap -> catMaybes . toList $ (`HashMap.lookup` taskMap) <$> draggedTasksUuids) <<$>> getTasks
-        D.dyn_ $
-          draggedTasksDyn <&> \draggedTasks ->
-            whenJust (nonEmpty draggedTasks) $ \tasks -> do
-              D.text "Selected Tasks:"
-              forM_ tasks $ \t -> D.divClass "selectedTask" $ taskTreeWidget (pure t)
+    selectedState <&> \a -> do
+      whenJust (nonEmptySeq a) $ \(selectedTasks :: NESeq DefinitionElement) -> do
+        --draggedTasksDyn <- (\taskMap -> catMaybes . toList $ (`HashMap.lookup` taskMap) <$> draggedTasksUuids) <<$>> getTasks
+        --D.dyn_ $
+        --  draggedTasksDyn <&> \draggedTasks ->
+        --    whenJust (nonEmpty draggedTasks) $ \tasks -> do
+        --      D.text "Selected Tasks:"
+        --      forM_ tasks $ \t -> D.divClass "selectedTask" $ taskTreeWidget (pure t)
+        forM_ selectedTasks $ \t -> D.divClass "selectedTask" (D.text (show t))
   tellNewTask . fmap (,id)
     =<< createTextWidget
       (button "selector" $ D.text "New Task")
@@ -97,14 +99,14 @@ taskDiagnosticsWidget = do
   D.dynText $ do
     tasksMap <- tasks
     let uuids = HashMap.keys tasksMap
-        hasLoop :: [UUID] -> UUID -> Maybe UUID
+        hasLoop :: Seq UUID -> UUID -> Maybe UUID
         hasLoop seen new
           | new `elem` seen = Just new
-          | otherwise = firstJust (hasLoop (new : seen)) nexts
+          | otherwise = Seq.lookup 0 (mapMaybe (hasLoop (new <| seen)) nexts)
          where
-          nexts = maybe [] (^. #children) $ HashMap.lookup new tasksMap
+          nexts = maybe mempty (^. #children) $ HashMap.lookup new tasksMap
     pure $
-      firstJust (hasLoop []) uuids & \case
+      firstJust (hasLoop mempty) uuids & \case
         Just uuid -> "Found a loop for uuid " <> show uuid
         Nothing -> "" -- everything fine
 
@@ -145,9 +147,6 @@ filterInbox tasks =
             $ lookupTasks tasks (taskInfos ^. #parents)
          )
       && not (taskInfos ^. #blocked)
-
-lookupTasks :: TaskState -> [UUID] -> [TaskInfos]
-lookupTasks tasks = mapMaybe (\uuid -> tasks ^. at uuid)
 
 nextWidget :: (StandardWidget t m r e) => m ()
 nextWidget = do

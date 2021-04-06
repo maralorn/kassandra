@@ -10,6 +10,7 @@ import Control.Monad.STM (retry)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Network.Simple.TCP as Net
 import Say (say, sayErr)
 import Taskwarrior.IO (getTasks, saveTasks)
@@ -55,7 +56,7 @@ handleRequests requestQueue mapVar = do
   withAsync (void (getEvents cache)) (const go)
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
-monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates tasks) . snd)
+monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates (NESeq.fromList tasks)) . snd)
 
 handleRequest :: LocalBackendRequest -> Cache -> TVar ClientMap -> IO ()
 handleRequest req cache mapVar =
@@ -99,7 +100,7 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
   foreverWhileTrue alive $
     atomically (readTQueue requestQueue) >>= \case
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
-      AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates)
+      AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates . NESeq.fromList)
       ChangeTasks tasks -> (saveTasks . toList) tasks
       SetCalendarList uid list -> do
         setList cache uid list

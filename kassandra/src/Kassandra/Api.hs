@@ -9,7 +9,7 @@ import Kassandra.Config (UIConfig)
 type SocketError = Text
 
 data SocketMessage
-  = TaskUpdates (NonEmpty Task)
+  = TaskUpdates (NESeq Task)
   | CalendarEvents (Seq CalendarEvent)
   | UIConfigResponse UIConfig
   | SocketError SocketError
@@ -22,7 +22,7 @@ data SocketRequest
   = UIConfigRequest
   | AllTasks
   | CalenderRequest
-  | ChangeTasks (NonEmpty Task)
+  | ChangeTasks (NESeq Task)
   | SetCalendarList Text CalendarList
   deriving stock (Show, Read, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)

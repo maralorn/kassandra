@@ -12,6 +12,7 @@ module Kassandra.Util (
   defDynDyn,
 ) where
 
+import Data.Witherable
 import Data.HashSet (member)
 import Kassandra.Types (
   AppStateChange,
@@ -52,13 +53,13 @@ tellNewTask =
     . fmap (_Typed @AppStateChange % _Typed @DataChange % #_CreateTask #)
 
 tellSingleton ::
-  (R.Reflex t, R.EventWriter t (NonEmpty event) m) => R.Event t event -> m ()
+  (R.Reflex t, R.EventWriter t (NESeq event) m) => R.Event t event -> m ()
 tellSingleton = R.tellEvent . fmap one
 
 lookupTask :: TaskState -> UUID -> Maybe TaskInfos
 lookupTask tasks uuid = tasks ^. at uuid
 
-lookupTasks :: TaskState -> [UUID] -> [TaskInfos]
+lookupTasks :: Filterable f => TaskState -> f UUID -> f TaskInfos
 lookupTasks tasks = mapMaybe (lookupTask tasks)
 
 lookupTaskM ::
@@ -67,11 +68,11 @@ lookupTaskM ::
   m (R.Dynamic t (Maybe TaskInfos))
 lookupTaskM uuid = getTasks <&> \tasks -> R.zipDynWith lookupTask tasks uuid
 
-lookupTasksM :: HaveApp t m r => [UUID] -> m (R.Dynamic t [TaskInfos])
+lookupTasksM :: (Filterable f, HaveApp t m r) => f UUID -> m (R.Dynamic t (f TaskInfos))
 lookupTasksM = R.constDyn >>> lookupTasksDynM
 
 lookupTasksDynM ::
-  HaveApp t m r => R.Dynamic t [UUID] -> m (R.Dynamic t [TaskInfos])
+  (Filterable f, HaveApp t m r) => R.Dynamic t (f UUID) -> m (R.Dynamic t (f TaskInfos))
 lookupTasksDynM uuids =
   getTasks <&> \tasks -> flip lookupTasks <$> uuids <*> tasks
 

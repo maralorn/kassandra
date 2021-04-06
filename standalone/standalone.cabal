@@ -73,6 +73,7 @@ library
     , bytestring
     , containers
     , stm-containers
+    , nonempty-containers
     , directory
     , data-default
     , dependent-map

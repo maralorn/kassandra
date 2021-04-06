@@ -19,14 +19,14 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Taskwarrior.IO (createTask)
 
-getParents :: HashMap UUID Task -> UUID -> [UUID]
-getParents tasks = go [] (\uuid -> (^. #partof) =<< tasks ^. at uuid)
+getParents :: HashMap UUID Task -> UUID -> Seq UUID
+getParents tasks = go mempty (\uuid -> (^. #partof) =<< tasks ^. at uuid)
  where
-  go :: (Eq a, Show a) => [a] -> (a -> Maybe a) -> a -> [a]
+  go :: (Eq a, Show a) => Seq a -> (a -> Maybe a) -> a -> Seq a
   go accu f x
-    | x `elem` accu = []
-    | Just next <- f x = next : go (x : accu) f next
-    | otherwise = []
+    | x `elem` accu = mempty
+    | Just next <- f x = next <| go (x <| accu) f next
+    | otherwise = mempty
 
 data DataState = DataState
   { taskState :: TaskState
@@ -35,14 +35,14 @@ data DataState = DataState
   }
 makeLabels ''DataState
 
-type StateProvider t m = R.Event t (NonEmpty DataChange) -> m (R.Dynamic t DataState)
+type StateProvider t m = R.Event t (NESeq DataChange) -> m (R.Dynamic t DataState)
 
-type ClientSocket t m = R.Event t (NonEmpty SocketRequest) -> m (R.Dynamic t (R.Event t SocketMessage))
+type ClientSocket t m = R.Event t (NESeq SocketRequest) -> m (R.Dynamic t (R.Event t SocketMessage))
 
 makeStateProvider :: forall t m. WidgetIO t m => ClientSocket t m -> StateProvider t m
 makeStateProvider clientSocket dataChangeEvents = do
-  let fanEvent :: (b -> Maybe a) -> R.Event t (NonEmpty b) -> R.Event t (NonEmpty a)
-      fanEvent decons = R.fmapMaybe (nonEmpty . mapMaybe decons . toList)
+  let fanEvent :: (b -> Maybe a) -> R.Event t (NESeq b) -> R.Event t (NESeq a)
+      fanEvent decons = R.fmapMaybe (nonEmptySeq . mapMaybe decons . toSeq)
       createTaskEvent = fanEvent (^? #_CreateTask) dataChangeEvents
       changeTaskEvent = fanEvent (^? #_ChangeTask) dataChangeEvents
       setListEvent = fanEvent (^? #_SetEventList) dataChangeEvents
@@ -52,7 +52,7 @@ makeStateProvider clientSocket dataChangeEvents = do
       let connectedEvent = (^? #_ConnectionEstablished) <$?> remoteChanges
           eventsToSend =
             [ one . ChangeTasks <$> localChanges
-            , fromList [AllTasks, CalenderRequest] <$ connectedEvent
+            , AllTasks :<|| one CalenderRequest <$ connectedEvent
             , uncurry SetCalendarList <<$>> setListEvent
             ]
   let errorEvent = (^? #_SocketError) <$?> remoteChanges
@@ -62,23 +62,23 @@ makeStateProvider clientSocket dataChangeEvents = do
   tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> ((^? #_TaskUpdates) <$?> remoteChanges))
   pure $ DataState <$> tasksStateDyn <*> uiConfig <*> calendarData
 
-createToChangeEvent :: WidgetIO t m => D.Event t (NonEmpty (Text, Task -> Task)) -> m (D.Event t (NonEmpty Task))
+createToChangeEvent :: WidgetIO t m => D.Event t (NESeq (Text, Task -> Task)) -> m (D.Event t (NESeq Task))
 createToChangeEvent = R.performEvent . fmap (liftIO . mapM (\(desc, properties) -> properties <$> createTask desc))
 
-holdTasks :: WidgetIO t m => R.Event t (NonEmpty Task) -> m (R.Dynamic t (HashMap UUID Task))
+holdTasks :: WidgetIO t m => R.Event t (NESeq Task) -> m (R.Dynamic t (HashMap UUID Task))
 holdTasks = R.foldDyn foldTasks mempty
 
 foldTasks :: Foldable t => t Task -> HashMap UUID Task -> HashMap UUID Task
 foldTasks = flip (foldr (\task -> HashMap.insert (task ^. #uuid) task))
 
-buildChildrenMap :: HashMap a Task -> HashMap UUID [a]
+buildChildrenMap :: HashMap a Task -> HashMap UUID (Seq a)
 buildChildrenMap =
-  HashMap.fromListWith (++)
+  HashMap.fromListWith (<>)
     . mapMaybe (\(uuid, task) -> (,pure uuid) <$> task ^. #partof)
     . HashMap.toList
 
-buildDependenciesMap :: HashMap a Task -> HashMap UUID [a]
-buildDependenciesMap = HashMap.fromListWith (++) . (HashMap.toList >=> \(uuid, task) -> (,pure uuid) <$> toList (task ^. #depends))
+buildDependenciesMap :: HashMap a Task -> HashMap UUID (Seq a)
+buildDependenciesMap = HashMap.fromListWith (<>) . (HashMap.toList >=> \(uuid, task) -> (,pure uuid) <$> toList (task ^. #depends))
 
 buildTaskInfosMap :: HashMap UUID Task -> TaskState
 buildTaskInfosMap tasks =
@@ -87,9 +87,9 @@ buildTaskInfosMap tasks =
   foldTaskMap uuid task =
     TaskInfos
       { task = task
-      , children = HashMap.lookupDefault [] uuid childrenMap
+      , children = HashMap.lookupDefault mempty uuid childrenMap
       , parents = getParentTasks uuid
-      , revDepends = HashMap.lookupDefault [] uuid dependenciesMap
+      , revDepends = HashMap.lookupDefault mempty uuid dependenciesMap
       , blocked = isBlockedTask task
       }
   isBlockedTask = isBlocked tasks
