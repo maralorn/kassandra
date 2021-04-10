@@ -6,6 +6,7 @@ module Kassandra.State (
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Sequence as Seq
 import Kassandra.Api (SocketMessage (..), SocketRequest (..))
 import Kassandra.Calendar
 import Kassandra.Config (UIConfig)
@@ -56,7 +57,7 @@ makeStateProvider clientSocket dataChangeEvents = do
             , uncurry SetCalendarList <<$>> setListEvent
             ]
   let errorEvent = (^? #_SocketError) <$?> remoteChanges
-  calendarData <- R.holdDyn mempty $ (^? #_CalendarEvents) <$?> remoteChanges
+  calendarData <- R.holdDyn mempty $ Seq.sortBy sortEvents <$> ((^? #_CalendarEvents) <$?> remoteChanges)
   uiConfig <- R.holdDyn D.def $ (^? #_UIConfigResponse) <$?> remoteChanges
   D.dynText =<< R.foldDyn (<>) "" errorEvent
   tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> ((^? #_TaskUpdates) <$?> remoteChanges))
