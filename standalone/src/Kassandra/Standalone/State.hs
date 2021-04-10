@@ -13,6 +13,8 @@ import qualified Data.Sequence as Seq
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Network.Simple.TCP as Net
 import Say (say, sayErr)
+import Streamly
+import qualified Streamly.Prelude as S
 import Taskwarrior.IO (getTasks, saveTasks)
 
 import Kassandra.Api (
@@ -29,6 +31,9 @@ import Kassandra.LocalBackend (
   responseCallback,
   userConfig,
  )
+
+foldToSeq :: Monad m => SerialT m a -> m (Seq a)
+foldToSeq = S.foldl' (|>) mempty
 
 waitTillFalse :: MonadIO m => TVar Bool -> m ()
 waitTillFalse boolTvar = (atomically . whenM (readTVar boolTvar)) retry
@@ -53,20 +58,26 @@ handleRequests :: TQueue LocalBackendRequest -> TVar ClientMap -> IO ()
 handleRequests requestQueue mapVar = do
   cache <- newCache
   let go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req cache mapVar) $ const go
-  withAsync (void (getEvents cache)) (const go)
+  S.drain $
+    ( liftIO (loadCache cache)
+        `serial` (asyncly . maxThreads 100 . void . getEvents) cache
+        `serial` liftIO (saveCache cache)
+    )
+      `parallel` liftIO go
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
 monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates (NESeq.fromList tasks)) . snd)
 
 handleRequest :: LocalBackendRequest -> Cache -> TVar ClientMap -> IO ()
 handleRequest req cache mapVar =
-  forConcurrently_
-    [ do handleRequestsWhileAlive req cache; removeClientFromMap req mapVar
-    , launchOrAttachMonitor req mapVar
-    , responseCallback req ConnectionEstablished
-    , say "Client registered on backend"
-    ]
-    id
+  S.drain
+    . parallely
+    . S.fromFoldableM
+    $ [ do handleRequestsWhileAlive req cache; removeClientFromMap req mapVar
+      , launchOrAttachMonitor req mapVar
+      , responseCallback req ConnectionEstablished
+      , say "Client registered on backend"
+      ]
 
 removeClientFromMap :: MonadIO m => LocalBackendRequest -> TVar ClientMap -> m ()
 removeClientFromMap req mapVar = atomically (modifyTVar' mapVar updateMap)
@@ -106,10 +117,11 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
         setList cache uid list
         sendCalendarEvents
       CalenderRequest -> sendCalendarEvents
- where sendCalendarEvents = do
-        events <- getEvents cache
-        log Debug [i|Sending #{length events} events to client.|]
-        responseCallback . CalendarEvents $ events
+ where
+  sendCalendarEvents = do
+    events <- foldToSeq (getEvents cache)
+    log Debug [i|Sending #{Seq.length events} events|]
+    responseCallback . CalendarEvents $ events
 
 taskMonitor :: LocalBackend -> (NonEmpty Task -> IO ()) -> IO ()
 taskMonitor _ newTasksCallBack = do

@@ -84,6 +84,7 @@ library
     , filepattern
     , iCalendar               >=0.4
     , kassandra
+    , deferred-folds
     , network-simple
     , password                >=2.0.1.0
     , paths
@@ -100,6 +101,8 @@ library
     , unliftio
     , unordered-containers
     , uuid
+    , streamly
+    , streamly-bytestring
 
   hs-source-dirs:  src
 
@@ -111,5 +114,4 @@ executable kassandra2
     , base
     , kassandra
     , standalone
-
   ghc-options:    -threaded

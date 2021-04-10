@@ -32,6 +32,16 @@ project ./. (
           relude = dontCheck super.relude;
           stm-containers = markUnbroken super.stm-containers;
           stm-hamt = markUnbroken (doJailbreak super.stm-hamt);
+          streamly-bytestring =  self.callHackageDirect {
+            pkg = "streamly-bytestring";
+            ver = "0.1.2";
+            sha256 = "08xhp8zgf5n1j4v1br1dz9ih8j05vk92swp3nz9in5xajllkc7qv";
+          } {};
+          streamly =  self.callHackageDirect {
+            pkg = "streamly";
+            ver = "0.7.0";
+            sha256 = "0hr2cz14w6nnbvhnq1fvr8v4rzyqcj3b9khf2rszyji00fmp27l1";
+          } {};
           nonempty-vector =  self.callHackageDirect {
             pkg = "nonempty-vector";
             ver = "0.2.1.0";

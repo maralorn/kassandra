@@ -3,6 +3,8 @@ module Kassandra.Backend.Calendar (
   newCache,
   Cache (..),
   setList,
+  loadCache,
+  saveCache,
 ) where
 
 import qualified Control.Concurrent.STM as STM
@@ -10,21 +12,29 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy as LBS
 import Data.Default
 import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Time
 import Data.Time.Zones
 import qualified StmContainers.Map as STM
+import Streamly
+import qualified Streamly.Prelude as S
 import System.Directory
 import System.FilePath
 import System.FilePattern.Directory
 import Text.ICalendar
-import UnliftIO.Async
 
+import Data.Aeson (decodeStrict', encode)
 import Kassandra.Calendar
-import Kassandra.Debug (Severity (Debug, Error, Info), log)
+import Kassandra.Debug (Severity (..), log)
+import qualified Streamly.Data.Fold as FL
+import Streamly.External.ByteString (fromArray, toArray)
+import qualified Streamly.FileSystem.Handle as FS
+import qualified Streamly.Internal.FileSystem.File as FSFile
+import Streamly.Memory.Array as Mem
+import Streamly.Internal.Memory.ArrayStream (splitOn)
 import UnliftIO (onException)
+import qualified DeferredFolds.UnfoldlM as UnfoldlM
 
 dirName :: FilePath
 dirName = "/home/maralorn/.calendars/"
@@ -34,6 +44,58 @@ data FileInfo = FileInfo
   , events :: Seq CalendarEvent
   }
   deriving stock (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+loadCache :: Cache -> IO ()
+loadCache cache = do
+  dir <- getCacheDir
+  let a =
+        S.drain $
+          readJSONStream (cache ^. #icsCache) (dir </> "fileinfo.cache")
+            `async` readJSONStream (cache ^. #uidCache) (dir </> "uid.cache")
+  catch a \(e :: IOException) -> log Warning [i|Error loading calendar Cache:#{e}|]
+  log Debug "Cache Loaded"
+
+readJSONStream :: (IsStream t, Eq k, Hashable k, MonadIO (t IO), FromJSON k, FromJSON v) => STM.Map k v -> FilePath -> t IO ()
+readJSONStream stmMap fileName =
+  FSFile.withFile fileName ReadMode $
+    S.fold
+      (foldSTMMap stmMap)
+      . asyncly
+      . S.mapMaybe (decodeStrict' . fromArray)
+      . splitOn 10
+      . S.unfold FS.readChunks
+
+saveCache :: Cache -> IO ()
+saveCache cache = do
+  dir <- getCacheDir
+  createDirectoryIfMissing True dir
+  let a =
+        S.drain $
+          writeJSONStream (cache ^. #icsCache) (dir </> "fileinfo.cache")
+            `async` writeJSONStream (cache ^. #uidCache) (dir </> "uid.cache")
+  s <- atomically $ STM.size (cache ^. #icsCache)
+  catch a \(e :: IOException) -> log Warning [i|Error writing calendar Cache:#{e}|]
+  log Debug "Saved Cache"
+
+writeJSONStream :: (IsStream t, MonadIO (t IO), ToJSON k, ToJSON v) => STM.Map k v -> FilePath -> t IO ()
+writeJSONStream stmMap fileName =
+  FSFile.withFile fileName WriteMode \handle ->
+    liftIO $
+      S.fold (FS.writeChunks handle)
+        . asyncly
+        . S.intersperse (Mem.fromList [10])
+        . fmap (toArray . toStrict . encode)
+        $ streamSTMMap stmMap
+
+streamSTMMap :: forall t k v. (MonadIO (t IO), IsStream t) => STM.Map k v -> t IO (k, v)
+streamSTMMap = join . atomically . UnfoldlM.foldlM' (\x y -> pure $ S.cons y x) S.nil . STM.unfoldlM
+
+getCacheDir :: IO FilePath
+getCacheDir = getXdgDirectory XdgCache "kassandra"
+
+foldSTMMap :: forall m k v. (Eq k, Hashable k, MonadIO m) => STM.Map k v -> FL.Fold m (k, v) ()
+foldSTMMap cache = FL.foldMapM (\(k, v) -> atomically $ STM.insert v k cache)
 
 type ICSCache = STM.Map FilePath FileInfo
 type UIDCache = STM.Map Text FilePath
@@ -50,24 +112,27 @@ newCache = atomically $ Cache <$> STM.new <*> STM.new <*> STM.new
 
 makeLabels ''Cache
 
+foldToSeq :: Monad m => SerialT m a -> m (Seq a)
+foldToSeq = S.foldl' (|>) mempty
+
 setList :: Cache -> Text -> CalendarList -> IO ()
 setList cache uid list = do
   cachedFilename <- atomically (STM.lookup uid (cache ^. #uidCache))
   cachedFilename & maybe
     (log Error [i|Missing uid #{uid} in UIDCache.|])
     \filename -> do
-      calendars <- readCalendars filename
+      calendars <- foldToSeq (readCalendars filename)
       insertList calendars & maybe
         (log Error [i|Did not find Event with uid #{uid} in #{filename}.|])
         \newCalendars -> do
           withFile filename WriteMode \fileHandle -> do
             forM_ newCalendars (LBS.hPut fileHandle . printICalendar def)
  where
-  insertList :: Seq VCalendar -> Maybe (Seq VCalendar)
+  insertList :: Traversable m => m VCalendar -> Maybe (m VCalendar)
   insertList cals = if modified then Just ret else Nothing
    where
     (ret, modified) = runState (insertListS cals) False
-  insertListS :: Seq VCalendar -> State Bool (Seq VCalendar)
+  insertListS :: Traversable m => m VCalendar -> State Bool (m VCalendar)
   insertListS = mapM \calendar -> do
     newEvents <- forM (vcEvents calendar) \event ->
       if uidValue (veUID event) == toLazy uid
@@ -89,40 +154,42 @@ tasksFieldName = "TASKS"
 isTasksOther :: OtherProperty -> Bool
 isTasksOther = (== tasksFieldName) . otherName
 
-getEvents :: Cache -> IO (Seq CalendarEvent)
+getEvents :: (MonadIO (stream IO), IsStream stream) => Cache -> stream IO CalendarEvent
 getEvents cache = do
-  calendarFiles <- fromList . fmap (dirName </>) <$> getDirectoryFiles dirName ["**/*.ics"]
-  now <- getZonedTime
-  log Info "Retrieving ics events"
-  allEvents <- join <$> pooledForConcurrentlyN 1000 calendarFiles (getWithCache cache (zonedTimeToUTC now))
-  log Info [i|Retrieved ics #{Seq.length allEvents} events.|]
-  (pure . Seq.sortBy sortEvents . Seq.filter (onlyNextWeek now)) allEvents
+  now <- liftIO getZonedTime
+  let calendarFiles = (dirName </>) <$> (S.fromList =<< liftIO (getDirectoryFiles dirName ["**/*.ics"]))
+      extractEvents = getWithCache cache (zonedTimeToUTC now)
+      filterRelevant = S.filter (onlyNextWeek now)
+  maxThreads 500 . filterRelevant $ extractEvents =<< calendarFiles
 
-getWithCache :: Cache -> UTCTime -> FilePath -> IO (Seq CalendarEvent)
-getWithCache cache now fileName = do
-  infoMay <- atomically $ STM.lookup fileName (cache ^. #icsCache)
-  let update = do
-        newEvents <- readEvents cache fileName
-        atomically $ STM.insert (FileInfo now newEvents) fileName (cache ^. #icsCache)
-        pure newEvents
-  infoMay & maybe update \FileInfo{lastRead, events} -> do
-    modTime <- getModificationTime fileName
-    if lastRead >= modTime then pure events else update
+getWithCache :: (MonadIO (stream IO), IsStream stream) => Cache -> UTCTime -> FilePath -> stream IO CalendarEvent
+getWithCache cache now fileName =
+  S.fromFoldable =<< liftIO do
+    infoMay <- atomically $ STM.lookup fileName (cache ^. #icsCache)
+    let update = do
+          newEvents <- foldToSeq (readEvents cache fileName)
+          atomically $ STM.insert (FileInfo now newEvents) fileName (cache ^. #icsCache)
+          pure newEvents
+    infoMay & maybe update \FileInfo{lastRead, events} -> do
+      modTime <- getModificationTime fileName
+      if lastRead >= modTime then pure events else update
 
-readCalendars :: FilePath -> IO (Seq VCalendar)
+readCalendars :: (MonadIO (stream IO), IsStream stream) => FilePath -> stream IO VCalendar
 readCalendars path =
-  parseICalendarFile def path >>= \case
-    Right (fromList -> calendarsInFile, fmap toText -> _warnings) -> do
-      mapM_ (log Debug) _warnings
-      pure calendarsInFile
-    Left _parseError -> do
-      log Debug (toText _parseError)
-      pure mempty
+  S.fromList
+    =<< liftIO
+      ( parseICalendarFile def path >>= \case
+          Right (calendarsInFile, fmap toText -> _warnings) -> do
+            mapM_ (log Debug) _warnings
+            pure calendarsInFile
+          Left _parseError -> do
+            log Debug (toText _parseError)
+            pure mempty
+      )
 
-readEvents :: Cache -> FilePath -> IO (Seq CalendarEvent)
-readEvents cache path = do
-  calendars <- readCalendars path
-  join <$> forM calendars \calendar -> do
+readEvents :: (MonadIO (stream IO), IsStream stream) => Cache -> FilePath -> stream IO CalendarEvent
+readEvents cache path =
+  readCalendars path >>= \calendar -> do
     let uids = toStrict . fst <$> (Map.keys . vcEvents) calendar
     atomically do
       forM_ uids \uid -> STM.insert path uid (cache ^. #uidCache)
@@ -138,12 +205,12 @@ onlyNextWeek now CalendarEvent{time}
   | AllDayEvent startDay endDay <- time = endDay >= zonedDay now && startDay <= addDays 14 (zonedDay now)
 onlyNextWeek _ _ = False
 
-translateCalendar :: Cache -> Text -> VCalendar -> IO (Seq CalendarEvent)
-translateCalendar cache calendarName = fmap join . traverse (translateEvent cache calendarName) . fromList . Map.elems . vcEvents
+translateCalendar :: (Monad (stream IO), IsStream stream) => Cache -> Text -> VCalendar -> stream IO CalendarEvent
+translateCalendar cache calendarName = translateEvent cache calendarName <=< S.fromList . Map.elems . vcEvents
 
-translateEvent :: Cache -> Text -> VEvent -> IO (Seq CalendarEvent)
+translateEvent :: (Functor (stream IO), IsStream stream) => Cache -> Text -> VEvent -> stream IO CalendarEvent
 translateEvent cache calendarName vEvent =
-  withTime <<$>> getTimes
+  withTime <$> getTimes
  where
   withTime time = CalendarEvent{uid, description, todoList, time, calendarName, location, comment}
    where
@@ -158,11 +225,11 @@ translateEvent cache calendarName vEvent =
   getTimes
     | Just (DTStartDateTime start _) <- veDTStart vEvent
       , Just (Left (DTEndDateTime end _)) <- veDTEndDuration vEvent =
-      (one .) . SimpleEvent <$> datetimeToTZTime cache start <*> datetimeToTZTime cache end
+      S.yieldM . liftIO $ SimpleEvent <$> datetimeToTZTime cache start <*> datetimeToTZTime cache end
     | Just (dateValue . dtStartDateValue -> start) <- veDTStart vEvent
       , Just (Left (dateValue . dtEndDateValue -> end)) <- veDTEndDuration vEvent =
-      pure . one $ AllDayEvent start (addDays (-1) end)
-    | otherwise = pure mempty
+      S.yield $ AllDayEvent start (addDays (-1) end)
+    | otherwise = S.nil
 
 datetimeToTZTime :: Cache -> DateTime -> IO TZTime
 datetimeToTZTime cache = \case

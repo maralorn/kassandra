@@ -26,9 +26,13 @@ import Kassandra.Util (defDynDyn)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype
+import Streamly.Prelude as S
+import Streamly.Internal.Data.Stream.Parallel (parallelMin)
+import System.IO (hSetBuffering, BufferMode(..))
 
 standalone :: IO ()
 standalone = do
+  hSetBuffering Prelude.stdout NoBuffering
   setLogLevel $ Just Info
   log Info "Started kassandra"
   log Debug "Writing Types file"
@@ -38,8 +42,10 @@ standalone = do
   print config
   log Debug "Loaded Config"
   requestQueue <- newTQueueIO
-  race_ (localBackendProvider requestQueue) $
-    D.mainWidgetWithCss cssAsBS $
+  S.drain $ parallelMin (lift (localBackendProvider requestQueue)) $ lift do
+    log Info "Hanging in front of main widget"
+    D.mainWidgetWithCss cssAsBS $ do
+      log Info "Entered main widget"
       -- TODO: Use Config from stateProvider here
       D.dyn_ . (maybe pass (mainWidget D.def) <$>)
         =<< standaloneWidget requestQueue
