@@ -26,8 +26,6 @@ import Kassandra.Util (defDynDyn)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype
-import Streamly.Prelude as S
-import Streamly.Internal.Data.Stream.Parallel (parallelMin)
 import System.IO (hSetBuffering, BufferMode(..))
 
 standalone :: IO ()
@@ -42,7 +40,7 @@ standalone = do
   print config
   log Debug "Loaded Config"
   requestQueue <- newTQueueIO
-  S.drain $ parallelMin (lift (localBackendProvider requestQueue)) $ lift do
+  race_ (localBackendProvider requestQueue) $ do
     log Info "Hanging in front of main widget"
     D.mainWidgetWithCss cssAsBS $ do
       log Info "Entered main widget"
