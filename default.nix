@@ -24,6 +24,7 @@ project ./. (
           };
         };
         overrides = self: super: {
+          kassandra = overrideCabal super.kassandra { doHaddock = false; };
           backend = addBuildDepend super.backend pkgs.taskwarrior;
           clay = markUnbroken (dontCheck super.clay);
           haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.1" {});
@@ -44,8 +45,8 @@ project ./. (
           } {};
           nonempty-vector =  self.callHackageDirect {
             pkg = "nonempty-vector";
-            ver = "0.2.1.0";
-            sha256 = "002gg1x7zrqxy98yl4mnipviq973200792l189rbhnb96x0jxg2n";
+            ver = "0.1.0.0";
+            sha256 = "06abdmdy9z0w6ishiibir3qfjpqxmb4mrkhgyc4j58hd14s8rj0x";
           } {};
           nonempty-containers =  self.callHackageDirect {
             pkg = "nonempty-containers";
