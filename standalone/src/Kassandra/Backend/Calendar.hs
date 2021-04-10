@@ -74,7 +74,6 @@ saveCache cache = do
         S.drain $
           writeJSONStream (cache ^. #icsCache) (dir </> "fileinfo.cache")
             `async` writeJSONStream (cache ^. #uidCache) (dir </> "uid.cache")
-  s <- atomically $ STM.size (cache ^. #icsCache)
   catch a \(e :: IOException) -> log Warning [i|Error writing calendar Cache:#{e}|]
   log Debug "Saved Cache"
 
