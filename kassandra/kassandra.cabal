@@ -111,6 +111,7 @@ library
     , reflex
     , reflex-dom
     , relude
+    , say
     , scientific
     , stm
     , string-interpolate

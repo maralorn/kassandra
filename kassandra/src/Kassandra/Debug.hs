@@ -30,6 +30,7 @@ import System.Console.ANSI (
  )
 import Relude.Extra.Bifunctor
 import Relude.Extra.Enum
+import Say
 
 data Severity = Debug | Info | Warning | Error deriving stock (Show, Read, Eq, Ord)
 
@@ -86,7 +87,7 @@ log :: (HasCallStack, MonadIO m) => Severity -> Text -> m ()
 log severity text = do
   thread <- liftIO myThreadId
   time <- liftIO getZonedTime
-  whenM (severeEnough severity) . putTextLn . formatMessage $
+  whenM (severeEnough severity) . say . formatMessage $
     Message
       { msgSeverity = severity
       , msgCallStack = callStack
