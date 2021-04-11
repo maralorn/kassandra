@@ -31,8 +31,7 @@ smartSimpleList widget listElements = do
           Patch.patchThatChangesMap
           (R.current keyMap)
           (R.updated keyMap)
-      initialKeyMap =
-        Patch.patchMapWithMoveInsertAll <$> R.tag (R.current keyMap) postBuild
+      initialKeyMap = Patch.patchMapWithMoveInsertAll <$> R.tag (R.current keyMap) postBuild
       keyMapEvents = keyMapChange <> initialKeyMap
   void $ R.mapMapWithAdjustWithMove (const widget) mempty keyMapEvents
 

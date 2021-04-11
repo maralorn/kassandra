@@ -55,7 +55,7 @@ type WidgetIO t m = Widget t m
 data TaskInfos = TaskInfos {task :: Task, children :: Seq UUID, parents :: Seq UUID, revDepends :: Seq UUID, blocked :: Bool} deriving stock (Eq, Show, Generic)
 makeLabels ''TaskInfos
 
-type TaskState = (HashMap UUID TaskInfos)
+type TaskState = HashMap UUID TaskInfos
 
 data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) | SetEventList Text CalendarList deriving stock (Generic)
 makePrismLabels ''DataChange
