@@ -91,10 +91,7 @@ listWidget list = D.dyn_ (innerRenderList <$> list)
       void . D.simpleList (D.constDyn sublists) $ listWidget
 
   tasksToShow :: Text -> TaskState -> Seq TaskInfos
-  tasksToShow tag = mapMaybe maybePredicate . fromList . HashMap.elems
+  tasksToShow tag = filter inList . fromList . HashMap.elems
    where
-    maybePredicate :: TaskInfos -> Maybe TaskInfos
-    maybePredicate taskInfo =
-      if inList taskInfo then Just taskInfo else Nothing
     inList :: TaskInfos -> Bool
-    inList = (tag `Set.member`) . (^. #task % #tags)
+    inList ((^. #task) -> task) = tag `Set.member` (task ^. #tags) && has (#status % #_Pending) task
