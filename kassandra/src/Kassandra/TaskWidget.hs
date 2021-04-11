@@ -47,12 +47,13 @@ import Kassandra.Types (
   getSelectState,
   getTime,
  )
-import Kassandra.Util (lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle)
+import Kassandra.Util (lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle, lookupTaskM)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
 import qualified Taskwarrior.Status as Status
 import Taskwarrior.UDA (UDA)
+import Kassandra.ReflexUtil (smartSimpleList)
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
@@ -266,20 +267,32 @@ taskList ::
   R.Dynamic t (Seq UUID) ->
   (R.Dynamic t TaskInfos -> m ()) ->
   m ()
-taskList mode childrenD blacklistD elementWidget = do
+taskList mode tasksD blacklistD elementWidget = do
   let partialSortPosition =
-        SortPosition mode (childrenD ^. mapping (mapping #task) % #current)
-  void $
-    R.simpleList ((\xs -> toList (Seq.zip xs (Nothing <| fmap Just xs))) <$> childrenD) $
-      \childD -> do
-        let currentUuidD = childD ^. mapping (_1 % #uuid)
-            ignoreD = ((<|) <$> currentUuidD <*>) $ fromList . (^.. folded) <$> childD ^. mapping (_2 % mapping #uuid)
+        SortPosition mode (tasksD ^. mapping (mapping #task) % #current)
+      uuidsD = tasksD ^. mapping (mapping #uuid)
+  flip smartSimpleList ((\xs -> Seq.zip xs (Nothing <| fmap Just xs)) <$> uuidsD) $
+       \(currentUuid, nextUuid) -> do
+        let ignore = currentUuid <| fromList (nextUuid ^.. folded)
         childDropArea
-          (partialSortPosition (Just <$> currentUuidD ^. #current))
-          (ignoreD <> blacklistD)
-          $ icon "dropHere above" "forward"
-        elementWidget $ childD ^. mapping _1
-  let ignoreD = fromList . (^.. folded) . lastOf folded <$> childrenD ^. mapping (mapping #uuid)
+          (partialSortPosition (pure $ Just currentUuid))
+          (pure ignore <> blacklistD)
+           $ icon "dropHere above" "forward"
+        currentTaskMayD <- lookupTaskM (pure currentUuid)
+        maybeCurrentTaskD <- R.maybeDyn currentTaskMayD
+        D.dyn_ $ maybe
+            (D.text [i|Task #{currentUuid} not found.|])
+            elementWidget <$> maybeCurrentTaskD
+    --R.simpleList ((\xs -> toList (Seq.zip xs (Nothing <| fmap Just xs))) <$> childrenD) $
+      -- \childD -> do
+        --let currentUuidD = childD ^. mapping (_1 % #uuid)
+            --ignoreD = ((<|) <$> currentUuidD <*>) $ fromList . (^.. folded) <$> childD ^. mapping (_2 % mapping #uuid)
+        --childDropArea
+          --(partialSortPosition (Just <$> currentUuidD ^. #current))
+          --(ignoreD <> blacklistD)
+          --  icon "dropHere above" "forward"
+        -- elementWidget $ childD ^. mapping _1
+  let ignoreD = fromList . (^.. folded) . lastOf folded <$> tasksD ^. mapping (mapping #uuid)
   childDropArea
     (partialSortPosition (R.constant Nothing))
     (ignoreD <> blacklistD)
