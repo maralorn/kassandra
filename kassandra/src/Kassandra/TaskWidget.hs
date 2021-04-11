@@ -5,6 +5,7 @@ module Kassandra.TaskWidget (
 
 import qualified Data.HashSet as HashSet
 import qualified Data.Sequence as Seq
+import qualified Data.Map as Map
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -271,27 +272,19 @@ taskList mode tasksD blacklistD elementWidget = do
   let partialSortPosition =
         SortPosition mode (tasksD ^. mapping (mapping #task) % #current)
       uuidsD = tasksD ^. mapping (mapping #uuid)
-  flip smartSimpleList ((\xs -> Seq.zip xs (Nothing <| fmap Just xs)) <$> uuidsD) $
-       \(currentUuid, nextUuid) -> do
-        let ignore = currentUuid <| fromList (nextUuid ^.. folded)
+      prevUuidD = (\xs -> Map.unions . fmap one $ Seq.zip (Seq.drop 1 xs) xs) <$> uuidsD
+  flip smartSimpleList uuidsD $
+       \currentUuid -> do
+        let ignore = prevUuidD <&> \prevUuid -> currentUuid <| fromList (Map.lookup currentUuid prevUuid ^.. folded)
         childDropArea
           (partialSortPosition (pure $ Just currentUuid))
-          (pure ignore <> blacklistD)
+          (ignore <> blacklistD)
            $ icon "dropHere above" "forward"
         currentTaskMayD <- lookupTaskM (pure currentUuid)
         maybeCurrentTaskD <- R.maybeDyn currentTaskMayD
         D.dyn_ $ maybe
             (D.text [i|Task #{currentUuid} not found.|])
             elementWidget <$> maybeCurrentTaskD
-    --R.simpleList ((\xs -> toList (Seq.zip xs (Nothing <| fmap Just xs))) <$> childrenD) $
-      -- \childD -> do
-        --let currentUuidD = childD ^. mapping (_1 % #uuid)
-            --ignoreD = ((<|) <$> currentUuidD <*>) $ fromList . (^.. folded) <$> childD ^. mapping (_2 % mapping #uuid)
-        --childDropArea
-          --(partialSortPosition (Just <$> currentUuidD ^. #current))
-          --(ignoreD <> blacklistD)
-          --  icon "dropHere above" "forward"
-        -- elementWidget $ childD ^. mapping _1
   let ignoreD = fromList . (^.. folded) . lastOf folded <$> tasksD ^. mapping (mapping #uuid)
   childDropArea
     (partialSortPosition (R.constant Nothing))
