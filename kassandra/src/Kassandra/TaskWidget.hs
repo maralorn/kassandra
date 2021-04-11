@@ -274,17 +274,19 @@ taskList mode tasksD blacklistD elementWidget = do
       uuidsD = tasksD ^. mapping (mapping #uuid)
       prevUuidD = (\xs -> Map.unions . fmap one $ Seq.zip (Seq.drop 1 xs) xs) <$> uuidsD
   flip smartSimpleList uuidsD $
-       \currentUuid -> do
-        let ignore = prevUuidD <&> \prevUuid -> currentUuid <| fromList (Map.lookup currentUuid prevUuid ^.. folded)
-        childDropArea
-          (partialSortPosition (pure $ Just currentUuid))
-          (ignore <> blacklistD)
-           $ icon "dropHere above" "forward"
-        currentTaskMayD <- lookupTaskM (pure currentUuid)
-        maybeCurrentTaskD <- R.maybeDyn currentTaskMayD
-        D.dyn_ $ maybe
-            (D.text [i|Task #{currentUuid} not found.|])
-            elementWidget <$> maybeCurrentTaskD
+    \currentUuid -> do
+      let ignore = prevUuidD <&> \prevUuid -> currentUuid <| fromList (Map.lookup currentUuid prevUuid ^.. folded)
+      childDropArea
+        (partialSortPosition (pure $ Just currentUuid))
+        (ignore <> blacklistD)
+        $ icon "dropHere above" "forward"
+      currentTaskMayD <- lookupTaskM (pure currentUuid)
+      maybeCurrentTaskD <- R.maybeDyn currentTaskMayD
+      D.dyn_ $
+        maybe
+          (D.text [i|Task #{currentUuid} not found.|])
+          elementWidget
+          <$> maybeCurrentTaskD
   let ignoreD = fromList . (^.. folded) . lastOf folded <$> tasksD ^. mapping (mapping #uuid)
   childDropArea
     (partialSortPosition (R.constant Nothing))
