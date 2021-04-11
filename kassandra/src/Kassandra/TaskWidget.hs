@@ -250,7 +250,7 @@ childrenWidget taskInfosD = do
   showOptional :: Bool -> m ()
   showOptional x = when x $ do
     children <-
-      R.holdUniqDyn =<< lookupTasksDynM
+      R.holdUniqDyn . fmap (Seq.filter (has (#task % #status % #_Pending))) =<< lookupTasksDynM
         =<< R.holdUniqDyn
           (taskInfosD ^. mapping #children)
     let sortModeD = SortModePartof <$> taskInfosD ^. mapping #uuid
