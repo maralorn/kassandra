@@ -4,8 +4,8 @@ module Kassandra.TaskWidget (
 ) where
 
 import qualified Data.HashSet as HashSet
-import qualified Data.Sequence as Seq
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -23,6 +23,7 @@ import Kassandra.DragAndDrop (
   taskDropArea,
   tellSelectedTasks,
  )
+import Kassandra.ReflexUtil (smartSimpleList)
 import Kassandra.Sorting (
   SortMode (SortModePartof),
   SortPosition (SortPosition),
@@ -48,13 +49,12 @@ import Kassandra.Types (
   getSelectState,
   getTime,
  )
-import Kassandra.Util (lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle, lookupTaskM)
+import Kassandra.Util (lookupTaskM, lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
 import qualified Taskwarrior.Status as Status
 import Taskwarrior.UDA (UDA)
-import Kassandra.ReflexUtil (smartSimpleList)
 
 type TaskWidget t m r e = (TaskTreeWidget t m r e, HaveTask m r)
 type HaveTask m r = Have m r TaskInfos
