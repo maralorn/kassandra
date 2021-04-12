@@ -187,12 +187,11 @@ readCalendars path =
       )
 
 readEvents :: (MonadIO (stream IO), IsStream stream) => Cache -> FilePath -> stream IO CalendarEvent
-readEvents cache path =
-  readCalendars path >>= \calendar -> do
-    let uids = toStrict . fst <$> (Map.keys . vcEvents) calendar
-    atomically do
-      forM_ uids \uid -> STM.insert path uid (cache ^. #uidCache)
-    translateCalendar cache (tryExtractBaseDir (toText path)) calendar
+readEvents cache path = do
+  calendar <- readCalendars path
+  let uids = toStrict . fst <$> (Map.keys . vcEvents) calendar
+  atomically $ forM_ uids \uid -> STM.insert path uid (cache ^. #uidCache)
+  translateCalendar cache (tryExtractBaseDir (toText path)) calendar
 
 tryExtractBaseDir :: Text -> Text
 tryExtractBaseDir name = fromMaybe name . (viaNonEmpty last <=< viaNonEmpty init) . Text.splitOn "/" $ name
