@@ -23,7 +23,6 @@ module Prelude (
   catch,
   concurrently_,
   forConcurrently_,
-  withAsync,
   race_,
   makeLabels,
   Status,
@@ -65,7 +64,6 @@ import Control.Concurrent.Async (
   concurrently_,
   forConcurrently_,
   race_,
-  withAsync,
  )
 import Control.Exception (
   IOException,

@@ -38,7 +38,7 @@ foldToSeq = S.foldl' (|>) mempty
 waitTillFalse :: MonadIO m => TVar Bool -> m ()
 waitTillFalse boolTvar = (atomically . whenM (readTVar boolTvar)) retry
 foreverWhileTrue :: TVar Bool -> IO a -> IO ()
-foreverWhileTrue boolTvar action = (withAsync (forever action) . const . waitTillFalse) boolTvar
+foreverWhileTrue boolTvar action = race_ (forever action) (waitTillFalse boolTvar)
 lookupTMap :: (Ord k, MonadIO f) => k -> TVar (Map k a) -> f (Maybe a)
 lookupTMap key tvarMap = Map.lookup key <$> readTVarIO tvarMap
 insertOrAddTMap :: Ord k => k -> e -> TVar (Map k (Seq e)) -> STM Bool
@@ -57,7 +57,7 @@ localBackendProvider requestQueue = newTVarIO mempty >>= handleRequests requestQ
 handleRequests :: TQueue LocalBackendRequest -> TVar ClientMap -> IO ()
 handleRequests requestQueue mapVar = do
   cache <- newCache
-  let go = atomically (readTQueue requestQueue) >>= \req -> withAsync (handleRequest req cache mapVar) $ const go
+  let go = atomically (readTQueue requestQueue) >>= \req -> concurrently_ (handleRequest req cache mapVar) go
   S.drain $
     ( liftIO (loadCache cache)
         `serial` (asyncly . maxThreads 100 . void . getEvents) cache
@@ -96,13 +96,13 @@ launchOrAttachMonitor :: LocalBackendRequest -> TVar ClientMap -> IO ()
 launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} mapVar =
   whenM (atomically $ insertOrAddTMap localBackend entry mapVar) $
     do
-      whileClientsNotEmpty $ taskMonitor localBackend (monitorCallback localBackend mapVar)
+      whileClientsNotEmpty ( taskMonitor localBackend (monitorCallback localBackend mapVar))
       say "Stopped listening for changes"
  where
   UserConfig{localBackend} = userConfig
   entry = (alive, responseCallback)
-  whileClientsNotEmpty action =
-    withAsync action . const . atomically . whenJustM (Map.lookup localBackend <$> readTVar mapVar) . const $ retry
+  waitForClientsEmpty = atomically . whenJustM (Map.lookup localBackend <$> readTVar mapVar) . const $ retry
+  whileClientsNotEmpty action = race_ action waitForClientsEmpty
 
 -- TODO: Use backend config
 
