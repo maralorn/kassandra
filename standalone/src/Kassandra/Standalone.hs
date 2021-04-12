@@ -27,7 +27,11 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype
 import System.IO (hSetBuffering, BufferMode(..))
+import System.Posix.Process (exitImmediately)
+import System.Exit (ExitCode(ExitFailure))
 
+handleProvider :: IO a -> IO a
+handleProvider m = catch m \(SomeException e) -> log Error [i|BackendProviderCrashed with error: #{e}|] >> exitImmediately (ExitFailure 1) >> error "Cannot be reached"
 standalone :: IO ()
 standalone = do
   hSetBuffering Prelude.stdout NoBuffering
@@ -40,7 +44,7 @@ standalone = do
   print config
   log Debug "Loaded Config"
   requestQueue <- newTQueueIO
-  race_ (localBackendProvider requestQueue) $ do
+  race_ (handleProvider (localBackendProvider requestQueue)) $ do
     log Info "Hanging in front of main widget"
     D.mainWidgetWithCss cssAsBS $ do
       log Info "Entered main widget"
