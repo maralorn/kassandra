@@ -265,4 +265,4 @@ mkTZTime :: (Text, TZ) -> LocalTime -> TZTime
 mkTZTime (tzname, tz) t = TZTime (ZonedTime t (timeZoneForUTCTime tz (localTimeToUTCTZ tz t))) tzname
 
 nextName :: Text -> Maybe Text
-nextName = fmap (Text.intercalate "/") . viaNonEmpty tail . Text.splitOn "/"
+nextName = fmap (Text.intercalate "/") . viaNonEmpty tail . filter (not . Text.null) . Text.splitOn "/"
