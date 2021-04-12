@@ -37,8 +37,8 @@ foldToSeq = S.foldl' (|>) mempty
 
 waitTillFalse :: MonadIO m => TVar Bool -> m ()
 waitTillFalse boolTvar = (atomically . whenM (readTVar boolTvar)) retry
-foreverWhileTrue :: TVar Bool -> IO a -> IO ()
-foreverWhileTrue boolTvar action = race_ (forever action) (waitTillFalse boolTvar)
+concurrentWhileTrue :: TVar Bool -> IO a -> IO ()
+concurrentWhileTrue boolTvar action = race_ action (waitTillFalse boolTvar)
 lookupTMap :: (Ord k, MonadIO f) => k -> TVar (Map k a) -> f (Maybe a)
 lookupTMap key tvarMap = Map.lookup key <$> readTVarIO tvarMap
 insertOrAddTMap :: Ord k => k -> e -> TVar (Map k (Seq e)) -> STM Bool
@@ -108,8 +108,9 @@ launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} m
 
 handleRequestsWhileAlive :: LocalBackendRequest -> Cache -> IO ()
 handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback, requestQueue} cache =
-  foreverWhileTrue alive $
-    atomically (readTQueue requestQueue) >>= \case
+  concurrentWhileTrue alive go
+ where
+  handler = \case
       UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
       AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates . NESeq.fromList)
       ChangeTasks tasks -> (saveTasks . toList) tasks
@@ -117,7 +118,9 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
         setList cache uid list
         sendCalendarEvents
       CalenderRequest -> sendCalendarEvents
- where
+  go = do
+     nextRequest <- atomically (readTQueue requestQueue)
+     concurrently_ (handler nextRequest) go
   sendCalendarEvents = do
     events <- foldToSeq (getEvents cache)
     log Debug [i|Sending #{Seq.length events} events|]
