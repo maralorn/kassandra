@@ -131,6 +131,9 @@ widgetSwitcher = D.el "div" $ do
   listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
   D.el "div" $ D.dyn_ (snd <$> listName)
 
+stillTodo :: TaskInfos -> Bool
+stillTodo task = has (#status % #_Pending) task || has (#status % #_Waiting) task
+
 filterInbox :: TaskState -> [TaskInfos]
 filterInbox tasks =
   sortOn (^. #modified) . toListOf (folded % filtered inInbox) $ tasks
@@ -139,7 +142,7 @@ filterInbox tasks =
   inInbox taskInfos =
     has (#tags % _Empty) taskInfos
       && has (#status % #_Pending) taskInfos
-      && has (#children % _Empty) taskInfos
+      && (not . any stillTodo . lookupTasks tasks) (taskInfos ^. #children)
       && ( not
             . any (`notElem` ["kategorie", "project", "root"])
             . Set.unions
