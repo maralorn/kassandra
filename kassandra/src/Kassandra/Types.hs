@@ -36,6 +36,7 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 import qualified Taskwarrior.Status
 import qualified Taskwarrior.Task
+import Text.Show
 
 type Widget t m =
   ( D.DomBuilder t m
@@ -58,6 +59,10 @@ makeLabels ''TaskInfos
 type TaskState = HashMap UUID TaskInfos
 
 data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) | SetEventList Text CalendarList deriving stock (Generic)
+instance Show DataChange where
+   show (ChangeTask task) = [i|ChangeTask (#{task})|]
+   show (CreateTask name _) = [i|CreateTask with name #{name}|]
+   show (SetEventList uid list) = [i|SetEventList #{uid} #{list}|]
 makePrismLabels ''DataChange
 
 data ToggleEvent = ToggleEvent UUID Bool deriving stock (Eq, Show, Generic)
