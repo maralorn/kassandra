@@ -78,6 +78,7 @@ library
     Kassandra.AgendaWidget
     Kassandra.BaseWidgets
     Kassandra.DragAndDrop
+    Kassandra.ListElementWidget
     Kassandra.ListWidget
     Kassandra.LogWidget
     Kassandra.ReflexUtil
