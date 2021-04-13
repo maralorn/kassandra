@@ -3,13 +3,26 @@
 module Kassandra.AgendaWidget (agendaWidget) where
 
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
-import Kassandra.BaseWidgets
-import Kassandra.Calendar
+import Kassandra.BaseWidgets (button, icon)
+import Kassandra.Calendar (
+  CalendarEvent (
+    CalendarEvent,
+    calendarName,
+    comment,
+    description,
+    location,
+    time,
+    todoList,
+    uid
+  ),
+  CalendarList (entries),
+  EventTime (AllDayEvent, SimpleEvent),
+  switchToCurrentZone,
+ )
 import Kassandra.Config (DefinitionElement (..), ListItem (..))
+import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList)
 import Kassandra.TextEditWidget (createTextWidget)
-import Kassandra.Types
-import Kassandra.Util
+import Kassandra.Types (StandardWidget, Widget, getAppState)
 import qualified Reflex.Dom as D
 
 agendaWidget :: StandardWidget t m r e => m ()
@@ -43,34 +56,12 @@ calendarListWidget :: StandardWidget t m r e => Text -> CalendarList -> m ()
 calendarListWidget uid calendarList = do
   forM_
     (entries calendarList)
-    ( (>> D.el "br" pass)
-        . ( \case
-              ConfigList _ _ -> error "ConfigLists are not implemented"
-              ListElement el -> case el of
-                (TaskwarriorTask _) -> error "Can‘t display tw tasks"
-                (AdHocTask t) -> adhocTaskWidget uid calendarList t
-                (HabiticaTask _) -> error "HabiticaTasks are not yet supported"
-                (Mail _) -> error "Mails are not yet supported"
-          )
+    ( (>> D.el "br" pass) . definitionElementWidget (AgendaEvent uid calendarList)
     )
   newTaskEvent <-
     createTextWidget
       (button "selector" $ D.text "New Task")
   tellList uid $ newTaskEvent <&> \content -> (#entries %~ (Seq.|> ListElement (AdHocTask content))) calendarList
-
-tellList :: StandardWidget t m r e => Text -> D.Event t CalendarList -> m ()
-tellList uid listEvent = tellSingleton $ (_Typed @AppStateChange % _Typed @DataChange #) . SetEventList uid <$> listEvent
-
-adhocTaskWidget :: StandardWidget t m r e => Text -> CalendarList -> Text -> m ()
-adhocTaskWidget uid calendarList description = do
-  changeDoneStatus <- if description `Set.member` completed calendarList then (False <$) <$> button "" (D.text "[x]") else (True <$) <$> button "" (D.text "[ ]")
-  D.text [i| #{description}|]
-  delete <- button "" (D.text "x")
-  tellList uid $ delete $> (#entries %~ Seq.filter (ListElement (AdHocTask description) /=)) calendarList
-  tellList uid $
-    changeDoneStatus <&> \case
-      True -> (#completed %~ Set.insert description) calendarList
-      False -> (#completed %~ Set.delete description) calendarList
 
 printEventTime :: Widget t m => EventTime -> m ()
 printEventTime (SimpleEvent start end) = do
