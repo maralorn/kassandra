@@ -4,7 +4,7 @@ module Kassandra.Standalone (
 
 import Control.Concurrent.Async (AsyncCancelled (AsyncCancelled))
 import Control.Concurrent.STM (TQueue, newTQueueIO)
-import Control.Exception (throwIO)
+import Control.Exception (throwIO,SomeAsyncException (SomeAsyncException))
 import Data.Typeable (typeOf)
 import Kassandra.Config (NamedBackend (NamedBackend, backend, name))
 import Kassandra.Css (cssAsBS)
@@ -31,15 +31,15 @@ import System.Exit (ExitCode (ExitFailure))
 import System.IO (BufferMode (..), hSetBuffering)
 import System.Posix.Process (exitImmediately)
 
--- | This function worksaround the fact that a reflex mainWidget does not exit when it catches an Async Exception.
+-- | This function works around the fact that a reflex mainWidget does not exit when it catches an Async Exception.
 exitImmediatelyOnLocalException :: IO a -> IO a
 exitImmediatelyOnLocalException m = catch m catcher
  where
-  catcher (SomeException e) = do
-    when (typeOf e /= typeOf AsyncCancelled) do
-      log Error [i|BackendProviderCrashed with error: #{e}|]
+  catcher outer@(SomeException inner) = do
+    when (isNothing (fromException outer :: Maybe SomeAsyncException)) do
+      log Error [i|BackendProviderCrashed with error: #{inner} with type #{typeOf inner}|]
       exitImmediately (ExitFailure 1)
-    throwIO e
+    throwIO inner
 
 standalone :: IO ()
 standalone = do
