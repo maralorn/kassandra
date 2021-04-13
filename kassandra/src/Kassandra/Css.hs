@@ -30,7 +30,7 @@ css fontPath = do
   whenJust fontPath $ \fontSrc -> do
     fontFace $ do
       fontFamily [fontName] []
-      fontFaceSrc [FontFaceSrcUrl fontSrc (Just TrueType)]
+      fontFaceSrc [FontFaceSrcUrl fontSrc (Just OpenType)]
   let --darkBlue      = rgb 0 0 33
       lightBlue = rgb 200 200 255
       noMargin = margin (px 0) (px 0) (px 0) (px 0)
