@@ -1,6 +1,7 @@
 module Kassandra.TaskWidget (
   taskTreeWidget,
   taskList,
+  uuidWidget,
 ) where
 
 import qualified Data.HashSet as HashSet
@@ -280,18 +281,21 @@ taskList mode tasksD blacklistD elementWidget = do
         (partialSortPosition (pure $ Just currentUuid))
         (ignore <> blacklistD)
         $ icon "dropHere above" "forward"
-      currentTaskMayD <- lookupTaskM (pure currentUuid)
-      maybeCurrentTaskD <- R.maybeDyn currentTaskMayD
-      D.dyn_ $
-        maybe
-          (D.text [i|Task #{currentUuid} not found.|])
-          elementWidget
-          <$> maybeCurrentTaskD
+      uuidWidget elementWidget (pure currentUuid)
   let ignoreD = fromList . (^.. folded) . lastOf folded <$> tasksD ^. mapping (mapping #uuid)
   childDropArea
     (partialSortPosition (R.constant Nothing))
     (ignoreD <> blacklistD)
     $ icon "dropHere above" "forward"
+
+uuidWidget :: StandardWidget t m r e => (R.Dynamic t TaskInfos -> m ()) -> R.Dynamic t UUID -> m ()
+uuidWidget widget uuid = do
+  maybeCurrentTaskD <- R.maybeDyn =<< R.holdUniqDyn =<< lookupTaskM uuid
+  D.dyn_ $
+    maybe
+      (D.dynText $ (\u -> [i|Task #{u} not found.|]) <$> uuid)
+      widget
+      <$> maybeCurrentTaskD
 
 waitWidget :: forall t m r e. TaskWidget t m r e => m ()
 waitWidget = do
