@@ -18,12 +18,12 @@ common common-config
     DeriveAnyClass
     DeriveGeneric
     DerivingStrategies
-    GeneralizedNewtypeDeriving
     DuplicateRecordFields
     EmptyCase
     FlexibleContexts
     FlexibleInstances
     GADTs
+    GeneralizedNewtypeDeriving
     LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
@@ -76,10 +76,10 @@ library
 
   other-modules:
     Kassandra.AgendaWidget
-    Kassandra.LogWidget
     Kassandra.BaseWidgets
     Kassandra.DragAndDrop
     Kassandra.ListWidget
+    Kassandra.LogWidget
     Kassandra.ReflexUtil
     Kassandra.Sorting
     Kassandra.TaskWidget
