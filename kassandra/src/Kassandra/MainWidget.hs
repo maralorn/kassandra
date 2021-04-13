@@ -5,11 +5,12 @@ module Kassandra.MainWidget (
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Set as Set
-import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Sequence as Seq
+import qualified Data.Sequence.NonEmpty as NESeq
+import qualified Data.Set as Set
+import Kassandra.AgendaWidget (agendaWidget)
 import Kassandra.BaseWidgets (button)
-import Kassandra.Config (UIConfig, DefinitionElement)
+import Kassandra.Config (DefinitionElement, UIConfig)
 import Kassandra.Debug (
   Severity (..),
   log,
@@ -17,6 +18,7 @@ import Kassandra.Debug (
   setLogLevel,
  )
 import Kassandra.ListWidget (listsWidget)
+import Kassandra.LogWidget (logWidget)
 import Kassandra.State (StateProvider)
 import Kassandra.TaskWidget (taskTreeWidget)
 import Kassandra.TextEditWidget (createTextWidget)
@@ -30,11 +32,9 @@ import Kassandra.Types (
   getSelectState,
   getTasks,
  )
-import Kassandra.Util (tellNewTask, lookupTasks)
+import Kassandra.Util (lookupTasks, tellNewTask, stillTodo)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
-import Kassandra.AgendaWidget (agendaWidget)
-import Kassandra.LogWidget (logWidget)
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
@@ -130,9 +130,6 @@ widgetSwitcher = D.el "div" $ do
         (D.text $ fst l)
   listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
   D.el "div" $ D.dyn_ (snd <$> listName)
-
-stillTodo :: TaskInfos -> Bool
-stillTodo task = has (#status % #_Pending) task || has (#status % #_Waiting) task
 
 filterInbox :: TaskState -> [TaskInfos]
 filterInbox tasks =

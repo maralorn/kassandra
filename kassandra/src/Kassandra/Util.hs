@@ -10,10 +10,11 @@ module Kassandra.Util (
   lookupTasksDynM,
   defDyn,
   defDynDyn,
+  stillTodo,
 ) where
 
-import Data.Witherable
 import Data.HashSet (member)
+import Data.Witherable
 import Kassandra.Types (
   AppStateChange,
   DataChange,
@@ -31,6 +32,9 @@ import Kassandra.Types (
  )
 import qualified Reflex as R
 import qualified Reflex.Dom as D
+
+stillTodo :: TaskInfos -> Bool
+stillTodo task = has (#status % #_Pending) task || has (#status % #_Waiting) task
 
 tellToggle :: TaskTreeWidget t m r e => R.Event t UUID -> m ()
 tellToggle ev = do
