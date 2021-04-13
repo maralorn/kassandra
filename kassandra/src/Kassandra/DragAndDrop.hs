@@ -1,5 +1,4 @@
 module Kassandra.DragAndDrop (
-  droppableElementConfig,
   childDropArea,
   taskDropArea,
   tellSelectedTasks,
@@ -76,15 +75,3 @@ childDropArea pos blacklistD areaW =
   taskDropArea blacklistD areaW $
     saveSorting (pos ^. #mode) (pos ^. #list)
       . R.attachWith (\u t -> ((^. #task) <$> t, u)) (pos ^. #before)
-
-droppableElementConfig ::
-  forall s d.
-  (R.Reflex s, D.DomSpace d) =>
-  (D.ElementConfig D.EventResult s d)
-droppableElementConfig =
-  lensVL D.elementConfig_eventSpec
-    %~ D.addEventSpecFlags
-      (Proxy :: Proxy d)
-      D.Dragover
-      (const D.preventDefault)
-    $ (D.def :: (D.ElementConfig D.EventResult s d))

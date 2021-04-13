@@ -10,31 +10,71 @@ module Kassandra.Backend.Calendar (
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy as LBS
-import Data.Default
+import Data.Default (Default (def))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import Data.Time
-import Data.Time.Zones
+import Data.Time (ZonedTime (ZonedTime), addDays, nominalDay, utc)
+import Data.Time.Zones (
+  TZ,
+  loadLocalTZ,
+  loadTZFromDB,
+  localTimeToUTCTZ,
+  timeZoneForUTCTime,
+ )
 import qualified StmContainers.Map as STM
-import Streamly
+import Streamly (IsStream, SerialT, async, asyncly, maxThreads)
 import qualified Streamly.Prelude as S
-import System.Directory
-import System.FilePath
-import System.FilePattern.Directory
-import Text.ICalendar
+import System.Directory (
+  XdgDirectory (XdgCache),
+  createDirectoryIfMissing,
+  getModificationTime,
+  getXdgDirectory,
+ )
+import System.FilePath ((</>))
+import System.FilePattern.Directory (getDirectoryFiles)
+import Text.ICalendar (
+  DTEnd (DTEndDateTime, dtEndDateValue),
+  DTStart (DTStartDateTime, dtStartDateValue),
+  Date (dateValue),
+  DateTime (FloatingDateTime, UTCDateTime, ZonedDateTime),
+  Description (descriptionValue),
+  Location (locationValue),
+  OtherProperty (OtherProperty, otherName, otherValue),
+  Summary (summaryValue),
+  UID (uidValue),
+  VCalendar (vcEvents),
+  VEvent (
+    veDTEndDuration,
+    veDTStart,
+    veDescription,
+    veLocation,
+    veOther,
+    veSummary,
+    veUID
+  ),
+  parseICalendarFile,
+  printICalendar,
+ )
 
+import Control.Exception (onException)
 import Data.Aeson (decodeStrict', encode)
-import Kassandra.Calendar
+import qualified DeferredFolds.UnfoldlM as UnfoldlM
+import Kassandra.Calendar (
+  CalendarEvent (..),
+  CalendarList (CalendarList),
+  EventTime (AllDayEvent, SimpleEvent),
+  TZTime (TZTime),
+  tzTimeToUTC,
+  zonedDay,
+ )
 import Kassandra.Debug (Severity (..), log)
 import qualified Streamly.Data.Fold as FL
 import Streamly.External.ByteString (fromArray, toArray)
 import qualified Streamly.FileSystem.Handle as FS
 import qualified Streamly.Internal.FileSystem.File as FSFile
-import Streamly.Memory.Array as Mem
 import Streamly.Internal.Memory.ArrayStream (splitOn)
-import UnliftIO (onException)
-import qualified DeferredFolds.UnfoldlM as UnfoldlM
+import Streamly.Memory.Array as Mem (fromList)
 
 dirName :: FilePath
 dirName = "/home/maralorn/.calendars/"

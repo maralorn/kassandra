@@ -95,19 +95,15 @@ library
     , clay
     , containers
     , data-default-class
-    , dependent-map
-    , dependent-sum-template
     , extra
     , generic-optics
     , jsaddle
     , jsaddle-dom
-    , mtl
     , nonempty-containers
     , optics
     , optics-th
     , password
     , patch
-    , pretty-simple
     , process
     , reflex
     , reflex-dom

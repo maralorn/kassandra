@@ -2,9 +2,8 @@ module Kassandra.Standalone (
   standalone,
 ) where
 
-import Control.Concurrent.Async (AsyncCancelled (AsyncCancelled))
 import Control.Concurrent.STM (TQueue, newTQueueIO)
-import Control.Exception (throwIO,SomeAsyncException (SomeAsyncException))
+import Control.Exception (throwIO, SomeAsyncException)
 import Data.Typeable (typeOf)
 import Kassandra.Config (NamedBackend (NamedBackend, backend, name))
 import Kassandra.Css (cssAsBS)

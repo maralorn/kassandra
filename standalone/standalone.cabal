@@ -68,7 +68,6 @@ library
 
   build-depends:
     , aeson
-    , async
     , base
     , bytestring
     , containers
@@ -76,8 +75,6 @@ library
     , nonempty-containers
     , directory
     , data-default
-    , dependent-map
-    , dependent-sum-template
     , dhall
     , either
     , filepath
@@ -88,7 +85,6 @@ library
     , network-simple
     , password                >=2.0.1.0
     , paths
-    , pretty-simple
     , reflex
     , reflex-dom
     , relude
@@ -98,8 +94,6 @@ library
     , text
     , time
     , tz
-    , unliftio
-    , unordered-containers
     , unix
     , uuid
     , streamly
