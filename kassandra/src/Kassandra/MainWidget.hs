@@ -35,6 +35,7 @@ import Kassandra.Types (
 import Kassandra.Util (lookupTasks, tellNewTask, stillTodo)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
+import Kassandra.ListElementWidget (definitionElementWidget, AdhocContext (NoContext))
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
@@ -72,13 +73,7 @@ infoFooter = D.divClass "footer" $ do
   D.dyn_ $
     selectedState <&> \a -> do
       whenJust (nonEmptySeq a) $ \(selectedTasks :: NESeq DefinitionElement) -> do
-        --draggedTasksDyn <- (\taskMap -> catMaybes . toList $ (`HashMap.lookup` taskMap) <$> draggedTasksUuids) <<$>> getTasks
-        --D.dyn_ $
-        --  draggedTasksDyn <&> \draggedTasks ->
-        --    whenJust (nonEmpty draggedTasks) $ \tasks -> do
-        --      D.text "Selected Tasks:"
-        --      forM_ tasks $ \t -> D.divClass "selectedTask" $ taskTreeWidget (pure t)
-        forM_ selectedTasks $ \t -> D.divClass "selectedTask" (D.text (show t))
+        forM_ selectedTasks $ \t -> D.divClass "selectedTask" (definitionElementWidget NoContext t)
   tellNewTask . fmap (,id)
     =<< createTextWidget
       (button "selector" $ D.text "New Task")
