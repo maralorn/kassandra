@@ -49,7 +49,7 @@ import Kassandra.Types (
   getSelectState,
   getTime,
  )
-import Kassandra.Util (lookupTaskM, lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle)
+import Kassandra.Util (lookupTaskM, lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle, stillTodo)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
@@ -139,8 +139,8 @@ br = D.el "br" pass
 dependenciesWidget :: (TaskWidget t m r e) => m ()
 dependenciesWidget = do
   taskInfos <- getTaskInfos
-  revDepends <- lookupTasksM $ taskInfos ^. #revDepends
-  depends <- lookupTasksM . toList $ taskInfos ^. #depends
+  revDepends <- filter stillTodo <<$>> lookupTasksM (taskInfos ^. #revDepends)
+  depends <- filter stillTodo <<$>> (lookupTasksM . toList) (taskInfos ^. #depends)
   D.dyn_ $
     whenNotNull <$> depends
       <*> pure
@@ -250,7 +250,7 @@ childrenWidget taskInfosD = do
   showOptional :: Bool -> m ()
   showOptional x = when x $ do
     children <-
-      R.holdUniqDyn . fmap (Seq.filter (has (#task % #status % #_Pending))) =<< lookupTasksDynM
+      R.holdUniqDyn . fmap (filter stillTodo) =<< lookupTasksDynM
         =<< R.holdUniqDyn
           (taskInfosD ^. mapping #children)
     let sortModeD = SortModePartof <$> taskInfosD ^. mapping #uuid
