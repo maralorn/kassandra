@@ -67,7 +67,7 @@ mainWidget _uiConfig stateProvider = do
       stateChanges <- logR Info (const "StateChange") stateChanges'
   pass
 
-infoFooter :: (StandardWidget t m r e) => m ()
+infoFooter :: StandardWidget t m r e => m ()
 infoFooter = D.divClass "footer" $ do
   selectedState <- getSelectState
   D.dyn_ $
@@ -88,7 +88,7 @@ infoFooter = D.divClass "footer" $ do
               length $ filter (has (#task % #status % #_Completed)) taskList
          in [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks. Kassandra-ToDo-Management|]
 
-taskDiagnosticsWidget :: (StandardWidget t m r e) => m ()
+taskDiagnosticsWidget :: StandardWidget t m r e => m ()
 taskDiagnosticsWidget = do
   tasks <- getTasks
   D.dynText $ do
@@ -143,7 +143,7 @@ filterInbox tasks =
          )
       && not (taskInfos ^. #blocked)
 
-nextWidget :: (StandardWidget t m r e) => m ()
+nextWidget :: StandardWidget t m r e => m ()
 nextWidget = do
   inboxTasks <- fmap filterInbox <$> getTasks
   D.dynText $
@@ -151,7 +151,7 @@ nextWidget = do
       <$> inboxTasks
   void . flip R.simpleList taskTreeWidget $ take 1 <$> inboxTasks
 
-inboxWidget :: (StandardWidget t m r e) => m ()
+inboxWidget :: StandardWidget t m r e => m ()
 inboxWidget = do
   inboxTasks <- fmap filterInbox <$> getTasks
   D.dynText $
@@ -159,7 +159,7 @@ inboxWidget = do
       <$> inboxTasks
   void . flip R.simpleList taskTreeWidget $ inboxTasks
 
-unsortedWidget :: (StandardWidget t m r e) => m ()
+unsortedWidget :: StandardWidget t m r e => m ()
 unsortedWidget = do
   unsortedTasks <-
     fmap

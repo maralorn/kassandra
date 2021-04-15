@@ -13,6 +13,7 @@ import qualified Reflex as R
 
 data LocalSocketState = LocalError Text | SettingUp deriving (Show)
 makePrismLabels ''LocalSocketState
+
 newtype BackendError = BackendError Text
 
 data LocalBackendRequest = LocalBackendRequest
