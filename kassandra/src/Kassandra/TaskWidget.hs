@@ -5,7 +5,6 @@ module Kassandra.TaskWidget (
 ) where
 
 import qualified Data.HashSet as HashSet
-import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
@@ -24,7 +23,7 @@ import Kassandra.DragAndDrop (
   taskDropArea,
   tellSelectedTasks,
  )
-import Kassandra.ReflexUtil (smartSimpleList)
+import Kassandra.ReflexUtil (listWithGaps)
 import Kassandra.Sorting (
   SortMode (SortModePartof),
   SortPosition (SortPosition),
@@ -50,7 +49,7 @@ import Kassandra.Types (
   getSelectState,
   getTime,
  )
-import Kassandra.Util (lookupTaskM, lookupTasksDynM, lookupTasksM, tellNewTask, tellTask, tellToggle, stillTodo)
+import Kassandra.Util (lookupTaskM, lookupTasksDynM, lookupTasksM, stillTodo, tellNewTask, tellTask, tellToggle)
 import qualified Reflex as R
 import Reflex.Dom ((=:))
 import qualified Reflex.Dom as D
@@ -120,7 +119,7 @@ taskWidget taskInfos' = D.divClass "task" $ do
       selectWidget
       dropChildWidget
 
-pathWidget :: (TaskWidget t m r e) => m ()
+pathWidget :: TaskWidget t m r e => m ()
 pathWidget = do
   parents <- getTaskInfos ^. mapping #parents >>= lookupTasksM ^. mapping (mapping (mapping (mapping #description)))
   D.dyn_ $ flip whenJust showPath . nonEmptySeq <$> parents
@@ -239,8 +238,7 @@ addChildWidget = do
   newUDA <- getNewUDA
   tellNewTask $ (,#uda .~ newUDA) <$> descriptionEvent
 
-childrenWidget ::
-  forall t m r e. TaskTreeWidget t m r e => R.Dynamic t TaskInfos -> m ()
+childrenWidget :: forall t m r e. TaskTreeWidget t m r e => R.Dynamic t TaskInfos -> m ()
 childrenWidget taskInfosD = do
   expandedTasks <- getExpandedTasks
   showChildren <-
@@ -262,6 +260,7 @@ childrenWidget taskInfosD = do
     D.divClass "children" $
       taskList (sortModeD ^. #current) sortedList blacklist taskWidget
 
+
 taskList ::
   StandardWidget t m r e =>
   R.Behavior t SortMode ->
@@ -269,24 +268,17 @@ taskList ::
   R.Dynamic t (Seq UUID) ->
   (R.Dynamic t TaskInfos -> m ()) ->
   m ()
-taskList mode tasksD blacklistD elementWidget = do
-  let partialSortPosition =
-        SortPosition mode (tasksD ^. mapping (mapping #task) % #current)
-      uuidsD = tasksD ^. mapping (mapping #uuid)
-      prevUuidD = (\xs -> Map.unions . fmap one $ Seq.zip (Seq.drop 1 xs) xs) <$> uuidsD
-  flip smartSimpleList uuidsD $
-    \currentUuid -> do
-      let ignore = prevUuidD <&> \prevUuid -> currentUuid <| fromList (Map.lookup currentUuid prevUuid ^.. folded)
-      childDropArea
-        (partialSortPosition (pure $ Just currentUuid))
-        (ignore <> blacklistD)
-        $ icon "dropHere above" "forward"
-      uuidWidget elementWidget (pure currentUuid)
-  let ignoreD = fromList . (^.. folded) . lastOf folded <$> tasksD ^. mapping (mapping #uuid)
-  childDropArea
-    (partialSortPosition (R.constant Nothing))
-    (ignoreD <> blacklistD)
-    $ icon "dropHere above" "forward"
+taskList mode tasksD blacklistD elementWidget =
+  listWithGaps (uuidWidget elementWidget . pure) gapWidget uuidsD
+ where
+  gapWidget pairD =
+    childDropArea
+      (partialSortPosition (snd <$> R.current pairD))
+      ((maybesToSeq <$> pairD) <> blacklistD)
+      $ icon "dropHere above" "forward"
+  maybesToSeq (a, b) = fromList (toList a <> toList b)
+  partialSortPosition = SortPosition mode (tasksD ^. mapping (mapping #task) % #current)
+  uuidsD = tasksD ^. mapping (mapping #uuid)
 
 uuidWidget :: StandardWidget t m r e => (R.Dynamic t TaskInfos -> m ()) -> R.Dynamic t UUID -> m ()
 uuidWidget widget uuid = do

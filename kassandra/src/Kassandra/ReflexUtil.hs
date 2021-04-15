@@ -4,6 +4,7 @@
 
 module Kassandra.ReflexUtil (
   smartSimpleList,
+  listWithGaps,
   keyDynamic,
 ) where
 
@@ -48,6 +49,23 @@ fixPatchMap inputMap = appEndo setMoves . fmap (Patch.nodeInfoSetTo Nothing) $ i
   setMoves = Map.foldMapWithKey f inputMap
   f to' (Patch.NodeInfo (Patch.From_Move from) _) = Endo $ Map.adjust (Patch.nodeInfoSetTo (Just to')) from
   f _ _ = mempty
+
+listWithGaps ::
+  (R.Adjustable t m, R.PostBuild t m, R.MonadHold t m, MonadFix m, Ord v, D.NotReady t m) =>
+  (v -> m ()) ->
+  (R.Dynamic t (Maybe v, Maybe v) -> m ()) ->
+  R.Dynamic t (Seq v) ->
+  m ()
+listWithGaps widget gapWidget listD = do
+  smartSimpleList elementWidget listD
+  lastElementD <- R.holdUniqDyn $ (,Nothing) . lastOf folded <$> listD
+  gapWidget lastElementD
+ where
+  elementWidget currentElement = do
+      elementPair <- R.holdUniqDyn $ (,Just currentElement) . Map.lookup currentElement <$> prevElementsD
+      gapWidget elementPair
+      widget currentElement
+  prevElementsD = (\xs -> Map.unions . fmap one $ Seq.zip (Seq.drop 1 xs) xs) <$> listD
 
 keyDynamic ::
   forall t k v.
