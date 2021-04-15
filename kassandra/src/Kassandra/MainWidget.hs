@@ -64,7 +64,7 @@ mainWidget _uiConfig stateProvider = do
                 selectedDyn
                 (appData ^. mapping #calendarData)
             )
-      stateChanges <- logR Info (const "StateChange") stateChanges'
+      stateChanges <- logR Info (\a ->  [i|StateChange: #{a}|]) stateChanges'
   pass
 
 infoFooter :: StandardWidget t m r e => m ()
