@@ -10,6 +10,7 @@ import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
 import Kassandra.AgendaWidget (agendaWidget)
 import Kassandra.BaseWidgets (button)
+import Kassandra.Calendar (CalendarEvent)
 import Kassandra.Config (DefinitionElement, UIConfig)
 import Kassandra.Debug (
   Severity (..),
@@ -17,8 +18,10 @@ import Kassandra.Debug (
   logR,
   setLogLevel,
  )
+import Kassandra.ListElementWidget (AdhocContext (NoContext), definitionElementWidget)
 import Kassandra.ListWidget (listsWidget)
 import Kassandra.LogWidget (logWidget)
+import Kassandra.ReflexUtil (smartSimpleList)
 import Kassandra.State (StateProvider)
 import Kassandra.TaskWidget (taskTreeWidget)
 import Kassandra.TextEditWidget (createTextWidget)
@@ -29,13 +32,13 @@ import Kassandra.Types (
   TaskInfos,
   TaskState,
   WidgetIO,
+  getAppState,
   getSelectState,
   getTasks,
  )
-import Kassandra.Util (lookupTasks, tellNewTask, stillTodo)
+import Kassandra.Util (lookupTasks, stillTodo, tellNewTask)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
-import Kassandra.ListElementWidget (definitionElementWidget, AdhocContext (NoContext))
 
 mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
 mainWidget _uiConfig stateProvider = do
@@ -126,10 +129,12 @@ widgetSwitcher = D.el "div" $ do
   listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
   D.el "div" $ D.dyn_ (snd <$> listName)
 
-filterInbox :: TaskState -> [TaskInfos]
-filterInbox tasks =
-  sortOn (^. #modified) . toListOf (folded % filtered inInbox) $ tasks
+filterInbox :: TaskState -> Seq CalendarEvent -> Seq TaskInfos
+filterInbox tasks events =
+  Seq.sortOn (^. #modified) . fromList . toListOf (folded % filtered inInbox) $ tasks
  where
+  scheduledEvents :: Set UUID
+  scheduledEvents = fromList $ toList $ mapMaybe (^? #_ListElement % #_TaskwarriorTask) <$> (^. #todoList % #entries) =<< events
   inInbox :: TaskInfos -> Bool
   inInbox taskInfos =
     has (#tags % _Empty) taskInfos
@@ -142,22 +147,30 @@ filterInbox tasks =
             $ lookupTasks tasks (taskInfos ^. #parents)
          )
       && not (taskInfos ^. #blocked)
+      && not ((taskInfos ^. #uuid) `Set.member` scheduledEvents)
+
+getInboxTasks :: StandardWidget t m r e => m (D.Dynamic t (Seq TaskInfos))
+getInboxTasks = do
+  appState <- getAppState
+  let calendarEvents = appState ^. #calendarEvents
+  tasks <- getTasks
+  R.holdUniqDyn $ filterInbox <$> tasks <*> calendarEvents
 
 nextWidget :: StandardWidget t m r e => m ()
 nextWidget = do
-  inboxTasks <- fmap filterInbox <$> getTasks
+  inboxTasks <- getInboxTasks
   D.dynText $
     (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
       <$> inboxTasks
-  void . flip R.simpleList taskTreeWidget $ take 1 <$> inboxTasks
+  void . smartSimpleList (taskTreeWidget . pure) $ Seq.take 1 <$> inboxTasks
 
 inboxWidget :: StandardWidget t m r e => m ()
 inboxWidget = do
-  inboxTasks <- fmap filterInbox <$> getTasks
+  inboxTasks <- getInboxTasks
   D.dynText $
     (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
       <$> inboxTasks
-  void . flip R.simpleList taskTreeWidget $ inboxTasks
+  void . smartSimpleList (taskTreeWidget . pure) $ inboxTasks
 
 unsortedWidget :: StandardWidget t m r e => m ()
 unsortedWidget = do
