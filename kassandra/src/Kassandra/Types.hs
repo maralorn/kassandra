@@ -53,7 +53,8 @@ type Widget t m =
 type WidgetJSM t m =
   (D.HasJSContext m, MonadJSM (R.Performable m), MonadJSM m, WidgetIO t m)
 type WidgetIO t m = Widget t m
-data TaskInfos = TaskInfos {task :: Task, children :: Seq UUID, parents :: Seq UUID, revDepends :: Seq UUID, blocked :: Bool} deriving stock (Eq, Show, Generic)
+data TaskInfos = TaskInfos {task :: Task, children :: Seq UUID, parents :: Seq UUID, revDepends :: Seq UUID, blocked :: Bool} deriving stock (Eq, Show, Ord, Generic)
+deriving stock instance Ord Task
 makeLabels ''TaskInfos
 
 type TaskState = HashMap UUID TaskInfos
