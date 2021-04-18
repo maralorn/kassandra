@@ -23,7 +23,7 @@ import Kassandra.ListWidget (listsWidget)
 import Kassandra.LogWidget (logWidget)
 import Kassandra.ReflexUtil (smartSimpleList)
 import Kassandra.State (StateProvider)
-import Kassandra.TaskWidget (taskTreeWidget)
+import Kassandra.TaskWidget (taskTreeWidget, uuidWidget)
 import Kassandra.TextEditWidget (createTextWidget)
 import Kassandra.Types (
   AppState (AppState),
@@ -162,7 +162,7 @@ nextWidget = do
   D.dynText $
     (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
       <$> inboxTasks
-  void . smartSimpleList (taskTreeWidget . pure) $ Seq.take 1 <$> inboxTasks
+  void . smartSimpleList (uuidWidget taskTreeWidget . pure) $ Seq.take 1 . (^. mapping #uuid) <$> inboxTasks
 
 inboxWidget :: StandardWidget t m r e => m ()
 inboxWidget = do
@@ -170,7 +170,7 @@ inboxWidget = do
   D.dynText $
     (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
       <$> inboxTasks
-  void . smartSimpleList (taskTreeWidget . pure) $ inboxTasks
+  void . smartSimpleList (uuidWidget taskTreeWidget . pure) $ inboxTasks ^. mapping (mapping #uuid)
 
 unsortedWidget :: StandardWidget t m r e => m ()
 unsortedWidget = do
