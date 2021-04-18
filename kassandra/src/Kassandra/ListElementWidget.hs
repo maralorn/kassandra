@@ -4,7 +4,6 @@ module Kassandra.ListElementWidget (
   tellList,
 ) where
 
-import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Kassandra.BaseWidgets (button)
 import Kassandra.Calendar (CalendarList, completed)
@@ -36,8 +35,6 @@ adhocTaskWidget description = \case
   AgendaEvent uid calendarList -> do
     changeDoneStatus <- checkBox (completed calendarList)
     D.text [i| #{description}|]
-    delete <- button "" (D.text "x")
-    tellList uid $ delete $> (#entries %~ Seq.filter (ListElement (AdHocTask description) /=)) calendarList
     tellList uid $
       changeDoneStatus <&> \case
         True -> (#completed %~ Set.insert description) calendarList

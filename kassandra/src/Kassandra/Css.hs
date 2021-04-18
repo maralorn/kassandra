@@ -43,6 +43,8 @@ css fontPath = do
     background white
     color black
     minHeight (pct 100)
+  ".definitionUI" ? do
+    float floatLeft
   ".remoteBackend" ? do
     textAlign (alignSide sideRight)
   ".loginDialog" ? do

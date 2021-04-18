@@ -1,5 +1,4 @@
 {-# LANGUAGE BlockArguments #-}
-
 module Kassandra.AgendaWidget (agendaWidget) where
 
 import qualified Data.Sequence as Seq
@@ -21,9 +20,12 @@ import Kassandra.Calendar (
  )
 import Kassandra.Config (DefinitionElement (..), ListItem (..))
 import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList)
+import Kassandra.ReflexUtil (listWithGaps)
 import Kassandra.TextEditWidget (createTextWidget)
-import Kassandra.Types (StandardWidget, Widget, getAppState)
+import Kassandra.Types (StandardWidget, Widget, getAppState, getSelectState)
 import qualified Reflex.Dom as D
+import Kassandra.DragAndDrop (insertArea, tellSelected)
+import qualified Reflex as R
 
 agendaWidget :: StandardWidget t m r e => m ()
 agendaWidget = do
@@ -52,16 +54,36 @@ agendaWidget = do
           br
           calendarListWidget uid todoList
 
+selectWidget :: StandardWidget t m r e => DefinitionElement -> m ()
+selectWidget definitionElement = do
+  (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
+  selectStateB <- toggleContainElement definitionElement <<$>> R.current <$> getSelectState
+  tellSelected $ R.tag selectStateB (D.domEvent D.Click dragEl)
+ where
+  toggleContainElement :: DefinitionElement -> Seq DefinitionElement -> Seq DefinitionElement
+  toggleContainElement entry selectedTasks =
+    Seq.findIndexL (== entry) selectedTasks & maybe (selectedTasks |> entry) (`Seq.deleteAt` selectedTasks)
+
 calendarListWidget :: StandardWidget t m r e => Text -> CalendarList -> m ()
 calendarListWidget uid calendarList = do
-  forM_
-    (entries calendarList)
-    ( (>> D.el "br" pass) . definitionElementWidget (AgendaEvent uid calendarList)
-    )
-  newTaskEvent <-
-    createTextWidget
-      (button "selector" $ D.text "New Task")
+  listWithGaps widget gapWidget (pure (entries calendarList))
+  newTaskEvent <- createTextWidget (button "selector" $ D.text "New Task")
   tellList uid $ newTaskEvent <&> \content -> (#entries %~ (Seq.|> ListElement (AdHocTask content))) calendarList
+ where
+  widget definitionElement = D.divClass "definitionElement" do
+     D.divClass "definitionUI" $ do
+        delete <- button "" (D.text "x")
+        selectWidget definitionElement
+        tellList uid $ delete $> (#entries %~ Seq.filter (definitionElement /=)) calendarList
+     D.divClass "element" $ definitionElementWidget (AgendaEvent uid calendarList) definitionElement
+  gapWidget around = do
+     evs <- insertArea (pure mempty) $ icon "dropHere above" "forward"
+     tellList uid $ R.attachWith (flip insertedCalendarList) (R.current around) evs
+  insertedCalendarList toInsert = \case
+    (Nothing, Nothing) -> (#entries .~ toSeq toInsert) calendarList
+    (Just _, Nothing) -> (#entries %~ (<> toSeq toInsert)) calendarList
+    (Nothing, Just _) -> (#entries %~ (toSeq toInsert <>)) calendarList
+    (Just _, Just after) -> (#entries %~ (\(a,b) -> a <> toSeq toInsert <> b) . Seq.breakl (== after)) calendarList
 
 printEventTime :: Widget t m => EventTime -> m ()
 printEventTime (SimpleEvent start end) = do
