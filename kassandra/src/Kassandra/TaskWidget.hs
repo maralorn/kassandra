@@ -11,7 +11,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Kassandra.BaseWidgets (
   button,
-  icon,
+  icon, br
  )
 import Kassandra.Config (DefinitionElement)
 import Kassandra.Debug (
@@ -130,11 +130,7 @@ pathWidget = do
     makePath parents
 
 makePath :: (TaskWidget t m r e) => NESeq Text -> m ()
-makePath =
-  D.elClass "span" "path" . D.text . Text.intercalate " ≫ " . toList . NESeq.reverse
-
-br :: D.DomBuilder t m => m ()
-br = D.el "br" pass
+makePath = D.elClass "span" "path" . D.text . Text.intercalate " ≫ " . toList . NESeq.reverse
 
 dependenciesWidget :: (TaskWidget t m r e) => m ()
 dependenciesWidget = do

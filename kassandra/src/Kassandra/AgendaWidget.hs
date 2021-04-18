@@ -3,7 +3,7 @@
 module Kassandra.AgendaWidget (agendaWidget) where
 
 import qualified Data.Sequence as Seq
-import Kassandra.BaseWidgets (button, icon)
+import Kassandra.BaseWidgets (br, button, icon)
 import Kassandra.Calendar (
   CalendarEvent (
     CalendarEvent,
@@ -36,20 +36,20 @@ agendaWidget = do
           icon "" "event"
           D.text description
           whenJust location \l -> do
-            D.el "br" pass
+            br
             icon "" "room"
             D.text l
           whenJust comment \c -> do
-            D.el "br" pass
+            br
             icon "" "comment"
             D.text c
-          D.el "br" pass
+          br
           icon "" "schedule"
           printEventTime time
-          D.el "br" pass
+          br
           icon "" "list"
           D.text calendarName
-          D.el "br" pass
+          br
           calendarListWidget uid todoList
 
 calendarListWidget :: StandardWidget t m r e => Text -> CalendarList -> m ()
