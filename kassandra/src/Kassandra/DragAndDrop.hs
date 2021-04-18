@@ -1,7 +1,8 @@
 module Kassandra.DragAndDrop (
   childDropArea,
   taskDropArea,
-  tellSelectedTasks,
+  tellSelected,
+  insertArea,
 ) where
 
 import Kassandra.Config (DefinitionElement)
@@ -30,10 +31,26 @@ import Kassandra.Util (
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 
-tellSelectedTasks :: (MonadIO m, WriteApp t m e) => R.Event t (Seq DefinitionElement) -> m ()
-tellSelectedTasks =
-  tellSingleton . fmap (_Typed @AppStateChange % _Typed @SelectState #)
-    <=< logRShow Info
+tellSelected :: (MonadIO m, WriteApp t m e) => R.Event t (Seq DefinitionElement) -> m ()
+tellSelected = tellSingleton . fmap (_Typed @AppStateChange % _Typed @SelectState #) <=< logRShow Info
+
+insertArea :: StandardWidget t m r e => R.Dynamic t (Seq DefinitionElement) -> m () -> m (R.Event t (NESeq DefinitionElement))
+insertArea blacklistD areaW = do
+  selectStateD <- getSelectState
+  let dropActive = do
+        selectState <- selectStateD
+        blacklist <- blacklistD
+        pure $ if all (`notElem` blacklist) selectState then nonEmptySeq selectState else Nothing
+  evEv <-
+    D.dyn $
+      dropActive <&> \case
+        Just entry -> do
+          dropEl <- fmap fst <$> D.element "span" D.def $ areaW
+          let event = D.domEvent D.Click dropEl
+          tellSelected (mempty <$ event)
+          pure $ entry <$ event
+        Nothing -> pure R.never
+  R.switchHold R.never evEv
 
 taskDropArea ::
   StandardWidget t m r e =>
@@ -43,27 +60,16 @@ taskDropArea ::
   m ()
 taskDropArea blacklistD areaW handler = do
   tasksD <- getTasks
-  selectStateD <- getSelectState
-  let dropActive = do
-        selectState <- selectStateD
-        let selectedTasks = forM selectState (^? #_ListElement % #_TaskwarriorTask)
-        blacklist <- blacklistD
-        pure $ selectedTasks >>= \uuids -> if all (`notElem` blacklist) uuids then nonEmptySeq uuids else Nothing
-  D.dyn_ $
-    dropActive <&> \case
-      Just draggedUuid -> do
-        dropEl <- fmap fst <$> D.element "span" D.def $ areaW
-        let event = D.domEvent D.Click dropEl
-        tellSelectedTasks (mempty <$ event)
-        let droppedTaskEvent =
-              R.attachWithMaybe
-                (\tasks -> const . sequence $ lookupTask tasks <$> draggedUuid)
-                (R.current tasksD)
-                event
-        R.tellEvent $
-          fmap (_Typed @AppStateChange % _Typed @DataChange % #_ChangeTask #)
-            <$> handler droppedTaskEvent
-      Nothing -> pass
+  let blackListDefinitionElements = (#_ListElement % #_TaskwarriorTask #) <<$>> blacklistD
+  insertEvent <- insertArea blackListDefinitionElements areaW
+  let droppedTaskEvent =
+        R.attachWithMaybe
+          (\tasks -> nonEmptySeq . mapMaybe (lookupTask tasks <=< (^? #_ListElement % #_TaskwarriorTask)) . toSeq)
+          (R.current tasksD)
+          insertEvent
+  R.tellEvent $
+    fmap (_Typed @AppStateChange % _Typed @DataChange % #_ChangeTask #)
+      <$> handler droppedTaskEvent
 
 childDropArea ::
   StandardWidget t m r e =>

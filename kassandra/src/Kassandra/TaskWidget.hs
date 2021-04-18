@@ -21,7 +21,7 @@ import Kassandra.Debug (
 import Kassandra.DragAndDrop (
   childDropArea,
   taskDropArea,
-  tellSelectedTasks,
+  tellSelected,
  )
 import Kassandra.ReflexUtil (listWithGaps)
 import Kassandra.Sorting (
@@ -306,7 +306,7 @@ selectWidget = do
   uuid <- getTaskInfos ^. mapping (#task % #uuid)
   (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
   selectStateB <- toggleContainUUID uuid <<$>> R.current <$> getSelectState
-  tellSelectedTasks $ R.tag selectStateB (D.domEvent D.Click dragEl)
+  tellSelected $ R.tag selectStateB (D.domEvent D.Click dragEl)
  where
   toggleContainUUID :: UUID -> Seq DefinitionElement -> Seq DefinitionElement
   toggleContainUUID ((#_ListElement % #_TaskwarriorTask #) -> entry) selectedTasks =
