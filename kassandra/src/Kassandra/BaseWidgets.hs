@@ -1,4 +1,5 @@
 module Kassandra.BaseWidgets (
+  br,
   icon,
   button,
   stateWidget,
@@ -8,6 +9,9 @@ import Kassandra.Types (Widget)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Bifunctor (secondF)
+
+br :: D.DomBuilder t m => m ()
+br = D.el "br" pass
 
 stateWidget ::
   Widget t m =>
