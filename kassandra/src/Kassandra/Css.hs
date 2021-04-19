@@ -43,6 +43,8 @@ css fontPath = do
     background white
     color black
     minHeight (pct 100)
+  ".definitionElement" ? do
+    clear clearLeft
   ".definitionUI" ? do
     float floatLeft
   ".remoteBackend" ? do
