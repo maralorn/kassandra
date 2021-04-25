@@ -59,6 +59,7 @@ import Text.ICalendar (
 
 import Control.Exception (onException)
 import Data.Aeson (decodeStrict', encode)
+import qualified Data.ByteString as ByteString
 import qualified DeferredFolds.UnfoldlM as UnfoldlM
 import Kassandra.Calendar (
   CalendarEvent (..),
@@ -178,7 +179,7 @@ setList cache uid list = do
         then
           event
             { veOther =
-                Set.insert (OtherProperty tasksFieldName (JSON.encode list) def)
+                Set.insert (OtherProperty tasksFieldName (maskICSText $ JSON.encode list) def)
                   . Set.filter (not . isTasksOther)
                   . veOther
                   $ event
@@ -187,8 +188,27 @@ setList cache uid list = do
         else pure event
     pure calendar{vcEvents = newEvents}
 
+maskICSText :: LByteString -> LByteString
+maskICSText = LBS.concatMap \case
+  59 -> "\\;"
+  10 -> "\\n"
+  44 -> "\\,"
+  92 -> "\\\\"
+  c -> one c
+
+unmaskICSText :: LByteString -> LByteString
+unmaskICSText = maybe "" (uncurry f) . LBS.uncons
+ where
+    f 92 rest = maybe "" (uncurry w) (LBS.uncons rest)
+    f x rest = one x <> unmaskICSText rest
+    w 92 rest = "\\" <> unmaskICSText rest
+    w 110 rest = "\n" <> unmaskICSText rest
+    w 44 rest = "," <> unmaskICSText rest
+    w 59 rest = ";" <> unmaskICSText rest
+    w _ rest = unmaskICSText rest
+
 tasksFieldName :: IsString t => t
-tasksFieldName = "TASKS"
+tasksFieldName = "X-KASSANDRA-TASKS"
 
 isTasksOther :: OtherProperty -> Bool
 isTasksOther = (== tasksFieldName) . otherName
@@ -254,7 +274,7 @@ translateEvent cache calendarName vEvent =
    where
     uid = toStrict (uidValue (veUID vEvent))
     description = (maybe "" (toStrict . summaryValue) . veSummary) vEvent
-    todoList = find isTasksOther (veOther vEvent) >>= JSON.decode . otherValue & fromMaybe (CalendarList mempty mempty)
+    todoList = find isTasksOther (veOther vEvent) >>= JSON.decode . unmaskICSText . otherValue & fromMaybe (CalendarList mempty mempty)
     location = toStrict . locationValue <$> veLocation vEvent
     comment = toStrict . descriptionValue <$> veDescription vEvent
   -- TODO: This currently misses recurring events and
