@@ -30,6 +30,7 @@ import Kassandra.Config (
  )
 import Kassandra.Sorting (SortMode (SortModeTag), sortTasks)
 import Kassandra.TaskWidget
+    ( taskList, taskTreeWidget, uuidWidget )
 import Kassandra.TextEditWidget (createTextWidget)
 import Kassandra.Types (AppStateChange, DataChange (SetEventList), StandardWidget, TaskInfos, TaskState, getAppState, getTasks, getSelectState)
 import Kassandra.Util (tellNewTask, tellSingleton)

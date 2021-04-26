@@ -5,7 +5,7 @@ module Kassandra.ListWidget (
 
 import qualified Data.HashMap.Strict as HashMap
 import Kassandra.Config (ListQuery (TagList))
-import Kassandra.ListElementWidget (queryWidget, AdhocContext (NoContext))
+import Kassandra.ListElementWidget (AdhocContext (NoContext), queryWidget)
 import Kassandra.Types (
   StandardWidget,
   TaskState,

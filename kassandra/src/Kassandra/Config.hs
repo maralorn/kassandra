@@ -23,7 +23,7 @@ module Kassandra.Config (
   TaskwarriorOption (..),
 ) where
 
-import Data.Default.Class
+import Data.Default.Class ( Default(..) )
 import Data.Password.Argon2 (
   Argon2,
   PasswordHash,
