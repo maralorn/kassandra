@@ -1,97 +1,52 @@
 module Kassandra.ListWidget (
   listsWidget,
   listWidget,
-  TaskList (UUIDList, TagList),
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Set as Set
-import Kassandra.BaseWidgets (button)
-import Kassandra.Sorting (
-  SortMode (SortModeTag),
-  sortTasks,
- )
-import Kassandra.TaskWidget (
-  taskList,
-  taskTreeWidget,
- )
-import Kassandra.TextEditWidget (createTextWidget)
+import Kassandra.Config (ListQuery (TagList))
+import Kassandra.ListElementWidget (queryWidget, AdhocContext (NoContext))
 import Kassandra.Types (
   StandardWidget,
-  TaskInfos,
   TaskState,
   Widget,
   getTasks,
  )
-import Kassandra.Util (tellNewTask)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
-
-data TaskList = TagList Text | SubList [TaskList] | UUIDList [UUID] deriving stock (Eq, Show, Read)
 
 listsWidget :: (StandardWidget t m r e) => m ()
 listsWidget = do
   taskState <- getTasks
   D.text "Select a list"
   list <- listSelector (getLists <$> taskState)
-  listWidget list
+  maybeList <- R.maybeDyn list
+  D.dyn_ $ maybeList <&> maybe (D.text "Select a list") listWidget
  where
-  getLists :: TaskState -> [TaskList]
+  getLists :: TaskState -> Seq Text
   getLists =
-    fmap TagList
+    fromList
       . toList
       . foldMap (^. #tags)
       . filter (has $ #status % #_Pending)
       . (^. mapping #task)
       . HashMap.elems
   listSelector ::
-    (Widget t m) => R.Dynamic t [TaskList] -> m (R.Dynamic t TaskList)
+    (Widget t m) => R.Dynamic t (Seq Text) -> m (R.Dynamic t (Maybe Text))
   listSelector lists = D.el "div" $ do
     buttons <- D.dyn $ mapM listButton <$> lists
-    buttonSum <- R.switchHold R.never $ R.leftmost <$> buttons
-    R.holdDyn (SubList []) buttonSum
-  listButton :: (Widget t m) => TaskList -> m (R.Event t TaskList)
-  listButton list
-    | TagList tag <- list = localButton tag
-    | otherwise = localButton "Anonymous List"
-   where
-    localButton =
-      fmap ((list <$) . D.domEvent D.Click . fst)
-        . D.elClass' "a" "selector"
-        . D.text
+    buttonSum <- R.switchHold R.never $ R.leftmost . toList <$> buttons
+    R.holdDyn Nothing (Just <$> buttonSum)
+  listButton :: Widget t m => Text -> m (R.Event t Text)
+  listButton tag =
+    fmap ((tag <$) . D.domEvent D.Click . fst)
+      . D.elClass' "a" "selector"
+      . D.text
+      $ tag
 
 listWidget ::
-  forall t m r e. StandardWidget t m r e => R.Dynamic t TaskList -> m ()
+  forall t m r e. StandardWidget t m r e => R.Dynamic t Text -> m ()
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
-  innerRenderList :: TaskList -> m ()
-  innerRenderList list'
-    | UUIDList uuids <- list' =
-      do
-        tasks <- getTasks
-        void
-          . D.simpleList
-            ((\tasks' -> mapMaybe (`HashMap.lookup` tasks') uuids) <$> tasks)
-          $ taskTreeWidget
-    | TagList tag <- list' =
-      do
-        D.text tag
-        tasks <- getTasks
-        let showTasks = tasksToShow tag <$> tasks
-        let sortMode = SortModeTag tag
-        taskList
-          (R.constant sortMode)
-          (sortTasks sortMode <$> showTasks)
-          (R.constDyn IsEmpty)
-          taskTreeWidget
-        tellNewTask . fmap (,#tags %~ Set.insert tag)
-          =<< createTextWidget
-            (button "selector" $ D.text "Add task to list")
-    | SubList sublists <- list' =
-      void . D.simpleList (D.constDyn sublists) $ listWidget
-
-  tasksToShow :: Text -> TaskState -> Seq TaskInfos
-  tasksToShow tag = filter inList . fromList . HashMap.elems
-   where
-    inList :: TaskInfos -> Bool
-    inList ((^. #task) -> task) = tag `Set.member` (task ^. #tags) && has (#status % #_Pending) task
+  innerRenderList :: Text -> m ()
+  innerRenderList tag = queryWidget NoContext (TagList tag)

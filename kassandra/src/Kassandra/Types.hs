@@ -30,7 +30,7 @@ module Kassandra.Types (
 import qualified Data.Aeson as Aeson
 import Data.HashSet (member)
 import Kassandra.Calendar
-import Kassandra.Config (DefinitionElement)
+import Kassandra.Config (DefinitionElement, UIConfig)
 import Language.Javascript.JSaddle (MonadJSM)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
@@ -60,9 +60,9 @@ type TaskState = HashMap UUID TaskInfos
 
 data DataChange = ChangeTask Task | CreateTask Text (Task -> Task) | SetEventList Text CalendarList deriving stock (Generic)
 instance Show DataChange where
-   show (ChangeTask task) = [i|ChangeTask (#{task})|]
-   show (CreateTask name _) = [i|CreateTask with name #{name}|]
-   show (SetEventList uid list) = [i|SetEventList #{uid} #{list}|]
+  show (ChangeTask task) = [i|ChangeTask (#{task})|]
+  show (CreateTask name _) = [i|CreateTask with name #{name}|]
+  show (SetEventList uid list) = [i|SetEventList #{uid} #{list}|]
 makePrismLabels ''DataChange
 
 data ToggleEvent = ToggleEvent UUID Bool deriving stock (Eq, Show, Generic)
@@ -83,7 +83,14 @@ makeLabels ''FilterState
 type ExpandedTasks = HashSet UUID
 type TaskTreeState t = R.Dynamic t ExpandedTasks
 
-data AppState t = AppState {taskState :: R.Dynamic t TaskState, currentTime :: R.Dynamic t ZonedTime, selectState :: R.Dynamic t SelectState, calendarEvents :: R.Dynamic t (Seq CalendarEvent)} deriving stock (Generic)
+data AppState t = AppState
+  { taskState :: R.Dynamic t TaskState
+  , currentTime :: R.Dynamic t ZonedTime
+  , selectState :: R.Dynamic t SelectState
+  , calendarEvents :: R.Dynamic t (Seq CalendarEvent)
+  , uiConfig :: R.Dynamic t UIConfig
+  }
+  deriving stock (Generic)
 makeLabels ''AppState
 
 type Have m r s = (MonadReader r m, HasType s r)

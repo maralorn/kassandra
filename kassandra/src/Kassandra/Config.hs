@@ -31,7 +31,6 @@ import Data.Password.Argon2 (
 
 type Dict = Map Text
 
-
 data UIFeatures = UIFeatures
   { sortInTag :: Bool
   , treeOption :: TreeOption
@@ -66,7 +65,9 @@ data HabiticaList = HabiticaDailys | HabiticaTodos
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data DefinitionElement = ConfigList {name :: Text, limit :: Maybe Natural} | ListElement {item :: ListItem}
+data DefinitionElement
+  = ConfigList {name :: Text, limit :: Maybe Natural}
+  | ListElement {item :: ListItem}
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 makePrismLabels ''DefinitionElement
@@ -78,43 +79,11 @@ data TaskwarriorOption = TaskwarriorOption
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Hashable)
 
-data NamedListQuery = NamedListQuery
-  { name :: Text
-  , list :: ListQuery
-  }
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-data UIConfig = UIConfig
-  { viewList :: Seq Widget
-  , configuredLists :: Seq NamedListQuery
-  , uiFeatures :: UIFeatures
-  }
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Default UIConfig where
-  def =
-    UIConfig
-      { viewList = mempty
-      , configuredLists = mempty
-      , uiFeatures = UIFeatures True PartOfTree
-      }
-
-data ListQuery
-  = QueryList {query :: Query}
-  | TagList {name :: Text}
-  | DefinitionList {elements :: Seq DefinitionElement}
-  | ChildrenList {uuid :: UUID}
-  | DependenciesList {uuid :: UUID}
-  | HabiticaList {list :: HabiticaList}
-  | Mails
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
 type Query = Seq QueryFilter
 
-data QueryFilter = HasProperty {property :: TaskProperty} | HasntProperty {property :: TaskProperty}
+data QueryFilter
+  = HasProperty {property :: TaskProperty}
+  | HasntProperty {property :: TaskProperty}
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -132,6 +101,41 @@ data TaskProperty
   | HasParent
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
+
+data ListQuery
+  = QueryList {query :: Query}
+  | TagList {name :: Text}
+  | DefinitionList {elements :: Seq DefinitionElement}
+  | ChildrenList {uuid :: UUID}
+  | DependenciesList {uuid :: UUID}
+  | HabiticaList {list :: HabiticaList}
+  | Mails
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data NamedListQuery = NamedListQuery
+  { name :: Text
+  , list :: ListQuery
+  }
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+data UIConfig = UIConfig
+  { viewList :: Seq Widget
+  , configuredLists :: Seq NamedListQuery
+  , uiFeatures :: UIFeatures
+  }
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+makeLabels ''UIConfig
+
+instance Default UIConfig where
+  def =
+    UIConfig
+      { viewList = mempty
+      , configuredLists = mempty
+      , uiFeatures = UIFeatures True PartOfTree
+      }
 
 data PortConfig = Port {port :: Word16} | PortRange {min :: Word16, max :: Word16}
   deriving stock (Show, Eq, Ord, Generic)
@@ -204,7 +208,6 @@ data UserConfig = UserConfig
 
 instance Default UserConfig where
   def = UserConfig def def
-
 
 data AccountConfig = AccountConfig
   { passwordHash :: PasswordHash Argon2

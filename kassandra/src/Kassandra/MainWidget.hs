@@ -11,14 +11,14 @@ import qualified Data.Set as Set
 import Kassandra.AgendaWidget (agendaWidget)
 import Kassandra.BaseWidgets (button)
 import Kassandra.Calendar (CalendarEvent)
-import Kassandra.Config (DefinitionElement, UIConfig)
+import Kassandra.Config (DefinitionElement (ConfigList), Widget (ConfigListWidget, SearchWidget))
 import Kassandra.Debug (
   Severity (..),
   log,
   logR,
   setLogLevel,
  )
-import Kassandra.ListElementWidget (AdhocContext (NoContext), definitionElementWidget)
+import Kassandra.ListElementWidget (AdhocContext (NoContext), configListWidget, definitionElementWidget, selectWidget)
 import Kassandra.ListWidget (listsWidget)
 import Kassandra.LogWidget (logWidget)
 import Kassandra.ReflexUtil (smartSimpleList)
@@ -40,8 +40,8 @@ import Kassandra.Util (lookupTasks, stillTodo, tellNewTask)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 
-mainWidget :: WidgetIO t m => UIConfig -> StateProvider t m -> m ()
-mainWidget _uiConfig stateProvider = do
+mainWidget :: WidgetIO t m => StateProvider t m -> m ()
+mainWidget stateProvider = do
   -- TODO: Use ui Config
   liftIO $ setLogLevel $ Just Info
   log Info "Loaded Mainwidget"
@@ -53,6 +53,7 @@ mainWidget _uiConfig stateProvider = do
             R.fanThese $ partitionEithersNESeq <$> stateChanges
       appData <- stateProvider dataChangeEvents
       selectedDyn <- R.holdDyn mempty $ NESeq.last <$> appChangeEvents
+      uiConfig <- R.holdUniqDyn $ appData ^. mapping #uiConfig
       (_, stateChanges' :: R.Event t (NESeq AppStateChange)) <-
         R.runEventWriterT $
           runReaderT
@@ -66,6 +67,7 @@ mainWidget _uiConfig stateProvider = do
                 timeDyn
                 selectedDyn
                 (appData ^. mapping #calendarData)
+                uiConfig
             )
       stateChanges <- logR Info (\a -> [i|StateChange: #{a}|]) stateChanges'
   pass
@@ -85,10 +87,10 @@ infoFooter = D.divClass "footer" $ do
     D.dynText $
       tasks <&> \taskMap ->
         let taskList = HashMap.elems taskMap
-            pending = length $ filter (has (#task % #status % #_Pending)) taskList
-            waiting = length $ filter (has (#task % #status % #_Waiting)) taskList
-            completed =
-              length $ filter (has (#task % #status % #_Completed)) taskList
+            countTasks a = length . filter (has (#task % #status % a))
+            pending = countTasks #_Pending taskList
+            waiting = countTasks #_Waiting taskList
+            completed = countTasks #_Completed taskList
          in [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks. Kassandra-ToDo-Management|]
 
 taskDiagnosticsWidget :: StandardWidget t m r e => m ()
@@ -108,26 +110,36 @@ taskDiagnosticsWidget = do
         Just uuid -> "Found a loop for uuid " <> show uuid
         Nothing -> "" -- everything fine
 
-widgets :: StandardWidget t m r e => [(Text, m ())]
+widgets :: StandardWidget t m r e => Seq (Text, m ())
 widgets =
-  [ ("Next", nextWidget)
-  , ("Lists", listsWidget)
-  , ("Inbox", inboxWidget)
-  , ("Unsorted", unsortedWidget)
-  , ("Agenda", agendaWidget)
-  , ("Logs", logWidget)
-  ]
+  fromList
+    [ ("Agenda", agendaWidget)
+    , ("Next", nextWidget)
+    , ("Inbox", inboxWidget)
+    , ("Tag Lists", listsWidget)
+    , ("Unsorted Tasks", unsortedWidget)
+    , ("Logs", logWidget)
+    ]
 
 widgetSwitcher :: forall t m r e. StandardWidget t m r e => m ()
-widgetSwitcher = D.el "div" $ do
-  buttons <- forM (widgets @t @m) $ \l ->
-    (l <$) . D.domEvent D.Click . fst
+widgetSwitcher = do
+  uiConfigD <- getAppState ^. mapping #uiConfig
+  D.el "div" . D.dyn_ $ uiConfigD <&> withUIConfig
+ where
+  withUIConfig uiConfig = do
+    let userWidgets = mkWidget <$> uiConfig ^. #viewList
+    buttons <- forM (widgets <> userWidgets) selectButton
+    listName <- R.holdDyn (fromMaybe ("No list", pass) (Seq.lookup 0 widgets)) (R.leftmost (toList buttons))
+    D.el "div" $ D.dyn_ (snd <$> listName)
+  selectButton label =
+    (label <$) . D.domEvent D.Click . fst
       <$> D.elClass'
         "a"
         "selector"
-        (D.text $ fst l)
-  listName <- R.holdDyn ("No list", pass) (R.leftmost buttons)
-  D.el "div" $ D.dyn_ (snd <$> listName)
+        (D.text $ fst label)
+  mkWidget :: Widget -> (Text, m ())
+  mkWidget SearchWidget = ("Search", D.text "Not implemented")
+  mkWidget (ConfigListWidget name limit) = (name, selectWidget (ConfigList name limit) >> configListWidget NoContext name limit)
 
 filterInbox :: TaskState -> Seq CalendarEvent -> Seq TaskInfos
 filterInbox tasks events =

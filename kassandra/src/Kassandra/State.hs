@@ -53,7 +53,7 @@ makeStateProvider clientSocket dataChangeEvents = do
       let connectedEvent = (^? #_ConnectionEstablished) <$?> remoteChanges
           eventsToSend =
             [ one . ChangeTasks <$> localChanges
-            , AllTasks :<|| one CalenderRequest <$ connectedEvent
+            , AllTasks :<|| fromList [CalenderRequest, UIConfigRequest] <$ connectedEvent
             , uncurry SetCalendarList <<$>> setListEvent
             ]
   let errorEvent = (^? #_SocketError) <$?> remoteChanges
@@ -61,7 +61,7 @@ makeStateProvider clientSocket dataChangeEvents = do
   uiConfig <- R.holdDyn D.def $ (^? #_UIConfigResponse) <$?> remoteChanges
   D.dynText =<< R.foldDyn (<>) "" errorEvent
   tasksStateDyn <- buildTaskInfosMap <<$>> holdTasks (localChanges <> ((^? #_TaskUpdates) <$?> remoteChanges))
-  pure $ DataState <$> tasksStateDyn <*> uiConfig <*> calendarData
+  pure (DataState <$> tasksStateDyn <*> uiConfig <*> calendarData)
 
 createToChangeEvent :: WidgetIO t m => D.Event t (NESeq (Text, Task -> Task)) -> m (D.Event t (NESeq Task))
 createToChangeEvent = R.performEvent . fmap (liftIO . mapM (\(desc, properties) -> properties <$> createTask desc))

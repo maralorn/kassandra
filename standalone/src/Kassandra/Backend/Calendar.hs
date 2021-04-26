@@ -14,7 +14,7 @@ import Data.Default (Default (def))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import Data.Time (ZonedTime (ZonedTime), addDays, nominalDay, utc)
+import Data.Time (ZonedTime (ZonedTime), addDays, getCurrentTime, nominalDay, utc)
 import Data.Time.Zones (
   TZ,
   loadLocalTZ,
@@ -30,8 +30,9 @@ import System.Directory (
   createDirectoryIfMissing,
   getModificationTime,
   getXdgDirectory,
+  setModificationTime,
  )
-import System.FilePath ((</>))
+import System.FilePath (dropFileName, (</>))
 import System.FilePattern.Directory (getDirectoryFiles)
 import Text.ICalendar (
   DTEnd (DTEndDateTime, dtEndDateValue),
@@ -59,7 +60,6 @@ import Text.ICalendar (
 
 import Control.Exception (onException)
 import Data.Aeson (decodeStrict', encode)
-import qualified Data.ByteString as ByteString
 import qualified DeferredFolds.UnfoldlM as UnfoldlM
 import Kassandra.Calendar (
   CalendarEvent (..),
@@ -167,6 +167,8 @@ setList cache uid list = do
         \newCalendars -> do
           withFile filename WriteMode \fileHandle -> do
             forM_ newCalendars (LBS.hPut fileHandle . printICalendar def)
+      now <- getCurrentTime
+      setModificationTime (dropFileName filename) now
  where
   insertList :: Traversable m => m VCalendar -> Maybe (m VCalendar)
   insertList cals = if modified then Just ret else Nothing
@@ -199,13 +201,13 @@ maskICSText = LBS.concatMap \case
 unmaskICSText :: LByteString -> LByteString
 unmaskICSText = maybe "" (uncurry f) . LBS.uncons
  where
-    f 92 rest = maybe "" (uncurry w) (LBS.uncons rest)
-    f x rest = one x <> unmaskICSText rest
-    w 92 rest = "\\" <> unmaskICSText rest
-    w 110 rest = "\n" <> unmaskICSText rest
-    w 44 rest = "," <> unmaskICSText rest
-    w 59 rest = ";" <> unmaskICSText rest
-    w _ rest = unmaskICSText rest
+  f 92 rest = maybe "" (uncurry w) (LBS.uncons rest)
+  f x rest = one x <> unmaskICSText rest
+  w 92 rest = "\\" <> unmaskICSText rest
+  w 110 rest = "\n" <> unmaskICSText rest
+  w 44 rest = "," <> unmaskICSText rest
+  w 59 rest = ";" <> unmaskICSText rest
+  w _ rest = unmaskICSText rest
 
 tasksFieldName :: IsString t => t
 tasksFieldName = "X-KASSANDRA-TASKS"

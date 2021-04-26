@@ -19,12 +19,12 @@ import Kassandra.Calendar (
   switchToCurrentZone,
  )
 import Kassandra.Config (DefinitionElement (..), ListItem (..))
-import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList)
+import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList, selectWidget)
 import Kassandra.ReflexUtil (listWithGaps)
 import Kassandra.TextEditWidget (createTextWidget)
-import Kassandra.Types (StandardWidget, Widget, getAppState, getSelectState)
+import Kassandra.Types (StandardWidget, Widget, getAppState)
 import qualified Reflex.Dom as D
-import Kassandra.DragAndDrop (insertArea, tellSelected)
+import Kassandra.DragAndDrop (insertArea)
 import qualified Reflex as R
 
 agendaWidget :: StandardWidget t m r e => m ()
@@ -53,16 +53,6 @@ agendaWidget = do
           D.text calendarName
           br
           calendarListWidget uid todoList
-
-selectWidget :: StandardWidget t m r e => DefinitionElement -> m ()
-selectWidget definitionElement = do
-  (dragEl, _) <- D.elClass' "span" "button" $ icon "" "filter_list"
-  selectStateB <- toggleContainElement definitionElement <<$>> R.current <$> getSelectState
-  tellSelected $ R.tag selectStateB (D.domEvent D.Click dragEl)
- where
-  toggleContainElement :: DefinitionElement -> Seq DefinitionElement -> Seq DefinitionElement
-  toggleContainElement entry selectedTasks =
-    Seq.findIndexL (== entry) selectedTasks & maybe (selectedTasks |> entry) (`Seq.deleteAt` selectedTasks)
 
 calendarListWidget :: StandardWidget t m r e => Text -> CalendarList -> m ()
 calendarListWidget uid calendarList = do

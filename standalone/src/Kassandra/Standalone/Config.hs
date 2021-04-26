@@ -2,15 +2,17 @@
 
 module Kassandra.Standalone.Config (
   readConfig,
-  writeDeclarations,
   StandaloneConfig,
   StandaloneAccount (LocalAccount, RemoteAccount),
   backends,
+ dhallTypes
 ) where
 
 import Dhall (FromDhall)
 import Kassandra.Config (
   AccountConfig,
+  DefinitionElement,
+  ListQuery,
   LocalBackend,
   NamedBackend,
   NamedListQuery,
@@ -20,7 +22,7 @@ import Kassandra.Config (
   TaskwarriorOption,
   TreeOption,
   UserConfig,
-  Widget,
+  Widget, ListItem
  )
 import Kassandra.Config.Dhall (
   DhallLoadConfig (..),
@@ -41,8 +43,8 @@ data StandaloneAccount = RemoteAccount {backend :: Maybe (RemoteBackend Password
 dhallTypes :: Text
 dhallTypes =
   [i|{
-                 #{assignments}
-               }|]
+#{assignments}
+}|]
  where
   types :: [(String, Text)]
   types =
@@ -56,14 +58,13 @@ dhallTypes =
     , ("StandaloneConfig", dhallType @StandaloneConfig)
     , ("PasswordConfig", dhallType @PasswordConfig)
     , ("AccountConfig", dhallType @AccountConfig)
+    , ("DefinitionElement", dhallType @DefinitionElement)
+    , ("ListQuery", dhallType @ListQuery)
     , ("RemoteBackend", dhallType @(RemoteBackend PasswordConfig))
+    , ("ListItem", dhallType @ListItem)
     ]
   assignments =
     intercalate ",\n" $ (\(name, value) -> [i|#{name} = #{value}|]) <$> types
-
-writeDeclarations :: IO ()
-writeDeclarations =
-  writeFileText "/home/maralorn/.config/kassandra/types.dhall" dhallTypes
 
 readConfig :: Maybe Text -> IO StandaloneConfig
 readConfig =

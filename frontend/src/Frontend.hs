@@ -28,8 +28,8 @@ frontend =
     }
 
 frontendBody :: WidgetJSM t m => m ()
-frontendBody =
-  D.dyn_ . fmap (maybe pass (mainWidget D.def)) =<< remoteBackendWidget (wrap D.never) Nothing
+frontendBody = D.dyn_ . fmap (maybe pass mainWidget)
+  =<< remoteBackendWidget (wrap D.never) Nothing
 
 css = cssAsText (static @"MaterialIcons-Regular-Outlined.otf")
 

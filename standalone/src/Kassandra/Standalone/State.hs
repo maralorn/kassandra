@@ -13,7 +13,14 @@ import qualified Data.Sequence as Seq
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Network.Simple.TCP as Net
 import Say (say, sayErr)
-import Streamly
+import Streamly (
+  SerialT,
+  asyncly,
+  maxThreads,
+  parallel,
+  parallely,
+  serial,
+ )
 import qualified Streamly.Prelude as S
 import Taskwarrior.IO (getTasks, saveTasks)
 
@@ -21,9 +28,16 @@ import Kassandra.Api (
   SocketMessage (..),
   SocketRequest (..),
  )
-import Kassandra.Backend.Calendar
+import Kassandra.Backend.Calendar (
+  Cache,
+  getEvents,
+  loadCache,
+  newCache,
+  saveCache,
+  setList,
+ )
 import Kassandra.Config (LocalBackend, UserConfig (..))
-import Kassandra.Debug
+import Kassandra.Debug (Severity (Debug), log)
 import Kassandra.LocalBackend (
   LocalBackendRequest (LocalBackendRequest),
   alive,
@@ -66,7 +80,9 @@ handleRequests requestQueue mapVar = do
       `parallel` liftIO go
 
 monitorCallback :: LocalBackend -> TVar ClientMap -> NonEmpty Task -> IO ()
-monitorCallback key mapVar tasks = whenJustM (lookupTMap key mapVar) $ mapM_ (($ TaskUpdates (NESeq.fromList tasks)) . snd)
+monitorCallback key mapVar tasks =
+  whenJustM (lookupTMap key mapVar) $
+    mapM_ (($ TaskUpdates (NESeq.fromList tasks)) . snd)
 
 handleRequest :: LocalBackendRequest -> Cache -> TVar ClientMap -> IO ()
 handleRequest req cache mapVar =
@@ -96,7 +112,7 @@ launchOrAttachMonitor :: LocalBackendRequest -> TVar ClientMap -> IO ()
 launchOrAttachMonitor LocalBackendRequest{userConfig, alive, responseCallback} mapVar =
   whenM (atomically $ insertOrAddTMap localBackend entry mapVar) $
     do
-      whileClientsNotEmpty ( taskMonitor localBackend (monitorCallback localBackend mapVar))
+      whileClientsNotEmpty (taskMonitor localBackend (monitorCallback localBackend mapVar))
       say "Stopped listening for changes"
  where
   UserConfig{localBackend} = userConfig
@@ -111,16 +127,16 @@ handleRequestsWhileAlive LocalBackendRequest{userConfig, alive, responseCallback
   concurrentWhileTrue alive go
  where
   handler = \case
-      UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
-      AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates . NESeq.fromList)
-      ChangeTasks tasks -> (saveTasks . toList) tasks
-      SetCalendarList uid list -> do
-        setList cache uid list
-        sendCalendarEvents
-      CalenderRequest -> sendCalendarEvents
+    UIConfigRequest -> (responseCallback . UIConfigResponse . uiConfig) userConfig
+    AllTasks -> whenNotNullM (getTasks []) (responseCallback . TaskUpdates . NESeq.fromList)
+    ChangeTasks tasks -> (saveTasks . toList) tasks
+    SetCalendarList uid list -> do
+      setList cache uid list
+      sendCalendarEvents
+    CalenderRequest -> sendCalendarEvents
   go = do
-     nextRequest <- atomically (readTQueue requestQueue)
-     concurrently_ (handler nextRequest) go
+    nextRequest <- atomically (readTQueue requestQueue)
+    concurrently_ (handler nextRequest) go
   sendCalendarEvents = do
     events <- foldToSeq (getEvents cache)
     log Debug [i|Sending #{Seq.length events} events|]

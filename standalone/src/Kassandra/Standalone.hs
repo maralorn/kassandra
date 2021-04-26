@@ -3,7 +3,7 @@ module Kassandra.Standalone (
 ) where
 
 import Control.Concurrent.STM (TQueue, newTQueueIO)
-import Control.Exception (throwIO, SomeAsyncException)
+import Control.Exception (SomeAsyncException, throwIO)
 import Data.Typeable (typeOf)
 import Kassandra.Config (NamedBackend (NamedBackend, backend, name))
 import Kassandra.Css (cssAsBS)
@@ -16,8 +16,8 @@ import Kassandra.SelectorWidget (backendSelector)
 import Kassandra.Standalone.Config (
   StandaloneAccount (LocalAccount, RemoteAccount),
   backends,
+  dhallTypes,
   readConfig,
-  writeDeclarations,
  )
 import Kassandra.Standalone.State (localBackendProvider)
 import Kassandra.State (StateProvider)
@@ -26,6 +26,8 @@ import Kassandra.Util (defDynDyn)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype (wrap)
+import Say (say)
+import System.Environment (getArgs)
 import System.Exit (ExitCode (ExitFailure))
 import System.IO (BufferMode (..), hSetBuffering)
 import System.Posix.Process (exitImmediately)
@@ -42,11 +44,13 @@ exitImmediatelyOnLocalException m = catch m catcher
 
 standalone :: IO ()
 standalone = do
+  args <- getArgs
+  when (args == ["print-types"]) do
+    say dhallTypes
+    exitSuccess
   hSetBuffering Prelude.stdout NoBuffering
   setLogLevel $ Just Info
   log Info "Started kassandra"
-  log Debug "Writing Types file"
-  writeDeclarations
   log Debug "Loading Config"
   config <- readConfig Nothing
   print config
@@ -57,7 +61,7 @@ standalone = do
     D.mainWidgetWithCss cssAsBS $ do
       log Info "Entered main widget"
       -- TODO: Use Config from stateProvider here
-      D.dyn_ . (maybe pass (mainWidget D.def) <$>)
+      D.dyn_ . (maybe pass mainWidget <$>)
         =<< standaloneWidget requestQueue
         =<< backendSelector (backends config)
 
