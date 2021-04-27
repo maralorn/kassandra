@@ -4,12 +4,14 @@ module Kassandra.Standalone.Config (
   readConfig,
   StandaloneConfig,
   StandaloneAccount (LocalAccount, RemoteAccount),
+  BackendConfig (..),
   backends,
  dhallTypes
 ) where
 
 import Dhall (FromDhall)
 import Kassandra.Config (
+  Dict,
   AccountConfig,
   DefinitionElement,
   ListQuery,
@@ -40,6 +42,11 @@ data StandaloneAccount = RemoteAccount {backend :: Maybe (RemoteBackend Password
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (FromDhall)
 
+data BackendConfig = BackendConfig
+  { users :: Dict AccountConfig
+  }
+  deriving (Show, Eq, Generic, FromDhall)
+
 dhallTypes :: Text
 dhallTypes =
   [i|{
@@ -49,6 +56,7 @@ dhallTypes =
   types :: [(String, Text)]
   types =
     [ ("StandaloneAccount", dhallType @StandaloneAccount)
+    , ("BackendConfig", dhallType @BackendConfig)
     , ("Widget", dhallType @Widget)
     , ("NamedListQuery", dhallType @NamedListQuery)
     , ("LocalBackend", dhallType @LocalBackend)

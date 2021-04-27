@@ -17,11 +17,9 @@ import Kassandra.Config.Dhall (
   envName,
   loadDhallConfig,
  )
-
-data BackendConfig = BackendConfig
-  { users :: Dict AccountConfig
-  }
-  deriving (Show, Eq, Generic, FromDhall)
+import Kassandra.Standalone.Config (
+  BackendConfig (..),
+ )
 
 readConfig :: Maybe Text -> IO BackendConfig
 readConfig =
