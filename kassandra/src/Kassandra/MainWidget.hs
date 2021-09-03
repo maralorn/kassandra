@@ -11,7 +11,7 @@ import qualified Data.Set as Set
 import Kassandra.AgendaWidget (agendaWidget)
 import Kassandra.BaseWidgets (button)
 import Kassandra.Calendar (CalendarEvent)
-import Kassandra.Config (DefinitionElement (ConfigList), Widget (ConfigListWidget, SearchWidget))
+import Kassandra.Config (DefinitionElement (ConfigList), Widget (DefinitionElementWidget, SearchWidget))
 import Kassandra.Debug (
   Severity (..),
   log,
@@ -139,7 +139,7 @@ widgetSwitcher = do
         (D.text $ fst label)
   mkWidget :: Widget -> (Text, m ())
   mkWidget SearchWidget = ("Search", D.text "Not implemented")
-  mkWidget (ConfigListWidget name limit) = (name, selectWidget (ConfigList name limit) >> configListWidget NoContext name limit)
+  mkWidget (DefinitionElementWidget name definitionElement) = (name, selectWidget definitionElement >> definitionElementWidget NoContext definitionElement)
 
 filterInbox :: TaskState -> Seq CalendarEvent -> Seq TaskInfos
 filterInbox tasks events =

@@ -38,12 +38,6 @@ data UIFeatures = UIFeatures
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data Widget
-  = SearchWidget
-  | ConfigListWidget {name :: Text, limit :: Maybe Natural}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
 data TreeOption = NoTree | PartOfTree | DependsTree
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
@@ -107,6 +101,12 @@ data DefinitionElement
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 makePrismLabels ''DefinitionElement
+
+data Widget
+  = SearchWidget
+  | DefinitionElementWidget {name :: Text, definitionElement :: DefinitionElement}
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
 
 type ListQuery = Seq DefinitionElement
 
