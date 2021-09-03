@@ -139,7 +139,7 @@ widgetSwitcher = do
         (D.text $ fst label)
   mkWidget :: Widget -> (Text, m ())
   mkWidget SearchWidget = ("Search", D.text "Not implemented")
-  mkWidget (DefinitionElementWidget name definitionElement) = (name, selectWidget definitionElement >> definitionElementWidget NoContext definitionElement)
+  mkWidget (DefinitionElementWidget name definitionElement) = (name, definitionElementWidget NoContext definitionElement)
 
 filterInbox :: TaskState -> Seq CalendarEvent -> Seq TaskInfos
 filterInbox tasks events =

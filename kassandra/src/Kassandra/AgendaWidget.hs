@@ -63,7 +63,6 @@ calendarListWidget uid calendarList = do
   widget definitionElement = D.divClass "definitionElement" do
      D.divClass "definitionUI" $ do
         delete <- button "" (D.text "x")
-        selectWidget definitionElement
         tellList uid $ delete $> (#entries %~ Seq.filter (definitionElement /=)) calendarList
      D.divClass "element" $ definitionElementWidget (AgendaEvent uid calendarList) definitionElement
   gapWidget around = do

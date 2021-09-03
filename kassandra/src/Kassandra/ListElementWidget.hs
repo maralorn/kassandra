@@ -82,28 +82,30 @@ tasksToShow tag = filter inList . fromList . HashMap.elems
   inList ((^. #task) -> task) = tag `Set.member` (task ^. #tags) && has (#status % #_Pending) task
 
 definitionElementWidget :: StandardWidget t m r e => AdhocContext -> DefinitionElement -> m ()
-definitionElementWidget context = \case
-  ConfigList name limit -> configListWidget context name limit
-  ListElement el -> listElementWidget context el
-  QueryList query -> D.text "QueryLists not implemented"
-  (TagList tag) ->
-    do
-      D.text tag
-      tasks <- getTasks
-      let showTasks = tasksToShow tag <$> tasks
-      let sortMode = SortModeTag tag
-      taskList
-        (R.constant sortMode)
-        (sortTasks sortMode <$> showTasks)
-        (R.constDyn IsEmpty)
-        taskTreeWidget
-      tellNewTask . fmap (,#tags %~ Set.insert tag)
-        =<< createTextWidget
-          (button "selector" $ D.text "Add task to list")
-  (ChildrenList uuid) -> D.text "ChildrenList not implemented"
-  (DependenciesList uuid) -> D.text "DependenciesList not implemented"
-  (HabiticaList list) -> D.text "HabiticaList not implemented"
-  Mails -> D.text "Mails not implemented"
+definitionElementWidget context el = do
+  selectWidget el
+  el & \case
+    ConfigList name limit -> configListWidget context name limit
+    ListElement el -> listElementWidget context el
+    QueryList query -> D.text "QueryLists not implemented"
+    (TagList tag) ->
+      do
+        D.text tag
+        tasks <- getTasks
+        let showTasks = tasksToShow tag <$> tasks
+        let sortMode = SortModeTag tag
+        taskList
+          (R.constant sortMode)
+          (sortTasks sortMode <$> showTasks)
+          (R.constDyn IsEmpty)
+          taskTreeWidget
+        tellNewTask . fmap (,#tags %~ Set.insert tag)
+          =<< createTextWidget
+            (button "selector" $ D.text "Add task to list")
+    (ChildrenList uuid) -> D.text "ChildrenList not implemented"
+    (DependenciesList uuid) -> D.text "DependenciesList not implemented"
+    (HabiticaList list) -> D.text "HabiticaList not implemented"
+    Mails -> D.text "Mails not implemented"
 
 adhocTaskWidget :: StandardWidget t m r e => Text -> AdhocContext -> m ()
 adhocTaskWidget description = \case
