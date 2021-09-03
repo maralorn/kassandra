@@ -6,38 +6,42 @@ module Kassandra.ListElementWidget (
   AdhocContext (..),
   tellList,
   queryWidget,
-  selectWidget
+  selectWidget,
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
-import Kassandra.BaseWidgets (button, icon, br)
+import Kassandra.BaseWidgets (br, button, icon)
 import Kassandra.Calendar (CalendarList, completed)
 import Kassandra.Config (
-  DefinitionElement (ConfigList, ListElement),
-  ListItem (AdHocTask, HabiticaTask, Mail, TaskwarriorTask),
-  ListQuery (
+  DefinitionElement (
     ChildrenList,
-    DefinitionList,
+    ConfigList,
     DependenciesList,
     HabiticaList,
+    ListElement,
     Mails,
     QueryList,
     TagList
   ),
+  ListItem (AdHocTask, HabiticaTask, Mail, TaskwarriorTask),
+  ListQuery,
   NamedListQuery (NamedListQuery),
  )
+import Kassandra.DragAndDrop (tellSelected)
+import Kassandra.ReflexUtil (smartSimpleList)
 import Kassandra.Sorting (SortMode (SortModeTag), sortTasks)
-import Kassandra.TaskWidget
-    ( taskList, taskTreeWidget, uuidWidget )
+import Kassandra.TaskWidget (
+  taskList,
+  taskTreeWidget,
+  uuidWidget,
+ )
 import Kassandra.TextEditWidget (createTextWidget)
-import Kassandra.Types (AppStateChange, DataChange (SetEventList), StandardWidget, TaskInfos, TaskState, getAppState, getTasks, getSelectState)
+import Kassandra.Types (AppStateChange, DataChange (SetEventList), StandardWidget, TaskInfos, TaskState, getAppState, getSelectState, getTasks)
 import Kassandra.Util (tellNewTask, tellSingleton)
 import qualified Reflex as R
 import qualified Reflex.Dom as D
-import Kassandra.ReflexUtil (smartSimpleList)
-import Kassandra.DragAndDrop (tellSelected)
 
 data AdhocContext = NoContext | AgendaEvent Text CalendarList | AgendaList Text (Set Text)
 
@@ -69,27 +73,7 @@ configListWidget context name limit = do
   f _ = Nothing
 
 queryWidget :: StandardWidget t m r e => AdhocContext -> ListQuery -> m ()
-queryWidget context = \case
-   QueryList query ->  D.text "QueryLists not implemented"
-   (TagList tag) ->
-     do
-       D.text tag
-       tasks <- getTasks
-       let showTasks = tasksToShow tag <$> tasks
-       let sortMode = SortModeTag tag
-       taskList
-         (R.constant sortMode)
-         (sortTasks sortMode <$> showTasks)
-         (R.constDyn IsEmpty)
-         taskTreeWidget
-       tellNewTask . fmap (,#tags %~ Set.insert tag)
-         =<< createTextWidget
-           (button "selector" $ D.text "Add task to list")
-   (DefinitionList els) -> smartSimpleList ((>> br) . definitionElementWidget context) (pure els)
-   (ChildrenList uuid) -> D.text "ChildrenList not implemented"
-   (DependenciesList uuid) -> D.text "DependenciesList not implemented"
-   (HabiticaList list) -> D.text "HabiticaList not implemented"
-   Mails -> D.text "Mails not implemented"
+queryWidget context els = smartSimpleList ((>> br) . definitionElementWidget context) (pure els)
 
 tasksToShow :: Text -> TaskState -> Seq TaskInfos
 tasksToShow tag = filter inList . fromList . HashMap.elems
@@ -101,6 +85,25 @@ definitionElementWidget :: StandardWidget t m r e => AdhocContext -> DefinitionE
 definitionElementWidget context = \case
   ConfigList name limit -> configListWidget context name limit
   ListElement el -> listElementWidget context el
+  QueryList query -> D.text "QueryLists not implemented"
+  (TagList tag) ->
+    do
+      D.text tag
+      tasks <- getTasks
+      let showTasks = tasksToShow tag <$> tasks
+      let sortMode = SortModeTag tag
+      taskList
+        (R.constant sortMode)
+        (sortTasks sortMode <$> showTasks)
+        (R.constDyn IsEmpty)
+        taskTreeWidget
+      tellNewTask . fmap (,#tags %~ Set.insert tag)
+        =<< createTextWidget
+          (button "selector" $ D.text "Add task to list")
+  (ChildrenList uuid) -> D.text "ChildrenList not implemented"
+  (DependenciesList uuid) -> D.text "DependenciesList not implemented"
+  (HabiticaList list) -> D.text "HabiticaList not implemented"
+  Mails -> D.text "Mails not implemented"
 
 adhocTaskWidget :: StandardWidget t m r e => Text -> AdhocContext -> m ()
 adhocTaskWidget description = \case

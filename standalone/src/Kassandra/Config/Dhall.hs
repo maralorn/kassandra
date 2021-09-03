@@ -31,7 +31,6 @@ import Kassandra.Config (
   HabiticaList,
   HabiticaTask,
   ListItem,
-  ListQuery,
   LocalBackend,
   NamedBackend,
   NamedListQuery,
@@ -62,7 +61,6 @@ instance FromDhall DefinitionElement
 instance FromDhall TaskProperty
 instance FromDhall QueryFilter
 instance FromDhall HabiticaList
-instance FromDhall ListQuery
 instance FromDhall Widget
 instance FromDhall UIFeatures
 instance FromDhall UIConfig

@@ -4,8 +4,8 @@ module Kassandra.ListWidget (
 ) where
 
 import qualified Data.HashMap.Strict as HashMap
-import Kassandra.Config (ListQuery (TagList))
-import Kassandra.ListElementWidget (AdhocContext (NoContext), queryWidget)
+import Kassandra.Config (DefinitionElement (TagList))
+import Kassandra.ListElementWidget (AdhocContext (NoContext), definitionElementWidget)
 import Kassandra.Types (
   StandardWidget,
   TaskState,
@@ -49,4 +49,4 @@ listWidget ::
 listWidget list = D.dyn_ (innerRenderList <$> list)
  where
   innerRenderList :: Text -> m ()
-  innerRenderList tag = queryWidget NoContext (TagList tag)
+  innerRenderList tag = definitionElementWidget NoContext (TagList tag)

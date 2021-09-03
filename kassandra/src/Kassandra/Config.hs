@@ -13,7 +13,7 @@ module Kassandra.Config (
   HabiticaTask (..),
   HabiticaList (..),
   DefinitionElement (..),
-  ListQuery (..),
+  ListQuery,
   Query,
   QueryFilter (..),
   TaskProperty (..),
@@ -65,28 +65,6 @@ data HabiticaList = HabiticaDailys | HabiticaTodos
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data DefinitionElement
-  = ConfigList {name :: Text, limit :: Maybe Natural}
-  | ListElement {item :: ListItem}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-makePrismLabels ''DefinitionElement
-
-data TaskwarriorOption = TaskwarriorOption
-  { name :: Text
-  , value :: Text
-  }
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass (Hashable)
-
-type Query = Seq QueryFilter
-
-data QueryFilter
-  = HasProperty {property :: TaskProperty}
-  | HasntProperty {property :: TaskProperty}
-  deriving stock (Show, Eq, Ord, Generic, Read)
-  deriving anyclass (ToJSON, FromJSON)
-
 data TaskProperty
   = DescriptionMatches {filter :: Text}
   | ParentBlocked
@@ -102,16 +80,35 @@ data TaskProperty
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
 
-data ListQuery
-  = QueryList {query :: Query}
+data TaskwarriorOption = TaskwarriorOption
+  { name :: Text
+  , value :: Text
+  }
+  deriving stock (Show, Eq, Ord, Generic)
+  deriving anyclass (Hashable)
+
+data QueryFilter
+  = HasProperty {property :: TaskProperty}
+  | HasntProperty {property :: TaskProperty}
+  deriving stock (Show, Eq, Ord, Generic, Read)
+  deriving anyclass (ToJSON, FromJSON)
+
+type Query = Seq QueryFilter
+
+data DefinitionElement
+  = ConfigList {name :: Text, limit :: Maybe Natural}
+  | ListElement {item :: ListItem}
+  | QueryList {query :: Query}
   | TagList {name :: Text}
-  | DefinitionList {elements :: Seq DefinitionElement}
   | ChildrenList {uuid :: UUID}
   | DependenciesList {uuid :: UUID}
   | HabiticaList {list :: HabiticaList}
   | Mails
   deriving stock (Show, Eq, Ord, Generic, Read)
   deriving anyclass (ToJSON, FromJSON)
+makePrismLabels ''DefinitionElement
+
+type ListQuery = Seq DefinitionElement
 
 data NamedListQuery = NamedListQuery
   { name :: Text
