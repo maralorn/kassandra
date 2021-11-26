@@ -112,7 +112,6 @@ library
     , scientific
     , stm
     , string-interpolate
-    , streamly
     , taskwarrior
     , template-haskell
     , text
