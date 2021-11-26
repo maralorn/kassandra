@@ -95,8 +95,8 @@ project ./. (
       taskwarrior = self.callHackageDirect
         {
           pkg = "taskwarrior";
-          ver = "0.3.0.0";
-          sha256 = "0i3jvkqx9nxlnpkpb2fghcxlkcyijsk1c002w3fy2jcgyrn8a3gm";
+          ver = "0.3.1.0";
+          sha256 = "sha256-XUoa+xWUHfr080za07/4Xxcic6jgfljrTIXbLaXzoqQ=";
         }
         { };
       base64 = self.callHackageDirect
