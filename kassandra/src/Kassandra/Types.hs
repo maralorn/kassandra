@@ -146,6 +146,8 @@ instance LabelOptic "partof" A_Lens TaskInfos TaskInfos (Maybe UUID) (Maybe UUID
   labelOptic = #task % #partof
 instance LabelOptic "modified" A_Lens TaskInfos TaskInfos (Maybe UTCTime) (Maybe UTCTime) where
   labelOptic = #task % #modified
+instance LabelOptic "wait" A_Lens TaskInfos TaskInfos (Maybe UTCTime) (Maybe UTCTime) where
+  labelOptic = #task % #wait
 instance LabelOptic "depends" A_Lens TaskInfos TaskInfos (Set UUID) (Set UUID) where
   labelOptic = #task % #depends
 instance (R.Reflex t, c ~ R.Behavior t a) => LabelOptic "current" A_Getter (R.Dynamic t a) (R.Dynamic t a) c c where

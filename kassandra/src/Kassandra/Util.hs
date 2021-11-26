@@ -34,7 +34,7 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 
 stillTodo :: TaskInfos -> Bool
-stillTodo task = has (#status % #_Pending) task || has (#status % #_Waiting) task
+stillTodo = has (#status % #_Pending)
 
 tellToggle :: TaskTreeWidget t m r e => R.Event t UUID -> m ()
 tellToggle ev = do

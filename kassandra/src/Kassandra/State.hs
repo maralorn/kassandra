@@ -101,4 +101,4 @@ buildTaskInfosMap tasks =
 isBlocked :: HashMap UUID Task -> Task -> Bool
 isBlocked tasks task = any isActive . mapMaybe (`HashMap.lookup` tasks) . toList $ task ^. #depends
  where
-  isActive t = has (#status % #_Pending) t || has (#status % #_Waiting) t
+  isActive t = has (#status % #_Pending) t

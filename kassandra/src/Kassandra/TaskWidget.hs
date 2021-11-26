@@ -287,9 +287,9 @@ uuidWidget widget uuid = do
 
 waitWidget :: forall t m r e. TaskWidget t m r e => m ()
 waitWidget = do
-  event <-
-    getTaskInfos >>= ((^? #status % #_Waiting) >>> dateSelectionWidget "wait")
-  tellStatus $ maybe Status.Pending Status.Waiting <$> event
+  task <- getTaskInfos ^. mapping #task
+  event <- getTaskInfos >>= ((^. #wait) >>> dateSelectionWidget "wait")
+  tellTask $ flip (#wait .~) task <$> event
 
 dueWidget :: TaskWidget t m r e => m ()
 dueWidget = do
@@ -388,8 +388,6 @@ statusWidget = do
       ("done", "show", Just ("done", "hide", const Status.Pending))
     (Status.Deleted{}, _) ->
       ("delete", "show", Just ("done", "hide", const Status.Pending))
-    (Status.Waiting{}, _) ->
-      ("schedule", "show", Just ("done", "grey", Status.Completed))
     (Status.Recurring{}, _) -> ("repeat", "show", Nothing)
 
 collapseButton :: forall t m r e. TaskWidget t m r e => m ()

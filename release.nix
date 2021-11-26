@@ -7,8 +7,8 @@ let
       taskwarrior = self.callHackageDirect
         {
           pkg = "taskwarrior";
-          ver = "0.3.1.0";
-          sha256 = "sha256-XUoa+xWUHfr080za07/4Xxcic6jgfljrTIXbLaXzoqQ=";
+          ver = "0.5.0.0";
+          sha256 = "sha256-elDUtz0NSG4WHxkyCQ1CunYXWIVRj6EqkKSchPy+c3E=";
         }
         { };
     }

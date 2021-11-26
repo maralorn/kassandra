@@ -86,7 +86,7 @@ definitionElementWidget context el = do
   selectWidget el
   el & \case
     ConfigList name limit -> configListWidget context name limit
-    ListElement el -> listElementWidget context el
+    ListElement el' -> listElementWidget context el'
     QueryList query -> D.text "QueryLists not implemented"
     (TagList tag) ->
       do

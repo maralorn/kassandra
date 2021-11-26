@@ -1,7 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
+
 module Kassandra.AgendaWidget (agendaWidget) where
 
 import qualified Data.Sequence as Seq
+import qualified Data.Sequence.NonEmpty as NESeq
 import Kassandra.BaseWidgets (br, button, icon)
 import Kassandra.Calendar (
   CalendarEvent (
@@ -19,13 +21,13 @@ import Kassandra.Calendar (
   switchToCurrentZone,
  )
 import Kassandra.Config (DefinitionElement (..), ListItem (..))
-import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList, selectWidget)
+import Kassandra.DragAndDrop (insertArea)
+import Kassandra.ListElementWidget (AdhocContext (..), definitionElementWidget, tellList)
 import Kassandra.ReflexUtil (listWithGaps)
 import Kassandra.TextEditWidget (createTextWidget)
 import Kassandra.Types (StandardWidget, Widget, getAppState)
-import qualified Reflex.Dom as D
-import Kassandra.DragAndDrop (insertArea)
 import qualified Reflex as R
+import qualified Reflex.Dom as D
 
 agendaWidget :: StandardWidget t m r e => m ()
 agendaWidget = do
@@ -61,18 +63,20 @@ calendarListWidget uid calendarList = do
   tellList uid $ newTaskEvent <&> \content -> (#entries %~ (Seq.|> ListElement (AdHocTask content))) calendarList
  where
   widget definitionElement = D.divClass "definitionElement" do
-     D.divClass "definitionUI" $ do
-        delete <- button "" (D.text "x")
-        tellList uid $ delete $> (#entries %~ Seq.filter (definitionElement /=)) calendarList
-     D.divClass "element" $ definitionElementWidget (AgendaEvent uid calendarList) definitionElement
+    D.divClass "definitionUI" $ do
+      delete <- button "" (D.text "x")
+      tellList uid $ delete $> (#entries %~ Seq.filter (definitionElement /=)) calendarList
+    D.divClass "element" $ definitionElementWidget (AgendaEvent uid calendarList) definitionElement
   gapWidget around = do
-     evs <- insertArea (pure mempty) $ icon "dropHere above" "forward"
-     tellList uid $ R.attachWith (flip insertedCalendarList) (R.current around) evs
+    evs <- insertArea (pure mempty) $ icon "dropHere above" "forward"
+    tellList uid $ R.attachWith (flip insertedCalendarList) (R.current around) evs
   insertedCalendarList toInsert = \case
-    (Nothing, Nothing) -> (#entries .~ toSeq toInsert) calendarList
-    (Just _, Nothing) -> (#entries %~ (<> toSeq toInsert)) calendarList
-    (Nothing, Just _) -> (#entries %~ (toSeq toInsert <>)) calendarList
-    (Just _, Just after) -> (#entries %~ (\(a,b) -> a <> toSeq toInsert <> b) . Seq.breakl (== after)) calendarList
+    (Nothing, Nothing) -> updateOnList (const (toSeq toInsert))
+    (Just _, Nothing) -> updateOnList (<> toSeq toInsert)
+    (Nothing, Just _) -> updateOnList (toSeq toInsert <>)
+    (Just _, Just after) -> updateOnList ((\(a, b) -> a <> toSeq toInsert <> b) . Seq.breakl (== after))
+   where
+    updateOnList upd = (#entries %~ upd . Seq.filter (isNothing . flip NESeq.elemIndexL toInsert)) calendarList
 
 printEventTime :: Widget t m => EventTime -> m ()
 printEventTime (SimpleEvent start end) = do

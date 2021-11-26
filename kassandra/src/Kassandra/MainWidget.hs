@@ -9,21 +9,20 @@ import qualified Data.Sequence as Seq
 import qualified Data.Sequence.NonEmpty as NESeq
 import qualified Data.Set as Set
 import Kassandra.AgendaWidget (agendaWidget)
-import Kassandra.BaseWidgets (button)
+import Kassandra.BaseWidgets (button, br)
 import Kassandra.Calendar (CalendarEvent)
-import Kassandra.Config (DefinitionElement (ConfigList), Widget (DefinitionElementWidget, SearchWidget))
+import Kassandra.Config (DefinitionElement, Widget (DefinitionElementWidget, SearchWidget))
 import Kassandra.Debug (
   Severity (..),
   log,
   logR,
   setLogLevel,
  )
-import Kassandra.ListElementWidget (AdhocContext (NoContext), configListWidget, definitionElementWidget, selectWidget)
+import Kassandra.ListElementWidget (AdhocContext (NoContext), definitionElementWidget)
 import Kassandra.ListWidget (listsWidget)
 import Kassandra.LogWidget (logWidget)
-import Kassandra.ReflexUtil (smartSimpleList)
 import Kassandra.State (StateProvider)
-import Kassandra.TaskWidget (taskTreeWidget, uuidWidget)
+import Kassandra.TaskWidget (taskTreeWidget)
 import Kassandra.TextEditWidget (createTextWidget)
 import Kassandra.Types (
   AppState (AppState),
@@ -35,6 +34,7 @@ import Kassandra.Types (
   getAppState,
   getSelectState,
   getTasks,
+  getTime,
  )
 import Kassandra.Util (lookupTasks, stillTodo, tellNewTask)
 import qualified Reflex as R
@@ -89,9 +89,8 @@ infoFooter = D.divClass "footer" $ do
         let taskList = HashMap.elems taskMap
             countTasks a = length . filter (has (#task % #status % a))
             pending = countTasks #_Pending taskList
-            waiting = countTasks #_Waiting taskList
             completed = countTasks #_Completed taskList
-         in [i|#{pending} pending, #{waiting} waiting and #{completed} completed tasks. Kassandra-ToDo-Management|]
+         in [i|#{pending} pending and #{completed} completed tasks. Kassandra-ToDo-Management|]
 
 taskDiagnosticsWidget :: StandardWidget t m r e => m ()
 taskDiagnosticsWidget = do
@@ -114,10 +113,8 @@ widgets :: StandardWidget t m r e => Seq (Text, m ())
 widgets =
   fromList
     [ ("Agenda", agendaWidget)
-    , ("Next", nextWidget)
-    , ("Inbox", inboxWidget)
+    , ("Sort", nextWidget)
     , ("Tag Lists", listsWidget)
-    , ("Unsorted Tasks", unsortedWidget)
     , ("Logs", logWidget)
     ]
 
@@ -141,8 +138,8 @@ widgetSwitcher = do
   mkWidget SearchWidget = ("Search", D.text "Not implemented")
   mkWidget (DefinitionElementWidget name definitionElement) = (name, definitionElementWidget NoContext definitionElement)
 
-filterInbox :: TaskState -> Seq CalendarEvent -> Seq TaskInfos
-filterInbox tasks events =
+filterInbox :: UTCTime -> TaskState -> Seq CalendarEvent -> Seq TaskInfos
+filterInbox now tasks events =
   Seq.sortOn (^. #modified) . fromList . toListOf (folded % filtered inInbox) $ tasks
  where
   scheduledEvents :: Set UUID
@@ -150,10 +147,11 @@ filterInbox tasks events =
   inInbox :: TaskInfos -> Bool
   inInbox taskInfos =
     has (#tags % _Empty) taskInfos
+      && maybe True (now >=) (taskInfos ^. #wait)
       && has (#status % #_Pending) taskInfos
       && (not . any stillTodo . lookupTasks tasks) (taskInfos ^. #children)
       && ( not
-            . any (`notElem` ["kategorie", "project", "root"])
+            . any (`notElem` ["kategorie", "root"])
             . Set.unions
             . view (mapping #tags)
             $ lookupTasks tasks (taskInfos ^. #parents)
@@ -164,28 +162,14 @@ filterInbox tasks events =
 getInboxTasks :: StandardWidget t m r e => m (D.Dynamic t (Seq TaskInfos))
 getInboxTasks = do
   appState <- getAppState
+  timeDyn <- zonedTimeToUTC <<$>> getTime
   let calendarEvents = appState ^. #calendarEvents
   tasks <- getTasks
-  R.holdUniqDyn $ filterInbox <$> tasks <*> calendarEvents
+  R.holdUniqDyn $ filterInbox <$> timeDyn <*> tasks <*> calendarEvents
 
 nextWidget :: StandardWidget t m r e => m ()
 nextWidget = do
   inboxTasks <- getInboxTasks
-  D.dynText $
-    (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
-      <$> inboxTasks
-  void . smartSimpleList (uuidWidget taskTreeWidget . pure) $ Seq.take 1 . (^. mapping #uuid) <$> inboxTasks
-
-inboxWidget :: StandardWidget t m r e => m ()
-inboxWidget = do
-  inboxTasks <- getInboxTasks
-  D.dynText $
-    (\x -> "There are " <> show (length x) <> " tasks in the inbox.")
-      <$> inboxTasks
-  void . smartSimpleList (uuidWidget taskTreeWidget . pure) $ inboxTasks ^. mapping (mapping #uuid)
-
-unsortedWidget :: StandardWidget t m r e => m ()
-unsortedWidget = do
   unsortedTasks <-
     fmap
       ( filter
@@ -198,6 +182,19 @@ unsortedWidget = do
       )
       <$> getTasks
   D.dynText $
-    (\x -> "There are " <> show (length x) <> " unsorted tasks.")
-      <$> unsortedTasks
-  void . flip R.simpleList taskTreeWidget $ unsortedTasks
+    (\x y -> if length x + length y > 0 then [i|There are #{length x} tasks in the inbox and #{length y} tasks unsorted.|] else "Nothing to do.")
+      <$> inboxTasks <*> unsortedTasks
+  inboxTaskDyn <- R.maybeDyn $ Seq.lookup 0 <$> inboxTasks
+  let decorateSortTask x = D.el "p" (D.text "Sort this task into the task tree:") *> taskTreeWidget x
+      decorateInboxTask x = D.el "p" $ do
+         D.text "Process this task from the inbox:" *> br
+         D.text "1. Does it need to be done?" *> br
+         D.text "2. Can you do it in under 2 minutes?" *> br
+         D.text "3. Should someone else do this?" *> br
+         D.text "4. Should you split this task into sub tasks?" *> br
+         D.text "5. On which tag list does it belong or when do you want to do it?" *> br
+       *> taskTreeWidget x
+      sortTask = do
+        taskDyn <- R.maybeDyn $ viaNonEmpty head <$> unsortedTasks
+        D.dyn_ (maybe pass decorateSortTask <$> taskDyn)
+  D.dyn_ (maybe sortTask decorateInboxTask <$> inboxTaskDyn)
