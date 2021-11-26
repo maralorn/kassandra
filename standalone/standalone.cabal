@@ -71,18 +71,17 @@ library
     , base
     , bytestring
     , containers
-    , stm-containers
-    , nonempty-containers
-    , directory
     , data-default
+    , deferred-folds
     , dhall
+    , directory
     , either
     , filepath
     , filepattern
     , iCalendar               >=0.4
     , kassandra
-    , deferred-folds
     , network-simple
+    , nonempty-containers
     , password                >=2.0.1.0
     , paths
     , reflex
@@ -90,14 +89,15 @@ library
     , relude
     , say
     , stm
+    , stm-containers
+    , streamly <= 0.7.3
+    , streamly-bytestring
     , taskwarrior
     , text
     , time
     , tz
     , unix
     , uuid
-    , streamly
-    , streamly-bytestring
 
   hs-source-dirs:  src
 
