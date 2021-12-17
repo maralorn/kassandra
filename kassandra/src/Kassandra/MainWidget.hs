@@ -140,7 +140,7 @@ widgetSwitcher = do
 
 filterInbox :: UTCTime -> TaskState -> Seq CalendarEvent -> Seq TaskInfos
 filterInbox now tasks events =
-  Seq.sortOn (^. #modified) . fromList . toListOf (folded % filtered inInbox) $ tasks
+  Seq.reverse . Seq.sortOn (^. #modified) . fromList . toListOf (folded % filtered inInbox) $ tasks
  where
   scheduledEvents :: Set UUID
   scheduledEvents = fromList $ toList $ mapMaybe (^? #_ListElement % #_TaskwarriorTask) <$> (^. #todoList % #entries) =<< events
