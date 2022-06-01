@@ -90,7 +90,7 @@ library
     , say
     , stm
     , stm-containers
-    , streamly <= 0.7.3
+    , streamly
     , streamly-bytestring
     , taskwarrior
     , text

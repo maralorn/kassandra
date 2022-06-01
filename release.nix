@@ -4,13 +4,6 @@ let
     self: super: {
       kassandra = self.callCabal2nix "kassandra" ./kassandra { };
       standalone = self.callCabal2nix "standalone" ./standalone { };
-      taskwarrior = self.callHackageDirect
-        {
-          pkg = "taskwarrior";
-          ver = "0.5.0.0";
-          sha256 = "sha256-elDUtz0NSG4WHxkyCQ1CunYXWIVRj6EqkKSchPy+c3E=";
-        }
-        { };
     }
   );
   reflex-platform = import ./. { };

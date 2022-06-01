@@ -112,7 +112,7 @@ library
     , scientific
     , stm
     , string-interpolate
-    , taskwarrior >= 0.5 && < 0.6
+    , taskwarrior
     , template-haskell
     , text
     , these

@@ -73,7 +73,7 @@ css fontPath = do
     position absolute
     background white
     color black
-    border solid (em 0.1) black
+    border (em 0.1) solid black
   let offset = 2
   ".plusOne" ? marginLeft (em offset)
   ".plusTwo" ? marginLeft (em (offset * 2))
@@ -85,7 +85,7 @@ css fontPath = do
         display inlineBlock
         margin (px 1) (px 1) (px 1) (px 1)
         buttonPadding
-        border solid (em 0.1) black
+        border (em 0.1) solid black
         active & do
           background black
           color white
@@ -119,10 +119,10 @@ css fontPath = do
       leftBarWidth = em 1.8
   ".activeEdit" ? buttonPadding
   ".event" ? do
-    border solid (px 1) black
+    border (px 1) solid black
   ".task" ? do
     color (rgb 0 0 33)
-    border solid (px 1) black
+    border (px 1) solid black
     background white
     ".task" ? do
       noMargin
