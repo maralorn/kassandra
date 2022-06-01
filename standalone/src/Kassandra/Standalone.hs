@@ -27,9 +27,7 @@ import qualified Reflex as R
 import qualified Reflex.Dom as D
 import Relude.Extra.Newtype (wrap)
 import Say (say)
-import System.Environment (getArgs)
 import System.Exit (ExitCode (ExitFailure))
-import System.IO (BufferMode (..), hSetBuffering)
 import System.Posix.Process (exitImmediately)
 
 -- | This function works around the fact that a reflex mainWidget does not exit when it catches an Async Exception.
@@ -76,7 +74,7 @@ standaloneWidget requestQueue accountDyn =
       <&> \NamedBackend{name, backend} -> case backend of
         RemoteAccount remoteAccount ->
           remoteBackendWidget
-            (wrap $ () <$ R.updated accountDyn)
+            (wrap $ void $ R.updated accountDyn)
             remoteAccount
         LocalAccount localAccount ->
           localBackendWidget

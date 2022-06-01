@@ -74,8 +74,8 @@ import qualified Streamly.Data.Fold as FL
 import Streamly.External.ByteString (fromArray, toArray)
 import qualified Streamly.FileSystem.Handle as FS
 import qualified Streamly.Internal.FileSystem.File as FSFile
-import Streamly.Internal.Memory.ArrayStream (splitOn)
 import Streamly.Memory.Array as Mem (fromList)
+import Streamly.Internal.Data.Array.Stream.Foreign (splitOn)
 
 dirName :: FilePath
 dirName = "/home/maralorn/.calendars/"
@@ -145,7 +145,7 @@ data Cache = Cache
   { icsCache :: ICSCache
   , tzCache :: TZCache
   , uidCache :: UIDCache
-  }
+  } deriving (Generic)
 
 newCache :: IO Cache
 newCache = atomically $ Cache <$> STM.new <*> STM.new <*> STM.new

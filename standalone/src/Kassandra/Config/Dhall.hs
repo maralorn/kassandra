@@ -22,7 +22,7 @@ import Dhall (
  )
 import qualified Dhall
 import Dhall.Core (pretty)
-import System.Environment (lookupEnv)
+import System.Environment ()
 
 import Data.Either.Validation (validationToEither)
 import Kassandra.Config (
